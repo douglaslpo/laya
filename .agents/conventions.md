@@ -35,4 +35,4 @@ Versão completa e justificada: [docs/guardrails.md](../docs/guardrails.md). Reg
 
 ## Processo
 - Specs de baseline em `harness-sdd/specs/`; mudanças novas via `/harness:propose` em `harness-sdd/changes/<nome>/`.
-- Atualize `CLAUDE.md`/`docs/` quando mudar um contrato documentado (há drift conhecido: contagem de migrations, `event-schema.md` outbound, `tuning-parameters.md`).
+- Atualize `.agents/project-notes.md`/`docs/` quando mudar um contrato documentado (há drift conhecido: contagem de migrations, `event-schema.md` outbound, `tuning-parameters.md`).

@@ -98,3 +98,6 @@ chroma_data/
 # =========================
 *.tmp.json
 /tmp/
+
+# CodeGraph index (local, regenerable)
+.codegraph/

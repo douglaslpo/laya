@@ -20,7 +20,7 @@ description: Checklist passo a passo para adicionar ou alterar uma plataforma/co
 - [ ] 10. Casos fixos: registry.format_source_ref, enrichment.get_prefill_for_card, self_emails
 - [ ] 11. UI: settings/PlatformIcon.svelte, lib/utils/cardVisuals.ts (cor + label), ActionCard/CardGroup se necessário
 - [ ] 12. Testes: _PLATFORM_TO_WORKFLOW no teste de paridade, test_platform_interface.py, test_terminal_event_parity.py, test_egress_platforms.py
-- [ ] 13. docs/event-schema.md, CLAUDE.md (lista de plataformas), spec harness-sdd/specs/egress/spec.md
+- [ ] 13. docs/event-schema.md, .agents/project-notes.md (lista de plataformas), spec harness-sdd/specs/egress/spec.md
 ```
 
 ## Contrato `Platform` (`egress/platforms/base.py`)

@@ -13,8 +13,9 @@ Laya — command center desktop local-first (Tauri + SvelteKit + Python/FastAPI 
 | Comandos | [.agents/commands.md](.agents/commands.md) | Para subir o ambiente, buildar, travar dependências e entender o CI. |
 | Convenções | [.agents/conventions.md](.agents/conventions.md) | Antes de escrever código: invariantes do engine, UI e n8n que não podem regredir. |
 | Segurança | [.agents/security.md](.agents/security.md) | Ao tocar em egress, MCP, agentes CLI, segredos, Tauri ou endpoints locais. |
+| Notas do projeto | [.agents/project-notes.md](.agents/project-notes.md) | Detalhes finos do autor (logging, feed/timeline, Cursor Agent, locks de deps) não resumidos nos outros arquivos. |
 
-Documentos de referência: [docs/sdd/SDD.md](docs/sdd/SDD.md) (design do sistema), [docs/guardrails.md](docs/guardrails.md) (guardrails), [docs/design-system/README.md](docs/design-system/README.md) (Design System), [harness-sdd/specs/README.md](harness-sdd/specs/README.md) (specs de baseline), `CLAUDE.md`, `docs/` e `engine/docs/`.
+Documentos de referência: [docs/sdd/SDD.md](docs/sdd/SDD.md) (design do sistema), [docs/guardrails.md](docs/guardrails.md) (guardrails), [docs/design-system/README.md](docs/design-system/README.md) (Design System), [harness-sdd/specs/README.md](harness-sdd/specs/README.md) (specs de baseline), `docs/` e `engine/docs/`.
 
 Skills do projeto em `.cursor/skills/laya-*` e regras em `.cursor/rules/laya-*.mdc`.
 
