@@ -1,0 +1,2 @@
+{"ts":"2026-09-29T13:34:51.886Z","type":"state.changed","actor":"proposer","detail":{"state":"proposed","lastStep":null}}
+{"ts":"2026-09-29T17:54:22.754Z","type":"state.changed","actor":"propose-skill","detail":{"state":"approved","lastStep":null}}

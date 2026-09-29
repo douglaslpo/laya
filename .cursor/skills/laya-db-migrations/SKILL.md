@@ -67,4 +67,4 @@ Coleção `laya_memory` em `~/.laya/data/chromadb`; metadados `entity_id`, `enti
 ## Dívidas conhecidas
 
 - `entities` acumula duplicatas (P4-3): `INSERT OR IGNORE` com UUID novo e sem UNIQUE.
-- `CLAUDE.md` e o plano de remediação citam contagens de migration desatualizadas.
+- O plano de remediação citam contagens de migration desatualizadas.

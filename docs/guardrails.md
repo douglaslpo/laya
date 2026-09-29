@@ -94,7 +94,7 @@ Lacunas detalhadas em [.agents/security.md](../.agents/security.md) (SEC-01…SE
 - [ ] Nenhum segredo fora do keychain
 - [ ] UI testada nos 4 modos de aparência + paleta acessível
 - [ ] Workarounds comentados com o porquê
-- [ ] Docs de contrato atualizados (`docs/`, `CLAUDE.md`, specs em `harness-sdd/specs/`)
+- [ ] Docs de contrato atualizados (`docs/`, `.agents/project-notes.md`, specs em `harness-sdd/specs/`)
 
 ## 8. Evolução
 

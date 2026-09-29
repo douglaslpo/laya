@@ -1,0 +1,4 @@
+currentState: approved
+stateHistory:
+  - proposed|2026-09-29T13:34:51.885Z|proposer
+  - approved|2026-09-29T17:54:22.753Z|propose-skill
