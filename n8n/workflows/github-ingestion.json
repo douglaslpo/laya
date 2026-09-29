@@ -144,6 +144,8 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $env.LAYA_ENGINE_URL }}/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -164,7 +166,13 @@
       "position": [
         1560,
         300
-      ]
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__LAYA_LINK__",
+          "name": "Laya Engine Link"
+        }
+      }
     },
     {
       "parameters": {
@@ -234,6 +242,8 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $env.LAYA_ENGINE_URL }}/ingestion-errors",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -260,7 +270,13 @@
       "position": [
         1340,
         800
-      ]
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__LAYA_LINK__",
+          "name": "Laya Engine Link"
+        }
+      }
     }
   ],
   "connections": {
@@ -411,6 +427,6 @@
   },
   "active": false,
   "meta": {
-    "laya_version": "2026.09.29"
+    "laya_version": "2026.09.30"
   }
 }

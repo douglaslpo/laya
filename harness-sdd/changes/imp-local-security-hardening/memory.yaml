@@ -1,4 +1,83 @@
-currentState: approved
+currentState: reviewed
 stateHistory:
   - proposed|2026-09-29T13:34:51.885Z|proposer
   - approved|2026-09-29T17:54:22.753Z|propose-skill
+  - apply-in-progress|2026-09-29T18:27:04.824Z|apply-skill
+  - applied|2026-09-29T18:52:55.889Z|apply-skill
+  - tested|2026-09-29T18:57:46.013Z|test-skill
+  - verified|2026-09-29T19:07:53.566Z|verify-skill
+  - reviewed|2026-09-29T19:10:47.436Z|review-skill
+lastStep: verify
+touchedFiles:
+  - .agents/security.md
+  - .cursor/rules/laya-n8n.mdc
+  - docs/api-contracts.md
+  - docs/guardrails.md
+  - docs/tuning-parameters.md
+  - engine/docs/egress-chat-tools.md
+  - engine/laya/api/events.py
+  - engine/laya/api/ingestion_errors.py
+  - engine/laya/api/mcp_api.py
+  - engine/laya/config.py
+  - engine/laya/egress/backends/n8n.py
+  - engine/laya/egress/connections.py
+  - engine/laya/egress/tool_handlers.py
+  - engine/laya/integrations/n8n_bootstrap.py
+  - engine/laya/llm/tools/definitions.py
+  - engine/laya/main.py
+  - engine/laya/mcp/http_server.py
+  - engine/laya/mcp/scope.py
+  - engine/laya/pipeline/chat.py
+  - engine/laya/security/keychain.py
+  - engine/tests/conftest.py
+  - engine/tests/test_egress_connections.py
+  - engine/tests/test_egress_n8n_backend.py
+  - engine/tests/test_mcp_http.py
+  - engine/tests/test_n8n_bootstrap.py
+  - engine/tests/test_tool_call_audit.py
+  - harness-sdd/specs/connections-n8n/spec.md
+  - harness-sdd/specs/egress/spec.md
+  - harness-sdd/specs/event-ingestion/spec.md
+  - harness-sdd/specs/mcp-server/spec.md
+  - n8n/workflows/bitbucket-executor.json
+  - n8n/workflows/bitbucket-ingestion.json
+  - n8n/workflows/bitbucket-server-executor.json
+  - n8n/workflows/bitbucket-server-ingestion.json
+  - n8n/workflows/github-executor.json
+  - n8n/workflows/github-ingestion.json
+  - n8n/workflows/gmail-executor.json
+  - n8n/workflows/gmail-ingestion.json
+  - n8n/workflows/google-calendar-executor.json
+  - n8n/workflows/google-calendar-ingestion.json
+  - n8n/workflows/jira-executor.json
+  - n8n/workflows/jira-ingestion.json
+  - n8n/workflows/laya-error-handler.json
+  - n8n/workflows/linear-executor.json
+  - n8n/workflows/linear-ingestion.json
+  - n8n/workflows/notion-executor.json
+  - n8n/workflows/notion-ingestion.json
+  - n8n/workflows/outlook-calendar-executor.json
+  - n8n/workflows/outlook-calendar-ingestion.json
+  - n8n/workflows/outlook-email-executor.json
+  - n8n/workflows/outlook-email-ingestion.json
+  - n8n/workflows/slack-executor.json
+  - n8n/workflows/slack-ingestion.json
+  - scripts/guardrails_check.py
+  - ui/src-tauri/capabilities/default.json
+  - ui/src-tauri/tauri.conf.json
+  - ui/src/lib/api/engine.ts
+  - ui/src/lib/stores/websocket.ts
+  - ui/src/routes/+layout.svelte
+  - engine/laya/api/egress_pending_api.py
+  - engine/laya/api/origin_guard.py
+  - engine/laya/egress/pending.py
+  - engine/laya/llm/tools/origin.py
+  - engine/laya/security/n8n_link.py
+  - engine/tests/test_egress_mcp_confirmation.py
+  - engine/tests/test_n8n_link_auth.py
+  - engine/tests/test_n8n_workflow_link_static.py
+  - harness-sdd/.autopilot-active
+  - ui/src/lib/components/egress/EgressConfirmModal.svelte
+  - ui/src/lib/egress/pendingConfirmations.test.ts
+  - ui/src/lib/egress/pendingConfirmations.ts
+commandsRun: cd engine && .venv/bin/python -m pytest -q -m "not network" -p no:cacheprovider; cd ui && npx vitest run && npm run check

@@ -27,6 +27,8 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $env.LAYA_ENGINE_URL }}/ingestion-errors",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -51,7 +53,13 @@
       "continueOnFail": true,
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 2000
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__LAYA_LINK__",
+          "name": "Laya Engine Link"
+        }
+      }
     }
   ],
   "connections": {
@@ -83,6 +91,6 @@
   },
   "active": true,
   "meta": {
-    "laya_version": "2026.04.0"
+    "laya_version": "2026.09.1"
   }
 }

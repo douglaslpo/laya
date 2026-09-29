@@ -137,11 +137,35 @@ async def get_settings() -> dict:
 async def update_settings(body: dict) -> dict:
     """Update settings with deep merge."""
     current = load_settings()
+    # security.n8n_link is engine-owned state (SEC-03 INV-S3-01): accepting it
+    # here would let any loopback caller reset enforced=false and reopen the
+    # header-less window on POST /events. Only laya.security.n8n_link writes it.
+    body = dict(body)
+    prev_security = current.get("security")
+    prev_link = prev_security.get("n8n_link") if isinstance(prev_security, dict) else None
+    security_in = body.get("security")
+    if isinstance(security_in, dict) and "n8n_link" in security_in:
+        security_in = {k: v for k, v in security_in.items() if k != "n8n_link"}
+        if security_in:
+            body["security"] = security_in
+        else:
+            body.pop("security")
+        log.warning("settings_n8n_link_write_ignored")
+    elif "security" in body and not isinstance(security_in, dict):
+        # A non-dict `security` (null, string, list) would replace the whole
+        # block and erase n8n_link, dropping enforcement back to the default.
+        body.pop("security")
+        log.warning("settings_security_non_dict_ignored")
     for key, value in body.items():
         if isinstance(value, dict) and key in current and isinstance(current[key], dict):
             current[key] = {**current[key], **value}
         else:
             current[key] = value
+    if prev_link is not None:
+        security_out = current.get("security")
+        if not isinstance(security_out, dict):
+            security_out = current["security"] = {}
+        security_out["n8n_link"] = prev_link
 
     # Clamp omni.event_threshold to [0, 100]. 0 disables the trigger entirely
     # (for users who only want scheduled/rolling). Above 100 would let card

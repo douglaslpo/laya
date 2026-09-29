@@ -93,6 +93,49 @@ def pytest_configure(config):
         "network: needs internet (e.g. first-run embedding model download); "
         "deselect with -m 'not network'",
     )
+    config.addinivalue_line(
+        "markers",
+        "no_link_header: do not auto-inject X-Laya-Link-Token into in-process "
+        "ASGI requests (for tests of the engine <-> n8n link auth itself)",
+    )
+
+
+# Engine <-> n8n link secret (SEC-03) seeded into the in-memory keyring.
+TEST_N8N_LINK_SECRET = "test-n8n-link-secret-0123456789abcdefghijklmnop"
+
+
+@pytest.fixture(autouse=True)
+def _n8n_link_secret(request, monkeypatch):
+    """Seed the link secret and send it by default on in-process API calls.
+
+    POST /events and POST /ingestion-errors require X-Laya-Link-Token. Tests
+    talk to the app through httpx.ASGITransport, so the header is added there
+    (only when absent) instead of editing every existing test client. Mark a
+    test with ``@pytest.mark.no_link_header`` to exercise the missing-header
+    paths.
+    """
+    import httpx
+
+    from laya.security import keychain
+    from laya.security.n8n_link import LINK_HEADER
+
+    keyring.set_password(
+        keychain.SERVICE_NAME, keychain.N8N_LINK_SECRET_KEY, TEST_N8N_LINK_SECRET
+    )
+    keychain._cache_drop(keychain.N8N_LINK_SECRET_KEY)
+
+    if request.node.get_closest_marker("no_link_header") is None:
+        original = httpx.ASGITransport.handle_async_request
+
+        async def _with_link_header(self, req):
+            if LINK_HEADER not in req.headers:
+                req.headers[LINK_HEADER] = TEST_N8N_LINK_SECRET
+            return await original(self, req)
+
+        monkeypatch.setattr(httpx.ASGITransport, "handle_async_request", _with_link_header)
+
+    yield
+    keychain._cache_drop(keychain.N8N_LINK_SECRET_KEY)
 
 
 @pytest.fixture(autouse=True)

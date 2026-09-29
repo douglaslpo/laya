@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import secrets
@@ -16,7 +17,22 @@ import structlog
 
 from laya.config import LAYA_DATA_DIR, get_n8n_config
 from laya.http_client import get_client
-from laya.security.keychain import get_api_key, has_api_key, store_api_key
+from laya.security.keychain import (
+    ensure_n8n_link_secret,
+    get_api_key,
+    has_api_key,
+    store_api_key,
+)
+from laya.security.n8n_link import (
+    LINK_CRED_NAME,
+    LINK_CRED_TYPE,
+    LINK_HEADER,
+    apply_link_credential,
+    is_enforced,
+    is_link_node,
+    mark_enforced,
+    start_transition_if_needed,
+)
 
 log = structlog.get_logger()
 
@@ -244,19 +260,29 @@ async def _get_existing_workflows(base_url: str, api_key: str) -> dict[str, dict
         return None
 
 
+class _WorkflowNotFound(Exception):
+    """n8n answered 404 for a workflow id (deleted by the user in the n8n UI)."""
+
+
 async def _get_workflow_full(base_url: str, api_key: str, workflow_id: str) -> dict | None:
-    """Fetch the full workflow definition including node credentials."""
+    """Fetch the full workflow definition including node credentials.
+
+    Raises ``_WorkflowNotFound`` on HTTP 404 so callers can tell a deleted
+    workflow apart from a transient failure (which returns None).
+    """
     try:
         resp = await get_client().get(
             f"{base_url}/api/v1/workflows/{workflow_id}",
             headers={"X-N8N-API-KEY": api_key},
             timeout=10.0,
         )
-        if resp.status_code == 200:
-            return resp.json()
-        return None
     except Exception:
         return None
+    if resp.status_code == 404:
+        raise _WorkflowNotFound(workflow_id)
+    if resp.status_code == 200:
+        return resp.json()
+    return None
 
 
 def _merge_credentials(old_nodes: list[dict], new_nodes: list[dict]) -> list[dict]:
@@ -334,14 +360,145 @@ def _get_error_handler_id() -> str | None:
     return versions.get(_ERROR_HANDLER_ID_KEY)
 
 
-async def _ensure_error_handler_workflow(base_url: str, api_key: str) -> str | None:
+# ---------------------------------------------------------------------------
+# engine <-> n8n link credential (SEC-03) — singleton httpHeaderAuth credential
+# holding the keychain secret. Its n8n id and a truncated SHA-256 fingerprint
+# of the secret (never the secret) live in workflow_versions.json so a rotated
+# or regenerated keychain secret is detected: n8n's public API cannot read a
+# credential's data back, so without the fingerprint a divergent credential
+# would 401 every ingestion request forever.
+# ---------------------------------------------------------------------------
+_LINK_CRED_ID_KEY = "__link_credential_id__"
+_LINK_CRED_FP_KEY = "__link_credential_fp__"
+
+# provision_n8n_background and sync_workflows_background can both reach
+# import_workflows at startup; without the lock both could list "no credential"
+# and create two of them.
+_link_credential_lock = asyncio.Lock()
+
+
+def get_link_credential_id() -> str | None:
+    """Return the n8n id of the provisioned "Laya Engine Link" credential."""
+    return _load_deployed_versions().get(_LINK_CRED_ID_KEY)
+
+
+def _secret_fingerprint(secret: str) -> str:
+    return hashlib.sha256(secret.encode("utf-8")).hexdigest()[:16]
+
+
+async def ensure_link_credential(base_url: str, api_key: str) -> tuple[str | None, bool]:
+    """Ensure the singleton "Laya Engine Link" credential matches the keychain secret.
+
+    Idempotent: returns ``(credential_id, False)`` when the stored credential
+    still exists and matches. Creates a new one (and deletes stale copies)
+    when missing or divergent, returning ``(credential_id, True)`` so callers
+    re-point every workflow at the new id. Returns ``(None, False)`` when the
+    secret or n8n is unavailable — callers must not deploy workflows then.
+    """
+    async with _link_credential_lock:
+        secret = ensure_n8n_link_secret()
+        if not secret:
+            log.error("n8n_link_secret_unavailable", stage="provisioning")
+            return None, False
+        fingerprint = _secret_fingerprint(secret)
+
+        versions = _load_deployed_versions()
+        stored_id = versions.get(_LINK_CRED_ID_KEY)
+        stored_fp = versions.get(_LINK_CRED_FP_KEY)
+        headers = {"X-N8N-API-KEY": api_key, "Content-Type": "application/json"}
+
+        try:
+            resp = await get_client().get(
+                f"{base_url}/api/v1/credentials",
+                headers=headers,
+                params={"limit": 250},
+                timeout=10.0,
+            )
+        except Exception as e:
+            log.warning("n8n_link_credential_list_error", error=type(e).__name__)
+            return None, False
+
+        link_ids: set[str] = set()
+        if resp.status_code == 200:
+            data = resp.json()
+            items = data.get("data", data) if isinstance(data, dict) else data
+            link_ids = {
+                str(c.get("id"))
+                for c in (items or [])
+                if isinstance(c, dict)
+                and c.get("name") == LINK_CRED_NAME
+                and c.get("type") == LINK_CRED_TYPE
+            }
+            if stored_id and stored_id in link_ids and stored_fp == fingerprint:
+                return stored_id, False
+        elif resp.status_code in (404, 405):
+            # Older n8n builds lack GET /credentials: existence can't be
+            # checked, so trust the stored id as long as the secret matches.
+            if stored_id and stored_fp == fingerprint:
+                return stored_id, False
+        else:
+            log.warning("n8n_link_credential_list_failed", status=resp.status_code)
+            return None, False
+
+        body = {
+            "name": LINK_CRED_NAME,
+            "type": LINK_CRED_TYPE,
+            "data": {"name": LINK_HEADER, "value": secret},
+        }
+        try:
+            resp = await get_client().post(
+                f"{base_url}/api/v1/credentials",
+                headers=headers,
+                json=body,
+                timeout=10.0,
+            )
+        except Exception as e:
+            log.warning("n8n_link_credential_create_error", error=type(e).__name__)
+            return None, False
+        if resp.status_code not in (200, 201):
+            # Response body deliberately not logged: it may echo the request.
+            log.warning("n8n_link_credential_create_failed", status=resp.status_code)
+            return None, False
+        created = resp.json()
+        created = created.get("data", created) if isinstance(created, dict) else {}
+        new_id = str(created.get("id") or "")
+        if not new_id:
+            log.warning("n8n_link_credential_create_no_id")
+            return None, False
+
+        versions = _load_deployed_versions()
+        versions[_LINK_CRED_ID_KEY] = new_id
+        versions[_LINK_CRED_FP_KEY] = fingerprint
+        _save_deployed_versions(versions)
+
+        stale_ids = (link_ids | ({stored_id} if stored_id else set())) - {new_id}
+        for old_id in stale_ids:
+            try:
+                await get_client().delete(
+                    f"{base_url}/api/v1/credentials/{old_id}",
+                    headers=headers,
+                    timeout=10.0,
+                )
+            except Exception as e:
+                log.warning("n8n_link_credential_cleanup_failed",
+                            credential_id=old_id, error=type(e).__name__)
+
+        log.info("n8n_link_credential_created", credential_id=new_id,
+                 replaced=len(stale_ids))
+        return new_id, True
+
+
+async def _ensure_error_handler_workflow(
+    base_url: str, api_key: str, *, force_update: bool = False,
+) -> str | None:
     """Make sure the shared "Laya - Error Handler" workflow exists in n8n.
 
     Idempotent. Called at the top of import_workflows() so the handler's ID is
     known before any ingestion clone update injects settings.errorWorkflow.
 
     Self-heals: if the handler was deleted in the n8n UI, this re-creates it.
-    Version bumps on the bundled handler JSON trigger an in-place update.
+    Version bumps on the bundled handler JSON (or ``force_update``, used when
+    the engine-link credential was re-created) trigger an in-place update.
     """
     if not WORKFLOWS_DIR.exists():
         return None
@@ -356,6 +513,15 @@ async def _ensure_error_handler_workflow(base_url: str, api_key: str) -> str | N
     except Exception as e:
         log.warning("n8n_error_handler_template_parse_failed", error=str(e))
         return None
+
+    # The handler's POST /ingestion-errors node authenticates with the engine
+    # link; deploying it with the template placeholder would make every error
+    # report fail once enforcement is on.
+    link_cred_id = get_link_credential_id()
+    if not link_cred_id:
+        log.warning("n8n_error_handler_skipped", reason="link_credential_missing")
+        return _get_error_handler_id()
+    apply_link_credential(handler_data.get("nodes", []), link_cred_id)
 
     bundled_version = (handler_data.get("meta") or {}).get("laya_version")
     versions = _load_deployed_versions()
@@ -378,8 +544,11 @@ async def _ensure_error_handler_workflow(base_url: str, api_key: str) -> str | N
             _save_deployed_versions(versions)
         # If the bundled template is a newer version than what's deployed, push
         # an in-place update so the payload shape / node logic stays current.
-        if bundled_version and deployed_version != bundled_version:
-            ok = await _update_workflow(base_url, api_key, handler_id, handler_data)
+        if bundled_version and (deployed_version != bundled_version or force_update):
+            try:
+                ok = await _update_workflow(base_url, api_key, handler_id, handler_data)
+            except _WorkflowNotFound:
+                ok = False
             if ok:
                 log.info("n8n_error_handler_updated",
                          workflow_id=handler_id, version=bundled_version)
@@ -446,7 +615,8 @@ async def _update_workflow(
 ) -> bool:
     """Update an existing workflow in-place, preserving credentials and active state.
 
-    Returns True on success.
+    Returns True on success. Raises ``_WorkflowNotFound`` when n8n reports the
+    workflow as deleted (HTTP 404 on fetch or PUT).
     """
     headers = {"X-N8N-API-KEY": api_key, "Content-Type": "application/json"}
 
@@ -487,6 +657,8 @@ async def _update_workflow(
         json=put_body,
         timeout=10.0,
     )
+    if resp.status_code == 404:
+        raise _WorkflowNotFound(workflow_id)
     if resp.status_code not in (200, 201):
         log.warning("n8n_workflow_update_failed", workflow_id=workflow_id,
                      status=resp.status_code, body=resp.text[:200])
@@ -534,12 +706,21 @@ async def import_workflows(base_url: str) -> int:
         log.warning("n8n_workflow_import_skipped", reason="no_workflows_dir", path=str(WORKFLOWS_DIR))
         return 0
 
+    # The engine-link credential must exist before any workflow is deployed:
+    # every ingestion POST, the error handler and the executor webhooks bind to
+    # it. Raising (instead of deploying placeholders) lets the background
+    # retry loops try again later; the keychain secret is not regenerated.
+    link_cred_id, link_changed = await ensure_link_credential(base_url, api_key)
+    if not link_cred_id:
+        raise RuntimeError("n8n engine-link credential unavailable")
+
     # Deploy (or self-heal) the shared error-handler workflow BEFORE touching
     # ingestion templates so its ID is available when _propagate_to_clones
     # injects settings.errorWorkflow into each clone below.
-    await _ensure_error_handler_workflow(base_url, api_key)
+    await _ensure_error_handler_workflow(base_url, api_key, force_update=link_changed)
 
     deployed_versions = _load_deployed_versions()
+    previous_versions = dict(deployed_versions)
     templates_needing_update: list[str] = []
 
     for workflow_file in sorted(WORKFLOWS_DIR.glob("*.json")):
@@ -553,7 +734,9 @@ async def import_workflows(base_url: str) -> int:
             bundled_version = (workflow_data.get("meta") or {}).get("laya_version")
 
             deployed_version = deployed_versions.get(workflow_name)
-            if deployed_version == bundled_version:
+            # A re-created link credential has a new id, so every clone must be
+            # re-pointed at it even when its template version is unchanged.
+            if deployed_version == bundled_version and not link_changed:
                 log.debug("n8n_template_up_to_date", name=workflow_name,
                           version=bundled_version)
                 continue
@@ -570,25 +753,56 @@ async def import_workflows(base_url: str) -> int:
 
     # Propagate template updates to any cloned workflow instances
     changed = 0
+    propagation_complete = True
     if templates_needing_update:
         try:
-            changed = await _propagate_to_clones(base_url, api_key, templates_needing_update)
+            changed, failed_templates = await _propagate_to_clones(
+                base_url, api_key, templates_needing_update, link_cred_id,
+            )
             if changed:
                 log.info("n8n_clones_updated", count=changed)
+            # Keep the previous version record for templates with a failed
+            # clone so the next startup retries them; otherwise a stale clone
+            # (still without the link header) would never be revisited.
+            for name in failed_templates:
+                if name in previous_versions:
+                    deployed_versions[name] = previous_versions[name]
+                else:
+                    deployed_versions.pop(name, None)
+            propagation_complete = not failed_templates
         except Exception as e:
+            propagation_complete = False
             log.warning("n8n_clone_propagation_failed", error=str(e))
 
-    _save_deployed_versions(deployed_versions)
+    # Merge instead of overwriting: ensure_link_credential and the error
+    # handler wrote their keys into the same file during this run.
+    latest = _load_deployed_versions()
+    latest.update(deployed_versions)
+    _save_deployed_versions(latest)
+
+    # RF-S3-08: once every clone carries the link credential (or there are
+    # none), header-less requests are no longer tolerated.
+    if propagation_complete:
+        mark_enforced(reason="clones_propagated")
+    else:
+        start_transition_if_needed()
     return changed
 
 
-async def _propagate_to_clones(base_url: str, api_key: str, changed_templates: list[str]) -> int:
+async def _propagate_to_clones(
+    base_url: str,
+    api_key: str,
+    changed_templates: list[str],
+    link_credential_id: str | None = None,
+) -> tuple[int, set[str]]:
     """Propagate template workflow updates to all cloned instances.
 
     Clones are identified by having a connection_id in the sources table.
     For each clone, we find its template (by matching platform + source_type
     to a template workflow name), then apply the template's structural changes
     while preserving the clone's credentials, webhook paths, and name.
+
+    Returns ``(updated_count, failed_template_names)``.
     """
     from laya.db.sqlite import get_db
     from laya.integrations.platforms import PLATFORMS
@@ -599,7 +813,10 @@ async def _propagate_to_clones(base_url: str, api_key: str, changed_templates: l
            FROM sources WHERE connection_id IS NOT NULL AND workflow_id IS NOT NULL""",
     )
     if not clone_rows:
-        return 0
+        return 0, set()
+
+    link_credential_id = link_credential_id or get_link_credential_id()
+    failed_templates: set[str] = set()
 
     # Build template name → workflow data map from bundled JSON
     template_data_map: dict[str, dict] = {}
@@ -674,6 +891,17 @@ async def _propagate_to_clones(base_url: str, api_key: str, changed_templates: l
                     node["parameters"]["path"] = clone_webhook_path
                     break
 
+        # Engine-link nodes (ingestion POSTs, executor webhook) get the
+        # singleton link credential; a clone left on the placeholder would be
+        # rejected by the engine (or reject the engine) once enforced.
+        if link_credential_id:
+            apply_link_credential(update_data.get("nodes", []), link_credential_id)
+        elif any(is_link_node(n) for n in update_data.get("nodes", [])):
+            log.warning("n8n_clone_update_skipped", name=clone_name,
+                        reason="link_credential_missing")
+            failed_templates.add(template_name)
+            continue
+
         # Inject the connection's real n8n credential into all matching nodes,
         # exactly like _clone_workflows_for_connection does. This is more
         # reliable than merging from old nodes (which may already have
@@ -691,6 +919,10 @@ async def _propagate_to_clones(base_url: str, api_key: str, changed_templates: l
             from laya.egress.oauth import _PLATFORM_HTTP_CRED_TYPES
             http_cred_type = _PLATFORM_HTTP_CRED_TYPES.get(platform)
             for node in update_data.get("nodes", []):
+                # Never overwrite the engine link with the platform credential
+                # (bitbucket_server's n8n_type is also httpHeaderAuth).
+                if is_link_node(node):
+                    continue
                 node_creds = node.get("credentials", {})
                 params = node.get("parameters", {})
                 node_type = node.get("type", "")
@@ -721,13 +953,44 @@ async def _propagate_to_clones(base_url: str, api_key: str, changed_templates: l
                     }
 
         # _update_workflow handles credential merging as a secondary fallback
-        if await _update_workflow(base_url, api_key, wf_id, update_data):
+        try:
+            ok = await _update_workflow(base_url, api_key, wf_id, update_data)
+        except _WorkflowNotFound:
+            # The user deleted this clone in n8n: nothing left to update, so it
+            # carries no header-less path. Counting it as a failure would pin
+            # the template version and keep security.n8n_link.enforced false
+            # forever (the 404 never heals on retry).
+            log.warning("n8n_clone_orphaned", name=clone_name, workflow_id=wf_id)
+            continue
+        if ok:
             updated += 1
             log.info("n8n_clone_updated", name=clone_name, workflow_id=wf_id)
         else:
+            failed_templates.add(template_name)
             log.warning("n8n_clone_update_failed", name=clone_name, workflow_id=wf_id)
 
-    return updated
+    return updated, failed_templates
+
+
+async def enforce_link_if_no_clones() -> bool:
+    """Enforce the engine link at startup when no workflow clone exists.
+
+    RF-S3-08: the header-less transition only exists for clones deployed before
+    the link. A fresh install has none, so it must not depend on n8n coming up
+    (import_workflows) to leave the tolerance window. Returns True if enforced.
+    """
+    if is_enforced():
+        return True
+    from laya.db.sqlite import get_db
+
+    db = await get_db()
+    rows = await db.execute_fetchall(
+        "SELECT 1 FROM sources WHERE connection_id IS NOT NULL LIMIT 1",
+    )
+    if rows:
+        return False
+    mark_enforced(reason="fresh_install")
+    return True
 
 
 async def sync_workflows_background() -> None:
@@ -740,6 +1003,14 @@ async def sync_workflows_background() -> None:
     n8n_config = get_n8n_config()
     base_url = n8n_config["base_url"].rstrip("/")
     deadline = asyncio.get_event_loop().time() + 600  # 10 min
+    # Seed the link secret up front: until it exists, POST /events fails
+    # closed with 503, so old clones still posting during startup would lose
+    # events while waiting for n8n.
+    ensure_n8n_link_secret()
+    try:
+        await enforce_link_if_no_clones()
+    except Exception as e:
+        log.warning("n8n_link_fresh_install_check_failed", error=type(e).__name__)
 
     while asyncio.get_event_loop().time() < deadline:
         try:
@@ -772,6 +1043,7 @@ async def provision_n8n_background() -> None:
     help). Idempotent, like ensure_n8n_ready() itself.
     """
     deadline = asyncio.get_event_loop().time() + 600  # 10 min
+    ensure_n8n_link_secret()  # see sync_workflows_background
     while asyncio.get_event_loop().time() < deadline:
         try:
             result = await ensure_n8n_ready()

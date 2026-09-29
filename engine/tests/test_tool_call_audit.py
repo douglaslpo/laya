@@ -13,6 +13,8 @@ import json
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from laya.llm.tools.origin import tool_origin
+
 from .conftest import insert_test_card
 
 
@@ -74,18 +76,15 @@ class TestChatCardMutationAudit:
 @pytest.mark.asyncio
 class TestChatEgressAudit:
     async def _prime_pending(self, action_type="send_email", platform="gmail"):
-        """Insert a pending egress request and return its token."""
-        import time
-
-        from laya.egress import tool_handlers
-        from laya.egress.models import EgressRequest
+        """Insert a pending chat egress request and return its token."""
+        from laya.egress import pending
+        from laya.egress.models import EgressPreview, EgressRequest
 
         request = EgressRequest(
             platform=platform, action_type=action_type, payload={}, space_id=None
         )
-        token = "egr_testtoken"
-        tool_handlers._pending_requests[token] = (request, time.time() + 300)
-        return token
+        preview = EgressPreview(platform=platform, action_type=action_type, summary="s")
+        return pending.create(request, preview, "chat").token
 
     async def test_successful_egress_is_audited(self, db, monkeypatch):
         from laya.egress import tool_handlers
@@ -97,7 +96,8 @@ class TestChatEgressAudit:
         monkeypatch.setattr("laya.egress.execute", fake_execute)
         token = await self._prime_pending(action_type="send_email", platform="gmail")
 
-        out = json.loads(await tool_handlers.handle_confirm_egress({"execute_token": token}, None))
+        with tool_origin("chat"):
+            out = json.loads(await tool_handlers.handle_confirm_egress({"execute_token": token}, None))
         assert out["status"] == "done"
 
         rows = await _audit_rows(db, step="execute")
@@ -118,7 +118,8 @@ class TestChatEgressAudit:
         monkeypatch.setattr("laya.egress.execute", fake_execute)
         token = await self._prime_pending(action_type="comment", platform="jira")
 
-        out = json.loads(await tool_handlers.handle_confirm_egress({"execute_token": token}, None))
+        with tool_origin("chat"):
+            out = json.loads(await tool_handlers.handle_confirm_egress({"execute_token": token}, None))
         assert out["status"] == "failed"
 
         rows = await _audit_rows(db, step="execute")
