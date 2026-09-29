@@ -1,0 +1,16 @@
+---
+description: Regras para migrations SQLite numeradas
+globs: engine/laya/db/migrations/**
+alwaysApply: false
+---
+
+# Migrations
+
+- Nome `NNN_snake_case.sql`, próximo número sem buraco (`scripts/guardrails-check.sh` informa qual).
+- Não escreva `BEGIN`/`COMMIT` (o `db/migrate.py` envolve cada arquivo em transação com `schema_version`).
+- Não crie triggers aqui: triggers FTS vivem em `engine/laya/db/fts.py`.
+- Timestamps default/normalizados em `YYYY-MM-DD HH:MM:SS` UTC.
+- Prefira forward-fix; backfill só quando a correção é permanente e barata.
+- SQLite não faz `ALTER COLUMN`: para mudar tipo/constraint, recrie a tabela (`CREATE new`, `INSERT … SELECT`, `DROP`, `ALTER … RENAME`).
+- Atualize `docs/database-schema.md` e, se mudar colunas de card, `CARD_SELECT_COLUMNS` em `api/cards_common.py`.
+- A fixture `db` de `engine/tests/conftest.py` aplica todas as migrations: rode `pytest tests/test_timestamp_canonical.py tests/test_fts.py` e os testes da feature.

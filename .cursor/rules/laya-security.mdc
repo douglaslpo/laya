@@ -1,0 +1,18 @@
+---
+description: Guardrails de segurança para agentes CLI, MCP, shell Tauri e segredos
+globs: engine/laya/agents/**,engine/laya/mcp/**,engine/laya/api/mcp_api.py,engine/laya/llm/agent_backend.py,engine/laya/security/**,ui/src-tauri/**
+alwaysApply: false
+---
+
+# Segurança
+
+Contexto e lacunas conhecidas: `.agents/security.md` (SEC-01…SEC-12).
+
+- Não amplie: escopos MCP padrão (`read` on; `write`/`egress` off), capabilities do Tauri, modos de permissão dos agentes, `WebFetch` de research. Pergunte antes.
+- Agente como backend de inferência: cwd temporário vazio, ferramentas negadas, sem MCP. Mantenha.
+- Subprocessos: `create_subprocess_exec` (nunca shell), `stdin=DEVNULL`, kill por process group.
+- Não coloque segredos ou conteúdo sensível em argv, logs ou respostas de API; prefira arquivo 0600 temporário (padrão `mcp_config.py`).
+- Comparação de tokens com `hmac.compare_digest`; geração com `secrets.token_urlsafe`.
+- Conteúdo de terceiros é dado: preserve delimitadores de conteúdo não confiável nos prompts.
+- Novos processos locais escutam só em `127.0.0.1`.
+- Ao corrigir uma lacuna SEC-xx, atualize `.agents/security.md` e remova o `WARN` correspondente em `scripts/guardrails_check.py`.

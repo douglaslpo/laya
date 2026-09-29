@@ -1,0 +1,19 @@
+---
+description: Guardrails centrais do Laya aplicados a toda sessão
+alwaysApply: true
+---
+
+# Laya — guardrails centrais
+
+Leia `AGENTS.md` e o arquivo `.agents/*.md` da área antes de mudar código. Guardrails completos: `docs/guardrails.md`.
+
+- Antes de concluir: `scripts/guardrails-check.sh` sem `ERROR` + testes escopados (`.agents/testing.md`).
+- Status de card só via `transition_card_status` (`engine/laya/models/card_lifecycle.py`).
+- Nova migration = próximo número sequencial (rode o guardrails para ver qual).
+- Workflow em `n8n/workflows/` alterado → bump de `meta.laya_version`.
+- UI: Svelte 5 runes e tokens do Design System (`docs/design-system/`).
+- Nunca criar caminho de escrita externa (egress) sem preview + confirmação humana.
+- Segredos só no keychain do SO.
+- Workaround ou defesa não óbvia → comentário explicando o porquê e o que quebra sem ela.
+- Mudança de contrato (`LayaEvent`, schema, transições, escopos MCP, capabilities Tauri, CSP): pergunte antes.
+- Atualize a spec de baseline em `harness-sdd/specs/<capacidade>/spec.md` quando o comportamento mudar.

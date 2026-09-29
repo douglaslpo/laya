@@ -1,0 +1,18 @@
+---
+description: Regras para egress (ações externas) e adapters de plataforma
+globs: engine/laya/egress/**/*.py,engine/laya/integrations/**/*.py
+alwaysApply: false
+---
+
+# Egress e integrações
+
+- Human-in-the-loop: toda ação externa passa por preview (`build_preview`) e confirmação explícita. Não crie atalhos que executem sem confirmação.
+- Preview e execução usam o mesmo `enrichment.py` — não duplique enriquecimento.
+- `validate_payload` retorna lista de erros; qualquer erro bloqueia o envio.
+- Nunca faça fallback silencioso de `connection_id` para outra conta.
+- Timeout = resultado desconhecido (`retryable=False`); só `ConnectError` é re-tentável.
+- Adicionar/alterar plataforma: siga a skill `laya-egress-platform` (≈12 pontos de toque + testes de paridade).
+- `_PLATFORM_KEYWORDS`: `"bitbucket server"` antes de `"bitbucket"`.
+- `_PLATFORM_HTTP_CRED_TYPES` existe em `oauth.py` e `n8n_bootstrap.py`: mantenha sincronizado.
+- Credenciais só no keychain (`laya-egress`, `{platform}:{connection_id}`).
+- Testes: `pytest tests/test_egress_platforms.py tests/test_platform_interface.py tests/test_egress_registry_parity.py tests/test_terminal_event_parity.py`.

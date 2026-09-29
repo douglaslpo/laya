@@ -1,0 +1,28 @@
+---
+description: Convenções do engine Python (FastAPI async, SQLite compartilhado, pipeline, LLM)
+globs: engine/laya/**/*.py
+alwaysApply: false
+---
+
+# Engine Python
+
+- Tudo async. Nada bloqueante (use `asyncio.to_thread` se inevitável).
+- Background: `from laya.tasks import create_task` — não `asyncio.create_task`.
+- Escritas multi-etapa atômicas:
+  ```python
+  from laya.db.sqlite import get_db, transaction
+  async with transaction():
+      db = await get_db()
+      await db.execute(...)
+      await db.execute(...)
+  ```
+  Nada de rede/subprocess dentro do bloco.
+- Timestamps: `from laya.db.timeutil import db_now, db_ts` — nunca `isoformat()` no banco.
+- Status: `await transition_card_status(card_id, "done", actor="user", reason=...)`; nunca `UPDATE action_cards SET status`.
+- LLM: sempre `llm_call(role=..., space_id=...)` de `laya.llm.client` (passe `space_id` para respeitar o modelo do space).
+- Busca: `extract_keywords`, `reciprocal_rank_fusion`, `fts_or_like` de `laya.retrieval`.
+- Prompt condicional: gate por plataforma/intenção (padrão `build_router_system_prompt(platforms)`).
+- Rotas: estáticas antes de `/{id}`; cards via módulos `cards_*` agregados em `cards_api.py` (ordem importa).
+- Configuração: `load_settings()` / `get_tuning()`; novo parâmetro vai para `DEFAULT_SETTINGS` e `docs/tuning-parameters.md`.
+- Broadcast WS: `manager.broadcast({"type": ..., ...})`; novo tipo de mensagem → documente em `docs/api-contracts.md`.
+- Arquivos novos com `# SPDX-License-Identifier: Apache-2.0`.
