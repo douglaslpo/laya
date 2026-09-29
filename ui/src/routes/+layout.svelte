@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 	import HealthBadge from '$lib/components/HealthBadge.svelte';
 	import ChatSidebar from '$lib/components/chat/ChatSidebar.svelte';
-	import { initWebSocket, closeWebSocket, lastMessage } from '$lib/stores/websocket';
+	import { initWebSocket, closeWebSocket, lastMessage, egressConfirmations } from '$lib/stores/websocket';
 	import { startHealthPolling, stopHealthPolling, startupReady } from '$lib/stores/health';
 	import StartupScreen from '$lib/components/StartupScreen.svelte';
 	import { needsSetup, setupComplete } from '$lib/stores/setup';
@@ -31,6 +31,7 @@
 	import { hasIntegrationErrors, loadIntegrationErrorSummary } from '$lib/stores/integrationErrors';
 	import { compose } from '$lib/stores/compose';
 	import ComposeModal from '$lib/components/egress/ComposeModal.svelte';
+	import EgressConfirmModal from '$lib/components/egress/EgressConfirmModal.svelte';
 	import { agentDialog } from '$lib/stores/agentDialog';
 	import { summaryModalOpen } from '$lib/stores/summaryModal';
 	import { recentDrawerOpen } from '$lib/stores/recentCards';
@@ -57,7 +58,9 @@
 	}
 
 	const isToday = $derived($feedDate === localToday());
-	const anyModalOpen = $derived($compose.isOpen || $agentDialog.isOpen || $summaryModalOpen);
+	const anyModalOpen = $derived(
+		$compose.isOpen || $agentDialog.isOpen || $summaryModalOpen || $egressConfirmations.length > 0
+	);
 
 	let { children } = $props();
 	let isSetupRoute = $derived(page.url.pathname.startsWith('/setup'));
@@ -911,6 +914,7 @@
 	<ChatSidebar />
 	<ComposeModal />
 	<RunAgentModal />
+	<EgressConfirmModal />
 
 	{#if toasts.length > 0}
 		<div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">

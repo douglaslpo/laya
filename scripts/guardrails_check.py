@@ -201,20 +201,67 @@ def check_engine() -> None:
 
 
 # -------------------------------------------------------------------- tauri
+CSP_STRICT_DIRECTIVES = ("script-src", "connect-src")
+# A bare scheme source allows every host on that scheme, i.e. it is a wildcard.
+# `ipc:` is not listed: it is Tauri's own IPC channel, not a network origin.
+CSP_SCHEME_WILDCARDS = {
+    "script-src": {"https:", "http:", "ws:", "wss:", "data:"},
+    "connect-src": {"https:", "http:", "ws:", "wss:"},
+}
+SHELL_UNSCOPED = {"shell:allow-execute", "shell:allow-spawn", "shell:allow-stdin-write"}
+
+
+def csp_directives(csp: str) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for part in csp.split(";"):
+        tokens = part.split()
+        if tokens:
+            out[tokens[0].lower()] = tokens[1:]
+    return out
+
+
+def check_csp(key: str, csp: object) -> None:
+    if not isinstance(csp, str) or not csp.strip():
+        error(f"[tauri] app.security.{key} nula/ausente no webview (G-SEC-05)")
+        return
+    directives = csp_directives(csp)
+    if "default-src" not in directives:
+        error(f"[tauri] app.security.{key} sem default-src (G-SEC-05)")
+    for name in CSP_STRICT_DIRECTIVES:
+        # A missing directive falls back to default-src, so that is what gets enforced.
+        sources = directives.get(name, directives.get("default-src", []))
+        if "'unsafe-eval'" in sources:
+            error(f"[tauri] app.security.{key} permite 'unsafe-eval' em {name} (G-SEC-05)")
+        if any(s == "*" or s.startswith("*") for s in sources):
+            error(f"[tauri] app.security.{key} usa curinga em {name} (G-SEC-05)")
+        schemes = sorted(CSP_SCHEME_WILDCARDS[name] & {s.lower() for s in sources})
+        if schemes:
+            error(f"[tauri] app.security.{key} usa esquema sem host em {name}: "
+                  f"{' '.join(schemes)} (G-SEC-05)")
+
+
 def check_tauri() -> None:
     conf = ROOT / "ui" / "src-tauri" / "tauri.conf.json"
     if conf.exists():
         data = json.loads(conf.read_text(encoding="utf-8"))
-        csp = ((data.get("app") or {}).get("security") or {}).get("csp", "missing")
-        if csp is None:
-            warn("[tauri] CSP nula no webview (SEC-02 em .agents/security.md)")
-    cap = ROOT / "ui" / "src-tauri" / "capabilities" / "default.json"
-    if cap.exists():
+        security = (data.get("app") or {}).get("security") or {}
+        check_csp("csp", security.get("csp"))
+        check_csp("devCsp", security.get("devCsp"))
+        # Only style-src may opt out of Tauri's hash/nonce injection (CSP3 makes
+        # injected hashes neutralize 'unsafe-inline'). Opting script-src out, or
+        # everything via `true`, drops the protection for bundled scripts.
+        disable = security.get("dangerousDisableAssetCspModification", False)
+        if disable is True or (isinstance(disable, list) and "script-src" in disable):
+            error("[tauri] app.security.dangerousDisableAssetCspModification desativa "
+                  "a injeção de CSP em script-src (G-SEC-05)")
+    cap_dir = ROOT / "ui" / "src-tauri" / "capabilities"
+    for cap in sorted(cap_dir.glob("*.json")):
         perms = json.loads(cap.read_text(encoding="utf-8")).get("permissions", [])
-        loose = [p for p in perms if isinstance(p, str) and p in {
-            "shell:allow-execute", "shell:allow-spawn", "shell:allow-stdin-write"}]
+        # Scoped entries are objects ({"identifier": ..., "allow": [...]}); only the
+        # bare string form grants the plugin-wide default scope.
+        loose = [p for p in perms if isinstance(p, str) and p in SHELL_UNSCOPED]
         if loose:
-            warn(f"[tauri] permissões de shell sem escopo: {', '.join(loose)} (SEC-02)")
+            error(f"[tauri] {rel(cap)} com permissões de shell sem escopo: {', '.join(loose)} (G-SEC-05)")
 
 
 def main() -> int:

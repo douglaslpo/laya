@@ -35,8 +35,9 @@ from mcp.shared.exceptions import McpError
 from mcp.types import METHOD_NOT_FOUND, ErrorData, TextContent, Tool
 
 from laya.config import load_settings
-from laya.llm.tools.definitions import get_all_tool_definitions
+from laya.llm.tools.definitions import chat_only_tool_names, get_all_tool_definitions
 from laya.llm.tools.executor import execute_tool
+from laya.llm.tools.origin import tool_origin
 from laya.mcp.scope import enabled_tool_names
 
 log = structlog.get_logger()
@@ -195,6 +196,19 @@ def build_mcp_server() -> Server:
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict | None = None) -> list[TextContent]:
+        if name in chat_only_tool_names():
+            # Checked before scopes so no toggle combination can expose it: an
+            # MCP client confirming its own egress would bypass the human.
+            raise McpError(
+                ErrorData(
+                    code=METHOD_NOT_FOUND,
+                    message=(
+                        f"Tool '{name}' is only available to the in-app Laya chat. "
+                        "Actions requested over MCP must be confirmed by the user "
+                        "in the Laya UI."
+                    ),
+                )
+            )
         allowed = enabled_tool_names(_current_scopes())
         if name not in allowed:
             # The user's Settings → MCP toggles don't enable the scope this
@@ -210,7 +224,8 @@ def build_mcp_server() -> Server:
                 )
             )
         space_id = current_space_id.get()
-        result = await execute_tool(name, arguments or {}, space_id=space_id)
+        with tool_origin("mcp"):
+            result = await execute_tool(name, arguments or {}, space_id=space_id)
         return [TextContent(type="text", text=result)]
 
     return server

@@ -12,7 +12,14 @@
       "parameters": {
         "path": "outlook-calendar-executor",
         "httpMethod": "POST",
+        "authentication": "headerAuth",
         "responseMode": "responseNode"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__LAYA_LINK__",
+          "name": "Laya Engine Link"
+        }
       }
     },
     {
@@ -103,6 +110,6 @@
   },
   "active": false,
   "meta": {
-    "laya_version": "2026.06.1"
+    "laya_version": "2026.09.1"
   }
 }

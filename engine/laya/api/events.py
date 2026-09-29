@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import structlog
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from laya.api.audit_api import utc_cutoff
@@ -18,6 +18,7 @@ from laya.db.sqlite import get_db
 from laya.db.timeutil import db_ts
 from laya.models.event import EventResponse, LayaEvent
 from laya.pipeline.queue import enqueue_event
+from laya.security.n8n_link import require_n8n_link
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -34,7 +35,12 @@ class RetryDeadEventsResponse(BaseModel):
     retried: int
 
 
-@router.post("/events", response_model=EventResponse, status_code=202)
+@router.post(
+    "/events",
+    response_model=EventResponse,
+    status_code=202,
+    dependencies=[Depends(require_n8n_link)],
+)
 async def receive_event(event: LayaEvent) -> EventResponse:
     """Receive a normalized event from n8n, store it, and enqueue for processing.
 

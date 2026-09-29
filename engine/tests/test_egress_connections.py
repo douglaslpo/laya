@@ -213,3 +213,87 @@ class TestCheckConnection:
         conns = await list_all_connections()
         assert conns[0].status == "connected"
         assert conns[0].last_validated_at is not None
+
+
+# ---------------------------------------------------------------------------
+# SEC-03 CA-04: cloned workflows bind the engine link and the platform
+# credential to the right nodes, never one over the other.
+# ---------------------------------------------------------------------------
+
+
+class TestCloneLinkCredential:
+    async def _clone(self, db, tmp_path, platform, cred_id, *, link_id="cred_link_123"):
+        from laya.egress.connections import _clone_workflows_for_connection
+
+        posted: list[dict] = []
+
+        async def _post(url, headers=None, json=None, timeout=None):
+            posted.append(json)
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.json.return_value = {"id": f"wf_{len(posted)}"}
+            return resp
+
+        client = MagicMock()
+        client.post = AsyncMock(side_effect=_post)
+        with patch("laya.security.keychain.get_api_key", return_value="n8n-key"), \
+             patch("laya.http_client.get_client", return_value=client), \
+             patch("laya.integrations.n8n_bootstrap._get_existing_workflows",
+                   new_callable=AsyncMock, return_value={}), \
+             patch("laya.integrations.n8n_bootstrap._VERSIONS_FILE", tmp_path / "versions.json"), \
+             patch("laya.integrations.n8n_bootstrap.get_link_credential_id", return_value=link_id), \
+             patch("laya.integrations.n8n_bootstrap.ensure_link_credential",
+                   new_callable=AsyncMock, return_value=(None, False)), \
+             patch("laya.integrations.n8n_client.activate_workflow", new_callable=AsyncMock), \
+             patch("laya.egress.connections._get_from_keychain",
+                   return_value={"server": "https://bbs.local/", "allowInsecureSsl": False}):
+            result = await _clone_workflows_for_connection(
+                platform, f"conn_{platform}", "Work", cred_id,
+            )
+        return result, {wf["name"]: wf for wf in posted}
+
+    @staticmethod
+    def _creds(wf):
+        return {n["name"]: (n.get("credentials") or {}) for n in wf["nodes"]}
+
+    @pytest.mark.asyncio
+    async def test_bitbucket_server_clone_keeps_link_and_platform_apart(self, db, tmp_path):
+        from laya.security.n8n_link import LINK_CRED_NAME
+
+        (activated, errors), wfs = await self._clone(db, tmp_path, "bitbucket_server", "cred_bbs")
+        assert errors == [] and activated == 2
+        link_ref = {"id": "cred_link_123", "name": LINK_CRED_NAME}
+
+        ingestion = self._creds(wfs["Laya Bitbucket Server - Work (Ingestion)"])
+        assert ingestion["POST to Laya Engine"]["httpHeaderAuth"] == link_ref
+        assert ingestion["Get Pull Requests"]["httpHeaderAuth"] == {"id": "cred_bbs", "name": "Work"}
+
+        executor_wf = wfs["Laya Bitbucket Server - Work (Executor)"]
+        executor = self._creds(executor_wf)
+        assert executor["Webhook"]["httpHeaderAuth"] == link_ref
+        assert executor["Merge PR"]["httpHeaderAuth"] == {"id": "cred_bbs", "name": "Work"}
+        webhook = next(n for n in executor_wf["nodes"] if n["name"] == "Webhook")
+        assert webhook["parameters"]["path"].startswith("bitbucket-server-executor-")
+
+    @pytest.mark.asyncio
+    async def test_github_clone_binds_link_nodes(self, db, tmp_path):
+        from laya.security.n8n_link import LINK_CRED_NAME
+
+        (activated, errors), wfs = await self._clone(db, tmp_path, "github", "cred_gh")
+        assert errors == [] and activated == 2
+        link_ref = {"id": "cred_link_123", "name": LINK_CRED_NAME}
+
+        ingestion = self._creds(wfs["Laya GitHub - Work (Ingestion)"])
+        assert ingestion["POST to Laya Engine"]["httpHeaderAuth"] == link_ref
+        assert ingestion["POST Repo Errors"]["httpHeaderAuth"] == link_ref
+        assert ingestion["Get Issues and PRs"]["githubApi"]["id"] == "cred_gh"
+        executor = self._creds(wfs["Laya GitHub - Work (Executor)"])
+        assert executor["Webhook"]["httpHeaderAuth"] == link_ref
+        assert executor["Close Issue"]["githubApi"]["id"] == "cred_gh"
+
+    @pytest.mark.asyncio
+    async def test_clone_aborts_without_link_credential(self, db, tmp_path):
+        (activated, errors), wfs = await self._clone(db, tmp_path, "github", "cred_gh", link_id=None)
+        assert activated == 0
+        assert wfs == {}
+        assert any("engine-link credential" in e for e in errors)

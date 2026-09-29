@@ -16,10 +16,23 @@ This document specifies the first two. The coding agent interface is defined in 
 
 Receives normalized events from n8n. See [event-schema.md](./event-schema.md) for the full schema.
 
+**Authentication (engine ↔ n8n link):** every n8n → engine call (`POST /events`, `POST /ingestion-errors`) must carry `X-Laya-Link-Token: <secret>`. The secret (`laya_n8n_link_secret`, `secrets.token_urlsafe(32)`) lives only in the OS keychain and is mirrored into the singleton n8n credential **"Laya Engine Link"** (`httpHeaderAuth`), which the bundled ingestion workflows and the error handler reference. The engine compares it with `hmac.compare_digest` (dependency `require_n8n_link` in `laya/security/n8n_link.py`) and never logs the presented value.
+
+| Situation | Response |
+|---|---|
+| Header present and correct | normal handling (202 for `/events`) |
+| Header present but wrong (always, even during transition) | **401** `{"detail": "unauthorized"}` — nothing persisted |
+| Header absent, `settings.security.n8n_link.enforced = true` | **401** `{"detail": "unauthorized"}` |
+| Header absent, `enforced = false` (transition for installs that predate the link) | accepted and logged as `n8n_link_transition_accept`; `enforced` flips to `true` once all clones are propagated or 24 h after `transition_started_at`, whichever comes first |
+| Secret unavailable (keychain failure / never provisioned) | **503** `{"detail": "engine link unavailable"}` (fail-closed) |
+
+Third-party callers posting to `/events` directly (outside the bundled workflows) must send the header too.
+
 **Request:**
 ```
 POST http://localhost:8420/events
 Content-Type: application/json
+X-Laya-Link-Token: <link secret>
 
 {
   "event_id": "evt_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -68,16 +81,23 @@ Content-Type: application/json
 }
 ```
 
+### `POST /ingestion-errors`
+
+Reports an ingestion failure from n8n (the shared `laya-error-handler` workflow and in-workflow error branches). Coalesced by fingerprint within a 30 min window. Requires `X-Laya-Link-Token` with the same rules as `POST /events` (401 wrong/missing once enforced, 503 secret unavailable).
+
 ## 2. Laya Engine -> n8n (Outbound Actions)
 
 ### `POST /webhook/<workflow-id>`
 
 Sends approved actions to n8n for execution. Each platform has its own executor workflow with a unique webhook URL.
 
+**Authentication:** the executor `Webhook` nodes use `authentication: headerAuth` bound to the "Laya Engine Link" credential, and `N8nBackend` sends `X-Laya-Link-Token`. A 401/403 from n8n (stale clone or diverged secret) is mapped to `success=false, retryable=false` with the message "n8n executor rejected engine credentials — re-sync workflows"; it is never retried automatically.
+
 **Request:**
 ```
 POST http://localhost:45678/webhook/<bitbucket-executor-webhook-id>
 Content-Type: application/json
+X-Laya-Link-Token: <link secret>
 
 {
   "action_id": "act_x1y2z3-a4b5-c6d7-e8f9-012345678901",
@@ -715,6 +735,50 @@ Preview an action before executing.
   }
 }
 ```
+
+### `GET /egress/pending`
+
+Lists egress actions requested by an **MCP client** that are waiting for the user's confirmation in the UI (non-expired, soonest-expiring first). Sanitized: never contains an execute token. The UI reloads this on every WebSocket (re)connect.
+
+**Response (200):**
+```json
+{
+  "pending": [
+    {
+      "request_id": "egreq_Xy12...",
+      "origin": "mcp",
+      "platform": "gmail",
+      "action_type": "send_email",
+      "space_id": "default",
+      "connection_id": "conn_abc",
+      "preview": {
+        "summary": "Send email to sarah@company.com: 'Q2 deliverables'",
+        "details": {},
+        "warnings": [],
+        "estimated_impact": "..."
+      },
+      "created_at": "2026-09-29T18:00:00Z",
+      "expires_at": "2026-09-29T18:05:00Z"
+    }
+  ]
+}
+```
+
+### `POST /egress/pending/{request_id}/confirm`
+
+Executes a pending MCP request after the user clicked "Enviar". Audited as `step="execute"` with `metadata.source="mcp"` and `metadata.request_id`; broadcasts `egress_confirmation_resolved`. Single use: the entry is removed before execution.
+
+**Response (200):** `{"request_id": "egreq_…", "status": "done", "message": "Action executed successfully.", "result_url": "…", "result_data": {…}}` or `{"request_id": "egreq_…", "status": "failed", "error": "…", "retryable": false}`.
+
+**Errors:** `403` request carries an `Origin` outside the allowed set (`http://localhost:5173`, `http://127.0.0.1:5173`, `tauri://localhost`, `http(s)://tauri.localhost`) — entry left intact; `404` unknown, already resolved, or not an MCP request (e.g. a chat token/request); `410` expired (TTL 300 s).
+
+### `POST /egress/pending/{request_id}/reject`
+
+Discards a pending MCP request without executing it ("Rejeitar"). Audited as `step="egress_rejected"`, `success=false`, `metadata.source="mcp"`; broadcasts `egress_confirmation_resolved{status:"rejected"}`.
+
+**Response (200):** `{"request_id": "egreq_…", "status": "rejected"}`. **Errors:** same `403`/`404`/`410` as `confirm`.
+
+> The in-app chat keeps its own flow: egress tools return `status:"preview"` + `execute_token` (`egr_<nonce>.<sig>`, single use, 5 min) and the chat-only tool `confirm_egress` executes it. MCP clients never receive a token and `confirm_egress` is not exposed over MCP; they get `{"status": "awaiting_user_confirmation", "request_id", "summary", "warnings", "instruction"}`.
 
 ### `GET /egress/field-suggestions`
 
@@ -1665,6 +1729,32 @@ The WebSocket connection is established when the Tauri app launches and maintain
 {
   "type": "rules_changed",
   "payload": {"rule_type": "processing"}
+}
+```
+
+**`egress_confirmation_request`** -- An MCP client requested an egress action; the UI opens `EgressConfirmModal`. Payload is the same sanitized object returned by `GET /egress/pending` (no token).
+```json
+{
+  "type": "egress_confirmation_request",
+  "payload": {
+    "request_id": "egreq_Xy12...",
+    "origin": "mcp",
+    "platform": "gmail",
+    "action_type": "send_email",
+    "space_id": "default",
+    "connection_id": "conn_abc",
+    "preview": {"summary": "...", "details": {}, "warnings": [], "estimated_impact": "..."},
+    "created_at": "2026-09-29T18:00:00Z",
+    "expires_at": "2026-09-29T18:05:00Z"
+  }
+}
+```
+
+**`egress_confirmation_resolved`** -- A pending MCP request left the queue. `status` ∈ `done | failed | rejected`; `result_url`/`error` only when present.
+```json
+{
+  "type": "egress_confirmation_resolved",
+  "payload": {"request_id": "egreq_Xy12...", "status": "done", "result_url": "https://..."}
 }
 ```
 

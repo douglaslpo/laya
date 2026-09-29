@@ -3,12 +3,50 @@
 
 import { writable } from 'svelte/store';
 import type { WsMessage } from '$lib/api/types';
+import { engineApi } from '$lib/api/engine';
 import { getEngineWsUrl } from '$lib/config';
+import {
+	addConfirmation,
+	isPendingConfirmation,
+	replaceConfirmations,
+	resolveConfirmation,
+	type PendingEgressConfirmation
+} from '$lib/egress/pendingConfirmations';
 
 export type WsStatus = 'connecting' | 'connected' | 'disconnected';
 
 export const wsStatus = writable<WsStatus>('disconnected');
 export const lastMessage = writable<WsMessage | null>(null);
+
+/** Egress actions requested over MCP, awaiting the user's Send / Reject. */
+export const egressConfirmations = writable<PendingEgressConfirmation[]>([]);
+
+/** Reload the authoritative pending list (requests may arrive while disconnected). */
+export async function reloadEgressConfirmations(): Promise<void> {
+	try {
+		const { pending } = await engineApi.listPendingEgress();
+		egressConfirmations.set(replaceConfirmations(pending.filter(isPendingConfirmation)));
+	} catch (err) {
+		console.warn('[ws] failed to load pending egress confirmations', err);
+	}
+}
+
+// Handled synchronously in onmessage instead of via lastMessage: the drain
+// queue drops messages when full and is cleared on disconnect, and a lost
+// confirmation request would leave an MCP action silently stuck until expiry.
+function handleEgressConfirmationMessage(msg: WsMessage): void {
+	if (msg.type === 'egress_confirmation_request') {
+		if (isPendingConfirmation(msg.payload)) {
+			const item = msg.payload;
+			egressConfirmations.update((q) => addConfirmation(q, item));
+		}
+	} else if (msg.type === 'egress_confirmation_resolved') {
+		const id = msg.payload?.request_id;
+		if (typeof id === 'string') {
+			egressConfirmations.update((q) => resolveConfirmation(q, id));
+		}
+	}
+}
 
 const ENGINE_WS_URL = getEngineWsUrl();
 let socket: WebSocket | null = null;
@@ -47,11 +85,13 @@ function connect() {
 	socket.onopen = () => {
 		wsStatus.set('connected');
 		reconnectDelay = 1000; // reset backoff
+		void reloadEgressConfirmations();
 	};
 
 	socket.onmessage = (event) => {
 		try {
 			const msg: WsMessage = JSON.parse(event.data);
+			handleEgressConfirmationMessage(msg);
 			if (_msgQueue.length >= _MAX_QUEUE) {
 				console.warn('[ws] queue full, dropping oldest message');
 				_msgQueue.shift();

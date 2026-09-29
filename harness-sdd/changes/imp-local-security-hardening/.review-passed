@@ -1,0 +1,9 @@
+{
+  "verdict": "APROBADO CON OBSERVACIONES",
+  "changeName": "imp-local-security-hardening",
+  "summary": "SEC-01/02/03 fechados; 1 MEDIUM (limite de pendencias MCP) e 2 LOW como follow-up",
+  "failCount": 3,
+  "preexistingCount": 0,
+  "blockers": false,
+  "date": "2026-09-29T19:10:47.365Z"
+}

@@ -17,6 +17,7 @@ from laya.egress.tool_handlers import (
 )
 from laya.egress.tools import PREVIEWABLE_EGRESS_TOOLS
 from laya.llm.tools import card_tools, entity_tools, event_tools, rules_tools, search_tools, settings_tools, summary_tools
+from laya.llm.tools.origin import current_origin
 
 log = structlog.get_logger()
 
@@ -90,6 +91,15 @@ async def execute_tool(
     if name == "open_compose":
         return await handle_open_compose(arguments, space_id)
     if name == "confirm_egress":
+        # MCP must never confirm egress: the handler checks too, this guards future dispatch paths.
+        if current_origin() != "chat":
+            return json.dumps({
+                "status": "error",
+                "error": (
+                    "confirm_egress is only available to the in-app Laya chat. "
+                    "Actions requested over MCP must be confirmed by the user in the Laya UI."
+                ),
+            })
         return await handle_confirm_egress(arguments, space_id)
     if name == "find_contact":
         from laya.llm.tools.contact_tools import find_contact
