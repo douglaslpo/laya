@@ -1,0 +1,27 @@
+---
+description: Convenções da UI SvelteKit (Svelte 5 runes, Design System, stores)
+globs: ui/src/**/*.{svelte,ts,css}
+alwaysApply: false
+---
+
+# UI Svelte 5
+
+- Runes apenas: `$state`, `$derived`/`$derived.by`, `$effect`, `$props`, `$bindable` (só quando o pai precisa escrever). Sem `$:`, `export let`, `on:click`.
+  ```svelte
+  <script lang="ts">
+    interface Props { card: ActionCard; onselect?: (id: string) => void }
+    let { card, onselect }: Props = $props();
+    let open = $state(false);
+    const label = $derived(STATUS_LABELS[card.status]);
+  </script>
+  <button onclick={() => onselect?.(card.card_id)} aria-label={label}>…</button>
+  ```
+- Cores: tokens (`bg-surface-800`, `text-surface-200`, `text-laya-orange`, `var(--tl-*)`, `var(--om-*)`). Sem hex cru em componente novo; mapas de persona/prioridade/plataforma vêm de `lib/utils/cardVisuals.ts`.
+- Tipografia: `text-laya-heading|base|secondary|micro` (escala com `--laya-font-base`), não `text-[11px]`.
+- Glass: alterne `glass-*` com o equivalente sólido via `$glassTheme`.
+- Movimento: `duration: $reducedMotion ? 0 : N`; FLIP via `lib/utils/flip.ts`.
+- API: `engineApi` de `lib/api/engine.ts`; tipos em `lib/api/types.ts`. WS: reaja a `$lastMessage` em `$effect`.
+- Lógica pura em `lib/{feed,timeline,omni,utils,stores}` com `*.test.ts` (vitest, ambiente node).
+- A11y: `aria-label` em botões só-ícone, `role="dialog"` + Esc em modais, status nunca só por cor.
+- HTML de terceiros só via `MarkdownRender` (DOMPurify).
+- Referência: `docs/design-system/`.

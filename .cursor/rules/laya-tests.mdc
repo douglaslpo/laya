@@ -1,0 +1,17 @@
+---
+description: Padrões de teste do engine (pytest) e da UI (vitest)
+globs: engine/tests/**/*.py,ui/src/**/*.test.ts
+alwaysApply: false
+---
+
+# Testes
+
+- Engine: pytest-asyncio em modo strict → `@pytest.mark.asyncio` em teste/classe async; fixtures async com `@pytest_asyncio.fixture`.
+- Não importe `laya` antes do bloco de isolamento (HOME tmp + keyring em memória) do `conftest.py`.
+- Banco: fixture `db` (`:memory:` + migrations + FTS5). Helpers `insert_test_event`, `insert_test_card`.
+- LLM: `patch("laya.pipeline.<mod>.llm_call", new_callable=AsyncMock)`; para passar pelo client, `patch("litellm.acompletion")` + `_make_mock_llm_response`.
+- API: `AsyncClient(transport=ASGITransport(app=app), base_url="http://test")`.
+- httpx externo: `AsyncMock` com `__aenter__`/`__aexit__` substituindo `httpx.AsyncClient` no módulo.
+- Nada de rede real; se inevitável, marque `@pytest.mark.network`.
+- UI: vitest em ambiente node, só módulos puros; fixtures parciais com cast (`{…} as ActionCard`).
+- Rode escopado: `pytest tests/test_x.py -v` / `npx vitest run src/lib/x`.

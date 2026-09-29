@@ -1,0 +1,15 @@
+---
+description: Regras para os workflows n8n empacotados
+globs: n8n/workflows/**/*.json
+alwaysApply: false
+---
+
+# Workflows n8n
+
+- Qualquer alteração → bump de `meta.laya_version` (`AAAA.MM.N`). Sem bump, a sync do engine não propaga para os clones por conexão.
+- Ingestão: trigger (schedule ou nativo) → normalização para `LayaEvent` (`docs/event-schema.md`) → `POST {{$env.LAYA_ENGINE_URL}}/events`. Erros → `POST /ingestion-errors`.
+- `subject.id` estável e não vazio; o `entity_id` é derivado dele (`{platform}:{subject.type}:{subject.id}`). Correções de formato por plataforma ficam aqui, não no engine.
+- Executor: webhook POST com `httpMethod`, Switch em `action_type` batendo com as capabilities do adapter, resposta `{success, result{url…}, error}` via `respondToWebhook`.
+- Placeholders de credencial com `id` igual ao tipo (é como `_merge_credentials` os detecta).
+- Configuração por clone vem de `GET /metadata/{platform}-config:{{$workflow.id}}` ou `GET /repos?platform=…&host=…`.
+- Teste de paridade: `pytest tests/test_egress_registry_parity.py tests/test_terminal_event_parity.py`.

@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> Índice do projeto para agentes e metodologia SDD-AI: `AGENTS.md` (+ `.agents/`). Guardrails: `docs/guardrails.md` (`scripts/guardrails-check.sh`). Specs de baseline: `harness-sdd/specs/`. Design System: `docs/design-system/`.
+
 ## What is Laya
 
 Laya is a local-first desktop app (Tauri + Svelte + Python) that intercepts professional tool events (Jira, Slack, Gmail, GitHub, Bitbucket, Bitbucket Server, Linear, Notion, Google Calendar, Outlook Calendar, Outlook Email), classifies them with LLM-powered personas (Engineer, Comms, Ops, Sales, HR, Finance), stages actions, and presents Action Cards for user approval. n8n handles event ingestion and outbound action execution.
@@ -99,7 +101,7 @@ Supporting pipelines (triggered separately):
 
 - **Svelte 5 runes only**: Use `$state`, `$derived`, `$effect` — never `$:` reactive declarations
 - **Async everywhere in engine**: All DB access, HTTP, and pipeline functions are async
-- **SQLite migrations**: Numbered files in `engine/laya/db/migrations/` (001-071). New migrations get the next number. Migration runner in `db/migrate.py` applies on startup.
+- **SQLite migrations**: Numbered files in `engine/laya/db/migrations/` (001-072; `scripts/guardrails-check.sh` prints the next number). New migrations get the next number. Migration runner in `db/migrate.py` applies on startup.
 - **Multi-statement invariants**: Laya uses ONE shared aiosqlite connection (no per-request isolation). For a sequence of writes that must land atomically, wrap them in the `db/sqlite.transaction()` async context manager (a module `asyncio.Lock` + commit-on-success / rollback-on-failure). It's applied to the low-frequency off-hot-path invariants (space delete, card cascade delete, context-group merge/unlink); deliberately NOT the hot `_persist_card` emit path.
 - **Hybrid search / FTS5**: Chat and trace retrieval combine vector search (ChromaDB) with lexical BM25 search over SQLite FTS5 virtual tables (`cards_fts`, `events_fts`), merged via Reciprocal Rank Fusion. FTS tables are built at startup and kept in sync by SQL triggers (`db/fts.py`); retrieval degrades to `LIKE` if the SQLite build lacks FTS5. The `action_cards.thread_context` column (a short thread blurb persisted at emit time) is indexed so terse follow-up cards ("Approved.") stay findable by their thread's keywords ("Contextual BM25"). Shared retrieval primitives live in `laya/retrieval.py` — `extract_keywords` (+ `STOPWORDS`), `reciprocal_rank_fusion`, and `fts_or_like` (the try-FTS-then-fall-back-to-LIKE dispatch). The chat/trace/card-search stacks all call these; don't re-implement per-stack (they had drifted — P7-1).
 - **LLM prompts**: Organized by role in `engine/laya/llm/prompts/` (router, stager, engineer, comms, ops, sales, hr, finance, chat, omni, briefing, group_summary, research, overrides, trace_filter, context_learner, context_rule_consolidator, classification_rule_consolidator, etc.). **Gate conditional content by platform/intent instead of always-including it** (token cost matters on small local windows): `build_router_system_prompt(platforms)` / `build_stager_system_prompt(platform)` assemble only the relevant platform lifecycle blocks, and `llm/tools/definitions.select_chat_tools()` ships only the keyword-relevant chat tool groups. Follow this when adding new conditional blocks (P6).
