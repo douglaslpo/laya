@@ -5,8 +5,10 @@ import { defineConfig } from 'vite';
 export default defineConfig({
     plugins: [sveltekit(), tailwindcss()],
     server: {
+        port: 5173,
+        strictPort: false,
         watch: {
             ignored: ['**/src-tauri/target/**']
         }
     }
-});
+});

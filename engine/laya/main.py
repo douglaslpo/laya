@@ -229,6 +229,18 @@ def _kill_stale_engine(host: str, port: int) -> None:
         log.warning("stale_engine_cleanup_failed", error=str(e))
 
 
+def find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
+    """Find an available port starting at start_port, incrementing by 1 if occupied."""
+    for port in range(start_port, start_port + max_attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind((host, port))
+                return port
+            except OSError:
+                continue
+    return start_port
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
@@ -528,6 +540,14 @@ if __name__ == "__main__":
     # Kill any stale engine holding our port before uvicorn tries to bind
     _kill_stale_engine(ENGINE_HOST, ENGINE_PORT)
 
+    # Check if port is in use; increment port (+1) until an available port is found
+    target_port = find_available_port(ENGINE_HOST, ENGINE_PORT)
+    if target_port != ENGINE_PORT:
+        log.info("port_occupied_using_next", original_port=ENGINE_PORT, selected_port=target_port)
+        os.environ["LAYA_ENGINE_PORT"] = str(target_port)
+        import laya.config
+        laya.config.ENGINE_PORT = target_port
+
     # Honor the same level for uvicorn's own loggers (access/error) as the engine.
     # At WARNING this drops uvicorn's per-request access lines from engine-stdout.log
     # too, so lowering the level quiets both Laya's and uvicorn's output together.
@@ -537,7 +557,7 @@ if __name__ == "__main__":
         uvicorn.run(
             "laya.main:app",
             host=ENGINE_HOST,
-            port=ENGINE_PORT,
+            port=target_port,
             reload=True,
             timeout_keep_alive=65,
             log_level=uvicorn_log_level,
@@ -546,7 +566,7 @@ if __name__ == "__main__":
         uvicorn.run(
             app,
             host=ENGINE_HOST,
-            port=ENGINE_PORT,
+            port=target_port,
             timeout_keep_alive=65,
             log_level=uvicorn_log_level,
         )

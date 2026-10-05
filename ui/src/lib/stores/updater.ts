@@ -40,6 +40,10 @@ export type CheckResult = 'available' | 'up-to-date' | 'error';
 
 export async function checkForUpdate(): Promise<CheckResult> {
 	if (!browser) return 'error';
+	// Don't attempt Tauri IPC check in non-Tauri browser dev mode
+	if (typeof window !== 'undefined' && !('__TAURI_INTERNALS__' in window || '__TAURI__' in window)) {
+		return 'up-to-date';
+	}
 	// Don't re-check while a download is in flight or an install is pending.
 	const current = get(updateState);
 	if (current.downloading || current.ready) return 'available';
@@ -63,7 +67,7 @@ export async function checkForUpdate(): Promise<CheckResult> {
 		updateState.update((s) => ({ ...s, checking: false, lastCheckedAt: now }));
 		return 'up-to-date';
 	} catch (e: any) {
-		console.error('Update check failed:', e);
+		// Log warning instead of loud error in dev/browser environments
 		updateState.update((s) => ({
 			...s,
 			checking: false,
