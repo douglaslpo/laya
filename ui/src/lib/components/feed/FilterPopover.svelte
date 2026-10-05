@@ -13,6 +13,7 @@
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { portal } from '$lib/actions/portal';
 	import { platformDotColor, platformLabel } from '$lib/utils/cardVisuals';
+	import { t, locale } from '$lib/i18n';
 
 	let { open, pos, hasActiveFilters, sourcePlatforms = [] }: {
 		open: boolean;
@@ -43,7 +44,7 @@
 	<div use:portal class="filter-dropdown fixed z-[100] w-64 overflow-y-auto rounded-xl border p-3 {$glassTheme ? 'glass-menu' : 'border-surface-600 bg-surface-800 shadow-xl shadow-black/30'}" style="top: {pos.top}px; left: {pos.left}px; max-height: calc(100vh - {pos.top}px - 16px);">
 		<!-- Sort -->
 		<div class="mb-3">
-			<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">Sort</div>
+			<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">{$t('feedPage.filter_sort', 'Sort')}</div>
 			<div class="flex items-center gap-1.5">
 				<div class="flex flex-1 items-center gap-1.5 rounded-lg border border-surface-700 bg-surface-900/60 px-2 py-1">
 					<svg class="h-3.5 w-3.5 text-surface-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,17 +55,17 @@
 						class="flex-1 bg-transparent text-laya-secondary text-surface-200 outline-none cursor-pointer appearance-none pr-4"
 						style="background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23888%27 stroke-width=%272%27%3E%3Cpath d=%27M6 9l6 6 6-6%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 0 center;"
 					>
-						<option value="newest">Newest</option>
-						<option value="priority">Priority</option>
-						<option value="status">Status</option>
-						<option value="persona">Persona</option>
-						<option value="category">Category</option>
-						<option value="platform">Source</option>
-						<option value="actor">Actor</option>
+						<option value="newest">{$t('feedPage.sort_newest', 'Newest')}</option>
+						<option value="priority">{$t('feedPage.sort_priority', 'Priority')}</option>
+						<option value="status">{$t('feedPage.sort_status', 'Status')}</option>
+						<option value="persona">{$t('feedPage.sort_persona', 'Persona')}</option>
+						<option value="category">{$t('feedPage.sort_category', 'Category')}</option>
+						<option value="platform">{$t('feedPage.sort_source', 'Source')}</option>
+						<option value="actor">{$t('feedPage.sort_actor', 'Actor')}</option>
 					</select>
 				</div>
 				<button
-					aria-label="Toggle sort direction"
+					aria-label={$t('feedPage.toggle_sort_direction', 'Toggle sort direction')}
 					class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-surface-700 bg-surface-900/60 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
 					onclick={() => ($feedFilters.sortAsc = !$feedFilters.sortAsc)}
 				>
@@ -78,7 +79,7 @@
 		<!-- Workspace -->
 		{#if $spaces.length > 1}
 			<div class="mb-3">
-				<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">Workspace</div>
+				<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">{$t('feedPage.filter_workspace', 'Workspace')}</div>
 				<div class="space-y-0.5">
 					{#each $spaces as space}
 						<button
@@ -104,7 +105,7 @@
 		<!-- Sources — shared with the timeline view's SOURCE chips -->
 		{#if platformRows.length > 0}
 			<div class="mb-3">
-				<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">Sources</div>
+				<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">{$t('feedPage.filter_sources', 'Sources')}</div>
 				<div class="space-y-0.5">
 					{#each platformRows as row (row.key)}
 						<button
@@ -122,7 +123,7 @@
 							<span class="h-2 w-2 rounded-full shrink-0" style="background-color: {platformDotColor(row.key)}"></span>
 							<span class="truncate">{platformLabel(row.key)}</span>
 							{#if row.count > 0}
-								<span class="ml-auto font-mono text-laya-micro text-surface-500">{row.count.toLocaleString()}</span>
+								<span class="ml-auto font-mono text-laya-micro text-surface-500">{row.count.toLocaleString($locale)}</span>
 							{/if}
 						</button>
 					{/each}
@@ -132,9 +133,9 @@
 
 		<!-- Status -->
 		<div class="mb-3">
-			<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">Status</div>
+			<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">{$t('feedPage.filter_status', 'Status')}</div>
 			<div class="space-y-0.5">
-				{#each [['pending', 'Processing'], ['ready', 'Ready'], ['agent_running', 'Running'], ['failed', 'Failed'], ['done', 'Done'], ['dismissed', 'Dismissed']] as [value, label]}
+				{#each [['pending', $t('feedPage.status_processing', 'Processing')], ['ready', $t('feedPage.status_ready', 'Ready')], ['agent_running', $t('feedPage.status_running', 'Running')], ['failed', $t('feedPage.status_failed', 'Failed')], ['done', $t('feedPage.status_done', 'Done')], ['dismissed', $t('feedPage.status_dismissed', 'Dismissed')]] as [value, label]}
 					<button
 						class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-laya-secondary transition-colors hover:bg-surface-700
 							{$feedFilters.statusFilters.includes(value) ? 'text-laya-orange' : 'text-surface-300'}"
@@ -155,9 +156,9 @@
 
 		<!-- Priority -->
 		<div class="mb-3">
-			<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">Priority</div>
+			<div class="mb-1.5 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">{$t('feedPage.filter_priority', 'Priority')}</div>
 			<div class="space-y-0.5">
-				{#each [['CRITICAL', 'Critical'], ['HIGH', 'High'], ['MEDIUM', 'Medium'], ['LOW', 'Low']] as [value, label]}
+				{#each [['CRITICAL', $t('shared.priority_CRITICAL', 'Critical')], ['HIGH', $t('shared.priority_HIGH', 'High')], ['MEDIUM', $t('shared.priority_MEDIUM', 'Medium')], ['LOW', $t('shared.priority_LOW', 'Low')]] as [value, label]}
 					<button
 						class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-laya-secondary transition-colors hover:bg-surface-700
 							{$feedFilters.priorityFilters.includes(value) ? 'text-laya-orange' : 'text-surface-300'}"
@@ -190,7 +191,7 @@
 						</svg>
 					{/if}
 				</span>
-				Show Archived
+				{$t('feedPage.filter_show_archived', 'Show Archived')}
 			</button>
 			<button
 				class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-laya-secondary transition-colors hover:bg-surface-700
@@ -204,7 +205,7 @@
 						</svg>
 					{/if}
 				</span>
-				Has Workspace
+				{$t('feedPage.filter_has_workspace', 'Has Workspace')}
 			</button>
 			<button
 				class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-laya-secondary transition-colors hover:bg-surface-700
@@ -218,7 +219,7 @@
 						</svg>
 					{/if}
 				</span>
-				Unread Only
+				{$t('feedPage.filter_unread_only', 'Unread Only')}
 			</button>
 		</div>
 
@@ -243,7 +244,7 @@
 						$feedFilters.relatedSourceCardId = '';
 					}}
 				>
-					Clear all filters
+					{$t('feedPage.filter_clear_all', 'Clear all filters')}
 				</button>
 			</div>
 		{/if}

@@ -5,6 +5,7 @@
 	import { theme } from '$lib/stores/theme';
 	import { portal } from '$lib/actions/portal';
 	import { tick } from 'svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		value = '',
@@ -30,8 +31,19 @@
 	let selectedHour = $state(9);
 	let selectedMinute = $state(0);
 
-	const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-	const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+	// 2023-01-01 was a Sunday; the grid starts on Sunday (Date.getDay() order).
+	const WEEKDAYS = $derived.by(() => {
+		const fmt = new Intl.DateTimeFormat($locale, { weekday: 'short' });
+		return Array.from({ length: 7 }, (_, i) =>
+			fmt.format(new Date(2023, 0, 1 + i)).replace('.', '').slice(0, 3)
+		);
+	});
+
+	const monthHeader = $derived(
+		new Intl.DateTimeFormat($locale, { month: 'short', year: 'numeric' }).format(
+			new Date(viewYear, viewMonth, 1)
+		)
+	);
 
 	// Wheel refs
 	let hourWheelEl = $state<HTMLDivElement | undefined>();
@@ -222,10 +234,13 @@
 		if (!value) return '';
 		const d = new Date(value);
 		if (isNaN(d.getTime())) return value;
-		const mon = MONTHS[d.getMonth()];
-		const h = d.getHours();
-		const h12 = h % 12 || 12;
-		return `${mon} ${d.getDate()}, ${d.getFullYear()}  ${h12}:${String(d.getMinutes()).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+		return d.toLocaleString($locale, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		});
 	});
 
 	const inputBase = $derived($glassTheme
@@ -254,7 +269,7 @@
 	{#if displayValue}
 		{displayValue}
 	{:else}
-		<span class="text-surface-600">Pick date & time</span>
+		<span class="text-surface-600">{$t('actions.pick_datetime', 'Pick date & time')}</span>
 	{/if}
 </button>
 
@@ -267,11 +282,11 @@
 	>
 		<!-- Month nav -->
 		<div class="flex items-center justify-between mb-2">
-			<button type="button" class="rounded p-1 text-surface-400 hover:text-surface-200 transition-colors {$glassTheme ? 'hover:bg-white/[0.08]' : 'hover:bg-surface-700'}" onclick={prevMonth} aria-label="Previous month">
+			<button type="button" class="rounded p-1 text-surface-400 hover:text-surface-200 transition-colors {$glassTheme ? 'hover:bg-white/[0.08]' : 'hover:bg-surface-700'}" onclick={prevMonth} aria-label={$t('actions.previous_month', 'Previous month')}>
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
 			</button>
-			<span class="text-xs font-semibold text-surface-200">{MONTHS[viewMonth]} {viewYear}</span>
-			<button type="button" class="rounded p-1 text-surface-400 hover:text-surface-200 transition-colors {$glassTheme ? 'hover:bg-white/[0.08]' : 'hover:bg-surface-700'}" onclick={nextMonth} aria-label="Next month">
+			<span class="text-xs font-semibold text-surface-200">{monthHeader}</span>
+			<button type="button" class="rounded p-1 text-surface-400 hover:text-surface-200 transition-colors {$glassTheme ? 'hover:bg-white/[0.08]' : 'hover:bg-surface-700'}" onclick={nextMonth} aria-label={$t('actions.next_month', 'Next month')}>
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
 			</button>
 		</div>

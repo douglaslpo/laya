@@ -13,6 +13,7 @@
 	import { formatMinutes, localMinutes } from '$lib/timeline/scale';
 	import { layoutMeetings } from '$lib/timeline/threads';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t } from '$lib/i18n';
 
 	let {
 		meetings = [],
@@ -67,8 +68,13 @@
 	function tooltipText(m: DayMeeting, startMin: number, endMin: number): string {
 		const parts = [`${formatMinutes(startMin)}–${formatMinutes(endMin)}  ${m.title}`];
 		if (m.location) parts.push(m.location);
-		if (m.attendee_count > 0) parts.push(`${m.attendee_count} attendees`);
-		if (m.cancelled) parts.push('Cancelled');
+		if (m.attendee_count > 0)
+			parts.push(
+				m.attendee_count === 1
+					? $t('feedGroups.attendees_one', '{count} attendee', { count: m.attendee_count })
+					: $t('feedGroups.attendees_other', '{count} attendees', { count: m.attendee_count })
+			);
+		if (m.cancelled) parts.push($t('feedGroups.cancelled', 'Cancelled'));
 		return parts.join(' · ');
 	}
 </script>
@@ -82,7 +88,7 @@
 			   tint on an opaque page base, or capsules would slide visibly through it. */
 			: `left: ${stickyLeft}px; background: linear-gradient(var(--tl-rail-bg), var(--tl-rail-bg)), var(--color-surface-950);`}"
 >
-	<span class="absolute left-2 top-1.5 font-mono text-[8px] uppercase tracking-[0.1em]" style="color: var(--tl-micro)">Calendar</span>
+	<span class="absolute left-2 top-1.5 font-mono text-[8px] uppercase tracking-[0.1em]" style="color: var(--tl-micro)">{$t('feedGroups.calendar', 'Calendar')}</span>
 
 	<!-- Hour gridlines are drawn in the rail as well as the lanes so meetings and
 	     capsules read against the same grid. -->
@@ -97,9 +103,9 @@
 				<div
 					class="truncate rounded px-1.5 py-0.5 text-[8.5px] font-medium"
 					style="background: var(--tl-meet-bg); color: var(--tl-meet-fg); border-left: 2px solid var(--tl-meet-edge);"
-					title="All day · {m.title}"
+					title={$t('feedGroups.all_day_title', 'All day · {title}', { title: m.title })}
 				>
-					{compact ? 'All day' : m.title}
+					{compact ? $t('feedGroups.all_day', 'All day') : m.title}
 				</div>
 			{/each}
 		</div>

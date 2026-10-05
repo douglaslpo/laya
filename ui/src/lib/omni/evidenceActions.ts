@@ -9,6 +9,7 @@
 // `_polishing` flags arrive as page-level WS messages, not per-component ones.
 
 import type { ActionCard, SuggestedAction } from '$lib/api/types';
+import { tr } from '$lib/i18n';
 
 export interface EvidenceActionContext {
 	executingActionId: string | null;
@@ -42,12 +43,12 @@ export function getEditableTextField(payload: Record<string, unknown>): string |
 
 /** Human labels for staged_output.type. */
 export const OUTPUT_TYPE_LABELS: Record<string, string> = {
-	draft_reply: 'Draft Reply',
-	code_fix: 'Code Fix',
-	briefing: 'Briefing',
-	summary: 'Summary',
-	agent_result: 'Agent Result',
-	agent_plan: 'Agent Plan'
+	get draft_reply() { return tr('omniTrace.output_draft_reply', 'Draft Reply'); },
+	get code_fix() { return tr('omniTrace.output_code_fix', 'Code Fix'); },
+	get briefing() { return tr('omniTrace.output_briefing', 'Briefing'); },
+	get summary() { return tr('omniTrace.output_summary', 'Summary'); },
+	get agent_result() { return tr('omniTrace.output_agent_result', 'Agent Result'); },
+	get agent_plan() { return tr('omniTrace.output_agent_plan', 'Agent Plan'); }
 };
 
 /** Platform key for the "Open on <platform>" link — same derivation as before. */

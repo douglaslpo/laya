@@ -15,6 +15,7 @@
 	import StatusDot from './StatusDot.svelte';
 	import PlatformIcon from '$lib/components/settings/PlatformIcon.svelte';
 	import { platformDotColor, platformKey, actorInitials, actorAvatarColor, PRIORITY_LABELS, PRIORITY_COLORS } from '$lib/utils/cardVisuals';
+	import { t, locale } from '$lib/i18n';
 
 	let { card, onselect, ondelete, onlink, selectedCardId = '', hasSelection = false, lastViewedCardId = '' }: { card: ActionCard; onselect: (card: ActionCard) => void; ondelete?: (cardId: string) => void; onlink?: (card: ActionCard) => void; selectedCardId?: string; hasSelection?: boolean; lastViewedCardId?: string } = $props();
 
@@ -102,28 +103,32 @@
 		archived:           'bg-surface-600'
 	};
 
-	const statusLabel: Record<string, string> = {
+	// pending/ready/awaiting_input read differently on cards than the shared status labels.
+	const cardStatusFallback: Record<string, string> = {
 		pending:            'Processing',
 		ready:              'Ready',
-
-		agent_running:      'Agent Running',
-		awaiting_input:     'Input Needed',
-		done:               'Done',
-		failed:             'Failed',
-		dismissed:          'Dismissed',
-		archived:           'Archived'
+		awaiting_input:     'Input Needed'
 	};
 
-	const platformLabel: Record<string, string> = {
+	function statusText(status: string): string {
+		if (status in cardStatusFallback) return $t(`feedCards.status_${status}`, cardStatusFallback[status]);
+		return $t(`shared.status_${status}`, status);
+	}
+
+	const deleteBodyParts = $derived(
+		$t('feedCards.delete_body', 'All details, intelligence, workspace sessions, and related events for this card will be {emphasis}. This cannot be undone.').split('{emphasis}')
+	);
+
+	const platformLabel: Record<string, string> = $derived({
 		jira:      'Jira',
 		gmail:     'Gmail',
 		slack:     'Slack',
 		bitbucket: 'Bitbucket',
 		bitbucket_server: 'Bitbucket Server',
-		calendar:  'Calendar',
+		calendar:  $t('feedCards.platform_calendar', 'Calendar'),
 		github:    'GitHub',
 		laya:      'Laya'
-	};
+	});
 
 	const glassStatusCardStyle: Record<string, string> = {
 		pending:            'glass-card bg-amber-950/45  border-transparent  hover:border-amber-700/30  card-pulse-amber',
@@ -196,7 +201,7 @@
 	function fullDate(dateStr?: string): string {
 		const d = parseBackendDate(dateStr);
 		if (!d) return '';
-		return d.toLocaleString(undefined, {
+		return d.toLocaleString($locale, {
 			month: 'short', day: 'numeric', year: 'numeric',
 			hour: 'numeric', minute: '2-digit'
 		});
@@ -334,9 +339,9 @@
 			{#if card.status === 'ready'}
 				<!-- Mark as Done -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Mark as Done')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.mark_done', 'Mark as Done'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Mark as Done"
+						aria-label={$t('feedCards.mark_done', 'Mark as Done')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-green-400/60 transition-all hover:bg-green-500/15 hover:text-green-400 disabled:opacity-40"
 						onclick={markDone}
 						disabled={markingDone}
@@ -348,9 +353,9 @@
 				</div>
 				<!-- Dismiss -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Dismiss')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('common.dismiss', 'Dismiss'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Dismiss"
+						aria-label={$t('common.dismiss', 'Dismiss')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-surface-500 transition-all hover:bg-surface-500/15 hover:text-surface-300 disabled:opacity-40"
 						onclick={dismiss}
 						disabled={dismissing}
@@ -366,7 +371,7 @@
 						<button
 							class="flex h-6 w-6 items-center justify-center rounded-md text-surface-500 transition-all hover:bg-surface-700/50 hover:text-surface-300"
 							onclick={(e) => { e.stopPropagation(); if (!actionMenuOpen && actionMenuEl) { const r = actionMenuEl.getBoundingClientRect(); actionMenuPos = { top: r.bottom + 4, left: r.left }; } actionMenuOpen = !actionMenuOpen; }}
-							aria-label="More actions"
+							aria-label={$t('feedCards.more_actions', 'More actions')}
 						>
 							<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
 								<path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -381,7 +386,7 @@
 									disabled={archiving}
 								>
 									<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-									Archive
+									{$t('feedCards.archive', 'Archive')}
 								</button>
 								<button
 									class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary text-surface-300 transition-colors hover:bg-surface-700 hover:text-violet-400"
@@ -389,7 +394,7 @@
 									onclick={(e) => { e.stopPropagation(); actionMenuOpen = false; goto(`/workspace/${card.card_id}`); }}
 								>
 									<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-									Workspace
+									{$t('nav.workspace', 'Workspace')}
 								</button>
 							</div>
 						{/if}
@@ -397,9 +402,9 @@
 				{:else}
 					<!-- No workspace — Archive fits as 3rd button -->
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Archive')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.archive', 'Archive'))} onmouseleave={hideTooltip}>
 						<button
-							aria-label="Archive"
+							aria-label={$t('feedCards.archive', 'Archive')}
 							class="flex h-6 w-6 items-center justify-center rounded-md text-red-400/60 transition-all hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40"
 							onclick={archive}
 							disabled={archiving}
@@ -413,9 +418,9 @@
 			{:else if card.status === 'dismissed'}
 				<!-- Reopen -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Reopen')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.reopen', 'Reopen'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Reopen"
+						aria-label={$t('feedCards.reopen', 'Reopen')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-laya-orange/60 transition-all hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40"
 						onclick={reopen}
 						disabled={reopening}
@@ -427,9 +432,9 @@
 				</div>
 				<!-- Archive -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Archive')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.archive', 'Archive'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Archive"
+						aria-label={$t('feedCards.archive', 'Archive')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-red-400/60 transition-all hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40"
 						onclick={archive}
 						disabled={archiving}
@@ -442,9 +447,9 @@
 			{:else if card.status === 'archived'}
 				<!-- Unarchive -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Unarchive')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.unarchive', 'Unarchive'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Unarchive"
+						aria-label={$t('feedCards.unarchive', 'Unarchive')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-laya-orange/60 transition-all hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40"
 						onclick={reopen}
 						disabled={reopening}
@@ -456,9 +461,9 @@
 				</div>
 				<!-- Delete -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Delete')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('common.delete', 'Delete'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Delete"
+						aria-label={$t('common.delete', 'Delete')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-red-400/60 transition-all hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40"
 						onclick={(e) => { e.stopPropagation(); showDeleteConfirm = true; }}
 						disabled={deleting}
@@ -471,9 +476,9 @@
 			{:else if card.status === 'done'}
 				<!-- Reopen -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Reopen')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.reopen', 'Reopen'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Reopen"
+						aria-label={$t('feedCards.reopen', 'Reopen')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-laya-orange/60 transition-all hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40"
 						onclick={reopen}
 						disabled={reopening}
@@ -485,9 +490,9 @@
 				</div>
 				<!-- Archive -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Archive')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.archive', 'Archive'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Archive"
+						aria-label={$t('feedCards.archive', 'Archive')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-red-400/60 transition-all hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40"
 						onclick={archive}
 						disabled={archiving}
@@ -500,9 +505,9 @@
 			{:else if card.status === 'failed'}
 				<!-- Retry -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Retry')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('common.retry', 'Retry'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Retry"
+						aria-label={$t('common.retry', 'Retry')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-laya-orange/60 transition-all hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40"
 						onclick={reopen}
 						disabled={reopening}
@@ -515,9 +520,9 @@
 				</div>
 				<!-- Archive -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Archive')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.archive', 'Archive'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Archive"
+						aria-label={$t('feedCards.archive', 'Archive')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-surface-500 transition-all hover:bg-surface-500/15 hover:text-surface-300 disabled:opacity-40"
 						onclick={archive}
 						disabled={archiving}
@@ -530,9 +535,9 @@
 			{:else if card.status === 'awaiting_input'}
 				<!-- Archive -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Archive')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.archive', 'Archive'))} onmouseleave={hideTooltip}>
 					<button
-						aria-label="Archive"
+						aria-label={$t('feedCards.archive', 'Archive')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-red-400/60 transition-all hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40"
 						onclick={archive}
 						disabled={archiving}
@@ -546,10 +551,10 @@
 			{#if card.has_workspace && card.status !== 'ready'}
 				<!-- Open Workspace — shown as standalone button only for statuses with ≤2 actions -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Open Workspace')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.open_workspace', 'Open Workspace'))} onmouseleave={hideTooltip}>
 					<a
 						href="/workspace/{card.card_id}"
-						aria-label="Open Workspace"
+						aria-label={$t('feedCards.open_workspace', 'Open Workspace')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-violet-400/60 transition-all hover:bg-violet-500/15 hover:text-violet-400"
 						onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(`/workspace/${card.card_id}`); }}
 					>
@@ -567,7 +572,7 @@
 			<!-- Link to (only for standalone cards, not cards inside groups) -->
 			{#if onlink}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Link to...')} onmouseleave={hideTooltip}>
+				<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.link_to', 'Link to...'))} onmouseleave={hideTooltip}>
 					<span
 						role="button"
 						tabindex="0"
@@ -584,7 +589,7 @@
 			{/if}
 			<!-- Bookmark -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, card.bookmarked_at ? 'Remove Bookmark' : 'Bookmark')} onmouseleave={hideTooltip}>
+			<div class="relative" onmouseenter={(e) => showTooltip(e.currentTarget, card.bookmarked_at ? $t('feedCards.remove_bookmark', 'Remove bookmark') : $t('feedCards.bookmark', 'Bookmark'))} onmouseleave={hideTooltip}>
 				<span
 					role="button"
 					tabindex="0"
@@ -603,10 +608,10 @@
 			{#if card.has_workspace}
 				<!-- Workspace indicator doubles as a shortcut: clicking it opens the workspace directly. -->
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="ml-1 shrink-0 relative" onmouseenter={(e) => showTooltip(e.currentTarget, 'Open Workspace')} onmouseleave={hideTooltip}>
+				<div class="ml-1 shrink-0 relative" onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.open_workspace', 'Open Workspace'))} onmouseleave={hideTooltip}>
 					<a
 						href="/workspace/{card.card_id}"
-						aria-label="Open Workspace"
+						aria-label={$t('feedCards.open_workspace', 'Open Workspace')}
 						class="flex h-6 w-6 items-center justify-center rounded-md text-violet-400/60 transition-all hover:bg-violet-500/15 hover:text-violet-400"
 						onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(`/workspace/${card.card_id}`); }}
 					>
@@ -619,11 +624,11 @@
 			<!-- Status indicator -->
 			<span class="ml-1 flex items-center gap-1 min-w-0 overflow-hidden {card.status === 'awaiting_input' ? 'status-glow-violet' : ''}">
 				<StatusDot status={card.status} size="md" errorMessage={card.last_error} />
-				<span class="text-laya-secondary text-surface-400 truncate" title={card.status === 'failed' && card.last_error ? card.last_error : ''}>{statusLabel[card.status] ?? card.status}</span>
+				<span class="text-laya-secondary text-surface-400 truncate" title={card.status === 'failed' && card.last_error ? card.last_error : ''}>{statusText(card.status)}</span>
 			</span>
 			<!-- Priority chip -->
 			<span class="ml-1 shrink-0 rounded px-1.5 py-0.5 text-laya-micro font-bold uppercase {priorityColors[card.priority] ?? priorityColors.MEDIUM}">
-				{priorityLabel[card.priority] ?? card.priority}
+				{$t(`feedCards.priority_short_${card.priority}`, priorityLabel[card.priority] ?? card.priority)}
 			</span>
 		</div>
 	</div>
@@ -741,7 +746,7 @@
 				<span class="truncate">{card.space_name}</span>
 			</span>
 		{/if}
-		<span class="ml-auto shrink-0 text-laya-micro font-medium {personaColors[card.persona] ?? personaColors.ENGINEER}">{card.persona}</span>
+		<span class="ml-auto shrink-0 text-laya-micro font-medium {personaColors[card.persona] ?? personaColors.ENGINEER}">{$t(`shared.persona_${card.persona}`, card.persona)}</span>
 	</div>
 </div>
 
@@ -764,7 +769,7 @@
 		use:portal
 		class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		role="dialog"
-		aria-label="Confirm delete"
+		aria-label={$t('feedCards.delete_confirm_label', 'Confirm delete')}
 		tabindex="-1"
 		onclick={(e) => { if (e.target === e.currentTarget) showDeleteConfirm = false; }}
 		onkeydown={(e) => { if (e.key === 'Escape') showDeleteConfirm = false; }}
@@ -777,10 +782,9 @@
 					</svg>
 				</div>
 				<div>
-					<h4 class="text-laya-base font-semibold text-surface-50">Delete card permanently?</h4>
+					<h4 class="text-laya-base font-semibold text-surface-50">{$t('feedCards.delete_title', 'Delete card permanently?')}</h4>
 					<p class="mt-1 text-laya-secondary leading-relaxed text-surface-400">
-						All details, intelligence, workspace sessions, and related events for this card will be
-						<span class="font-medium text-red-400">permanently removed</span>. This cannot be undone.
+						{deleteBodyParts[0]}<span class="font-medium text-red-400">{$t('feedCards.delete_body_emphasis', 'permanently removed')}</span>{deleteBodyParts[1] ?? ''}
 					</p>
 				</div>
 			</div>
@@ -790,14 +794,14 @@
 					onclick={(e) => { e.stopPropagation(); showDeleteConfirm = false; }}
 					disabled={deleting}
 				>
-					Cancel
+					{$t('common.cancel', 'Cancel')}
 				</button>
 				<button
 					class="rounded-md bg-red-700 px-3 py-1.5 text-laya-secondary font-medium text-red-50 transition-colors hover:bg-red-600 disabled:opacity-50"
 					onclick={deleteCard}
 					disabled={deleting}
 				>
-					{deleting ? 'Deleting…' : 'Delete permanently'}
+					{deleting ? $t('feedCards.deleting', 'Deleting…') : $t('feedCards.delete_permanently', 'Delete permanently')}
 				</button>
 			</div>
 		</div>

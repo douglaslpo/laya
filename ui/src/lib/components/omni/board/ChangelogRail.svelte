@@ -5,6 +5,7 @@
 	import { duration, hhmm, layerLabel } from '$lib/omni/layers';
 	import { parseBackendDate } from '$lib/utils/datetime';
 	import VersionPicker from './VersionPicker.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		changes,
@@ -38,6 +39,7 @@
 	const displayEntries = $derived(entries);
 
 	const sinceLabel = $derived.by(() => {
+		void $locale;
 		const at = parseBackendDate(changes?.base_generated_at);
 		if (!at) return null;
 		return duration(Date.now() - at.getTime());
@@ -58,10 +60,15 @@
 		if (!changes) return [];
 		const out: Entry[] = [];
 
+		void $locale;
 		for (const a of changes.added) {
 			const bits = [layerLabel(a.section)];
 			if (a.source_count) {
-				bits.push(`from ${a.source_count} ${a.source_count === 1 ? 'event' : 'events'}`);
+				bits.push(
+					a.source_count === 1
+						? $t('omniTrace.from_events_one', 'from {count} event', { count: a.source_count })
+						: $t('omniTrace.from_events_other', 'from {count} events', { count: a.source_count })
+				);
 			}
 			if (a.platforms.length) bits.push(a.platforms.join(', '));
 			out.push({
@@ -77,11 +84,16 @@
 
 		for (const f of changes.folded) {
 			const text = f.to_section
-				? `"${f.from_text}" folded into "${f.to_text ?? ''}"`
-				: `"${f.from_text}" compressed away`;
+				? $t('omniTrace.change_folded_into', '"{from}" folded into "{to}"', {
+						from: f.from_text,
+						to: f.to_text ?? ''
+					})
+				: $t('omniTrace.change_compressed_away', '"{text}" compressed away', { text: f.from_text });
 			const meta = f.to_section
 				? `${layerLabel(f.from_section)} → ${layerLabel(f.to_section)}`
-				: `${layerLabel(f.from_section)} · dropped`;
+				: $t('omniTrace.change_dropped_meta', '{section} · dropped', {
+						section: layerLabel(f.from_section)
+					});
 			out.push({
 				kind: 'folded',
 				glyph: '↓',
@@ -100,8 +112,13 @@
 			out.push({
 				kind: 'resolved',
 				glyph: '✓',
-				text: `"${r.text}" resolved`,
-				meta: closed ? `${layerLabel(r.section)} · closed ${closed}` : layerLabel(r.section),
+				text: $t('omniTrace.change_resolved', '"{text}" resolved', { text: r.text }),
+				meta: closed
+					? $t('omniTrace.change_closed_meta', '{section} · closed {time}', {
+							section: layerLabel(r.section),
+							time: closed
+						})
+					: layerLabel(r.section),
 				itemKey: r.item_key,
 				section: r.section,
 				// The write at r.version dropped the line; its last state is one back.
@@ -122,9 +139,9 @@
 		if (!changes) return [];
 		return (
 			[
-				{ kind: 'added' as const, glyph: '+', n: changes.counts.added, label: 'new' },
-				{ kind: 'folded' as const, glyph: '↓', n: changes.counts.folded, label: 'folded' },
-				{ kind: 'resolved' as const, glyph: '✓', n: changes.counts.resolved, label: 'resolved' }
+				{ kind: 'added' as const, glyph: '+', n: changes.counts.added, label: $t('omni.new') },
+				{ kind: 'folded' as const, glyph: '↓', n: changes.counts.folded, label: $t('omni.folded') },
+				{ kind: 'resolved' as const, glyph: '✓', n: changes.counts.resolved, label: $t('omni.resolved') }
 			] satisfies Array<{ kind: Entry['kind']; glyph: string; n: number; label: string }>
 		).filter((c) => c.n > 0);
 	});
@@ -137,13 +154,13 @@
 	<!-- z-10 so the version popovers' anchors sit above the entry rows below -->
 	<div class="relative z-10 flex flex-none flex-col gap-1 px-[15px] pt-3 pb-2">
 		<div class="flex items-center gap-2">
-			<span class="om-title" style="color: var(--om-text);">What changed</span>
+			<span class="om-title" style="color: var(--om-text);">{$t('omni.what_changed')}</span>
 			<span class="flex-1"></span>
 			<VersionPicker
 				value={baseVersion}
 				entries={baseEntries}
 				variant="base"
-				caption="Compare against"
+				caption={$t('omniTrace.compare_against', 'Compare against')}
 				disabled={baseEntries.length === 0}
 				onSelect={onBaseChange}
 				{onFullHistory}
@@ -153,16 +170,16 @@
 				value={displayVersion}
 				entries={displayEntries}
 				variant="display"
-				caption="Show version"
+				caption={$t('omniTrace.show_version', 'Show version')}
 				onSelect={onDisplayChange}
 				{onFullHistory}
 			/>
 		</div>
 		<span class="om-pill-t" style="color: var(--om-text-meta);">
 			{#if sinceLabel}
-				since you last looked, {sinceLabel} ago
+				{$t('omni.since_last_looked')}, {sinceLabel}
 			{:else}
-				compared with v{baseVersion}
+				{$t('omniTrace.compared_with_version', 'compared with v{version}', { version: baseVersion })}
 			{/if}
 		</span>
 	</div>
@@ -187,17 +204,27 @@
 		style="border-top: 1px solid var(--om-divider);"
 	>
 		{#if loading}
-			<p class="om-pill-t px-[15px] py-3" style="color: var(--om-text-meta);">Reading the diff…</p>
+			<p class="om-pill-t px-[15px] py-3" style="color: var(--om-text-meta);">{$t('omniTrace.reading_diff', 'Reading the diff…')}</p>
 		{:else if rows.length === 0}
 			<p class="om-entry-t px-[15px] py-3" style="color: var(--om-text-meta);">
 				{#if changes && changes.unsummarized_versions.length > 0}
 					<!-- Honest about the gap rather than claiming nothing happened:
 					     pre-migration-072 snapshots recorded no diff to read back. -->
-					No recorded changes between v{baseVersion} and v{displayVersion}. {changes
-						.unsummarized_versions.length}
-					{changes.unsummarized_versions.length === 1 ? 'version predates' : 'versions predate'} change tracking.
+					{$t('omniTrace.no_recorded_changes', 'No recorded changes between v{base} and v{display}.', {
+						base: baseVersion,
+						display: displayVersion
+					})}
+					{changes.unsummarized_versions.length === 1
+						? $t('omniTrace.versions_predate_one', '{count} version predates change tracking.', {
+								count: changes.unsummarized_versions.length
+							})
+						: $t('omniTrace.versions_predate_other', '{count} versions predate change tracking.', {
+								count: changes.unsummarized_versions.length
+							})}
 				{:else}
-					Nothing has changed since v{baseVersion}.
+					{$t('omniTrace.nothing_changed_since', 'Nothing has changed since v{version}.', {
+						version: baseVersion
+					})}
 				{/if}
 			</p>
 		{:else}

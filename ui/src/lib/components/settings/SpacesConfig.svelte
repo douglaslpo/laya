@@ -9,6 +9,13 @@
 	import type { Space, Source, AvailableWorkflow, Repo, ProviderModels, AgentBackend } from '$lib/api/types';
 	import { CODING_AGENTS, agentLabel } from '$lib/config';
 	import ModelSelect from './ModelSelect.svelte';
+	import { t, type TranslateParams } from '$lib/i18n';
+
+	function tp(n: number, key: string, one: string, other: string, params: TranslateParams = {}): string {
+		return n === 1
+			? $t(`${key}_one`, one, { count: n, ...params })
+			: $t(`${key}_other`, other, { count: n, ...params });
+	}
 
 	const providers = [
 		{ id: 'anthropic', label: 'Anthropic' },
@@ -22,10 +29,10 @@
 	// Derived from the global CODING_AGENTS list so every supported agent (e.g. Pi)
 	// appears automatically — a hardcoded copy here drifted out of sync and dropped Pi.
 	// '' = use the global default; 'none' is excluded since a space override must name a real agent.
-	const agentOptions = [
-		{ value: '', label: 'Use default' },
+	const agentOptions = $derived([
+		{ value: '', label: $t('settingsData.spaces_use_default', 'Use default') },
 		...CODING_AGENTS.filter((a) => a.value !== 'none').map((a) => ({ value: a.value, label: a.label }))
-	];
+	]);
 
 	function integrationDisplayName(name: string): string {
 		return name.replace(/ \((Ingestion|Executor)\)$/i, '');
@@ -282,7 +289,7 @@
 	}
 
 	async function deleteSpace(space: Space) {
-		if (!confirm(`Delete "${space.name}"? Sources and cards will be moved to Default.`)) return;
+		if (!confirm($t('settingsData.spaces_delete_confirm', 'Delete "{name}"? Sources and cards will be moved to Default.', { name: space.name }))) return;
 		try {
 			await engineApi.deleteSpace(space.space_id);
 			expandedSpaceId = null;
@@ -552,7 +559,7 @@
 	}
 
 	function modelLabel(value: string | undefined | null): string {
-		if (!value) return 'Default';
+		if (!value) return $t('settingsData.spaces_default_model', 'Default');
 		for (const p of availableModels) {
 			const m = p.models.find((m) => m.id === value);
 			if (m) return m.name;
@@ -563,15 +570,15 @@
 </script>
 
 {#if !loaded}
-	<div class="flex items-center justify-center py-12 text-surface-400">Loading spaces...</div>
+	<div class="flex items-center justify-center py-12 text-surface-400">{$t('settingsData.spaces_loading', 'Loading spaces...')}</div>
 {:else}
 	<div class="space-y-6">
 		<!-- Header -->
 		<div class="flex items-center justify-between">
 			<div>
-				<h3 class="text-laya-heading font-medium">Spaces</h3>
+				<h3 class="text-laya-heading font-medium">{$t('settings.spaces', 'Spaces')}</h3>
 				<p class="text-laya-base text-surface-400">
-					Group event sources and assign specific models or API keys per space.
+					{$t('settingsData.spaces_subtitle', 'Group event sources and assign specific models or API keys per space.')}
 				</p>
 			</div>
 			{#if !showCreateForm}
@@ -579,7 +586,7 @@
 					onclick={startCreate}
 					class="rounded-md bg-laya-orange/15 px-4 py-2 text-laya-base font-medium text-laya-orange transition-colors hover:bg-laya-orange/25"
 				>
-					+ New Space
+					{$t('settingsData.spaces_new_button', '+ New Space')}
 				</button>
 			{/if}
 		</div>
@@ -587,7 +594,7 @@
 		<!-- Create Form (top-level, only for new spaces) -->
 		{#if showCreateForm}
 			<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-laya-orange/30 bg-surface-800'} p-5">
-				<h4 class="mb-4 font-medium">New Space</h4>
+				<h4 class="mb-4 font-medium">{$t('settingsData.spaces_new_title', 'New Space')}</h4>
 
 				{@render spaceForm(false)}
 			</div>
@@ -614,10 +621,10 @@
 						<div class="flex items-center gap-2">
 							<span class="text-laya-base font-semibold text-surface-100">{space.name}</span>
 							{#if space.is_default}
-								<span class="rounded {$glassTheme ? 'bg-white/[0.08]' : 'bg-surface-600'} px-1.5 py-0.5 text-laya-secondary font-medium text-surface-400">DEFAULT</span>
+								<span class="rounded {$glassTheme ? 'bg-white/[0.08]' : 'bg-surface-600'} px-1.5 py-0.5 text-laya-secondary font-medium text-surface-400">{$t('settingsData.spaces_badge_default', 'DEFAULT')}</span>
 							{/if}
 							{#if space.paused}
-								<span class="rounded bg-laya-amber/20 px-1.5 py-0.5 text-laya-secondary font-semibold text-laya-amber">PAUSED</span>
+								<span class="rounded bg-laya-amber/20 px-1.5 py-0.5 text-laya-secondary font-semibold text-laya-amber">{$t('settingsData.spaces_badge_paused', 'PAUSED')}</span>
 							{/if}
 							{#if spaceSources.length > 0}
 								<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -629,14 +636,14 @@
 											? 'bg-laya-orange/15 text-laya-orange hover:bg-laya-orange/25'
 											: $glassTheme ? 'bg-white/[0.08] text-surface-400 hover:bg-white/[0.14] hover:text-surface-200' : 'bg-surface-700 text-surface-400 hover:bg-surface-600 hover:text-surface-200'}
 										{togglingPause === space.space_id ? ' opacity-50 pointer-events-none' : ''}"
-									title={space.paused ? 'Resume all ingestion workflows' : 'Pause all ingestion workflows'}
+									title={space.paused ? $t('settingsData.spaces_resume_title', 'Resume all ingestion workflows') : $t('settingsData.spaces_pause_title', 'Pause all ingestion workflows')}
 								>
 									{#if togglingPause === space.space_id}
 										...
 									{:else if space.paused}
-										▶ Resume
+										{$t('settingsData.spaces_resume', '▶ Resume')}
 									{:else}
-										⏸ Pause
+										{$t('settingsData.spaces_pause', '⏸ Pause')}
 									{/if}
 								</span>
 							{/if}
@@ -646,15 +653,15 @@
 						{/if}
 					</div>
 					<div class="flex items-center gap-2.5 text-laya-secondary text-surface-400">
-						<span>{groupedSources.length} source{groupedSources.length !== 1 ? 's' : ''}</span>
+						<span>{tp(groupedSources.length, 'settingsData.spaces_sources', '{count} source', '{count} sources')}</span>
 						{#if space.router_model || space.stager_model || space.chat_model || space.trace_model || space.omni_model}
-							<span class="rounded {$glassTheme ? 'bg-white/[0.08]' : 'bg-surface-700'} px-1.5 py-0.5 text-laya-secondary">Custom models</span>
+							<span class="rounded {$glassTheme ? 'bg-white/[0.08]' : 'bg-surface-700'} px-1.5 py-0.5 text-laya-secondary">{$t('settingsData.spaces_custom_models', 'Custom models')}</span>
 						{/if}
 						{#if space.coding_agent}
 							<span class="rounded {$glassTheme ? 'bg-white/[0.08]' : 'bg-surface-700'} px-1.5 py-0.5 text-laya-secondary">{agentLabel(space.coding_agent)}</span>
 						{/if}
 						{#if spaceRepoNames[space.space_id]?.length}
-							<span class="rounded {$glassTheme ? 'bg-white/[0.08]' : 'bg-surface-700'} px-1.5 py-0.5 text-laya-secondary">{spaceRepoNames[space.space_id].length} repo{spaceRepoNames[space.space_id].length !== 1 ? 's' : ''}</span>
+							<span class="rounded {$glassTheme ? 'bg-white/[0.08]' : 'bg-surface-700'} px-1.5 py-0.5 text-laya-secondary">{tp(spaceRepoNames[space.space_id].length, 'settingsData.spaces_repos', '{count} repo', '{count} repos')}</span>
 						{/if}
 						<svg
 							class="h-4 w-4 transition-transform {isExpanded ? 'rotate-180' : ''}"
@@ -676,16 +683,16 @@
 							<!-- Sources -->
 							<div>
 								<div class="flex items-center justify-between mb-2">
-									<h5 class="text-laya-base font-semibold text-surface-200">Sources</h5>
+									<h5 class="text-laya-base font-semibold text-surface-200">{$t('settingsData.spaces_sources_heading', 'Sources')}</h5>
 									<button
 										onclick={() => startAssigning(space.space_id)}
 										class="text-laya-base text-laya-orange hover:text-laya-orange/80 transition-colors"
 									>
-										+ Assign workflows
+										{$t('settingsData.spaces_assign_workflows', '+ Assign workflows')}
 									</button>
 								</div>
 								{#if groupedSources.length === 0}
-									<p class="text-laya-base text-surface-500 italic">No sources assigned. Click "Assign workflows" to add n8n ingestion workflows to this space.</p>
+									<p class="text-laya-base text-surface-500 italic">{$t('settingsData.spaces_no_sources', 'No sources assigned. Click "Assign workflows" to add n8n ingestion workflows to this space.')}</p>
 								{:else}
 									<div class="space-y-1">
 										{#each groupedSources as group (`${group.platform}::${group.displayName}`)}
@@ -704,7 +711,7 @@
 												<button
 													onclick={() => removeSourceGroup(group)}
 													class="text-laya-secondary text-red-400/60 hover:text-red-400 transition-colors"
-													title="Unregister source"
+													title={$t('settingsData.spaces_unregister_source', 'Unregister source')}
 												>
 													✕
 												</button>
@@ -717,11 +724,11 @@
 							<!-- Repositories -->
 							{#if allRepos.length > 0}
 								<div>
-									<h5 class="text-laya-base font-semibold text-surface-200 mb-2">Repositories</h5>
+									<h5 class="text-laya-base font-semibold text-surface-200 mb-2">{$t('settingsData.spaces_repositories', 'Repositories')}</h5>
 									<p class="text-laya-base text-surface-500 mb-2">
-										Assign repos to this space so engineer tasks pick the right codebase.
+										{$t('settingsData.spaces_repos_desc', 'Assign repos to this space so engineer tasks pick the right codebase.')}
 										{#if !spaceRepoNames[space.space_id]?.length}
-											<span class="text-surface-400">No repos assigned — agent will search all repos.</span>
+											<span class="text-surface-400">{$t('settingsData.spaces_no_repos', 'No repos assigned — agent will search all repos.')}</span>
 										{/if}
 									</p>
 									<div class="space-y-1">
@@ -750,50 +757,50 @@
 
 							<!-- Model & Agent Configuration -->
 							<div>
-								<h5 class="text-laya-base font-semibold text-surface-200 mb-3">Model & Agent Configuration</h5>
+								<h5 class="text-laya-base font-semibold text-surface-200 mb-3">{$t('settingsData.spaces_model_agent_config', 'Model & Agent Configuration')}</h5>
 								<div class="{$glassTheme ? 'rounded-lg border border-white/[0.06] divide-y divide-white/[0.05]' : 'rounded-lg border border-surface-700 divide-y divide-surface-700'}">
 									<!-- Pipeline Models -->
 									<div class="px-4 py-2.5 flex items-center justify-between">
 										<div>
-											<span class="text-laya-base text-surface-200">Router</span>
-											<p class="text-laya-secondary text-surface-500">Classifies incoming events</p>
+											<span class="text-laya-base text-surface-200">{$t('settingsData.role_router', 'Router')}</span>
+											<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_router_desc', 'Classifies incoming events')}</p>
 										</div>
 										<span class="text-laya-base text-surface-400">{modelLabel(space.router_model)}</span>
 									</div>
 									<div class="px-4 py-2.5 flex items-center justify-between">
 										<div>
-											<span class="text-laya-base text-surface-200">Stager</span>
-											<p class="text-laya-secondary text-surface-500">Stages actions from events</p>
+											<span class="text-laya-base text-surface-200">{$t('settingsData.role_stager', 'Stager')}</span>
+											<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_stager_desc', 'Stages actions from events')}</p>
 										</div>
 										<span class="text-laya-base text-surface-400">{modelLabel(space.stager_model)}</span>
 									</div>
 									<!-- Interactive Models -->
 									<div class="px-4 py-2.5 flex items-center justify-between">
 										<div>
-											<span class="text-laya-base text-surface-200">Chat</span>
-											<p class="text-laya-secondary text-surface-500">Conversational assistant</p>
+											<span class="text-laya-base text-surface-200">{$t('common.chat', 'Chat')}</span>
+											<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_chat_desc', 'Conversational assistant')}</p>
 										</div>
 										<span class="text-laya-base text-surface-400">{modelLabel(space.chat_model)}</span>
 									</div>
 									<div class="px-4 py-2.5 flex items-center justify-between">
 										<div>
-											<span class="text-laya-base text-surface-200">Coherence</span>
-											<p class="text-laya-secondary text-surface-500">Narratives & summaries</p>
+											<span class="text-laya-base text-surface-200">{$t('nav.coherence', 'Coherence')}</span>
+											<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_coherence_desc', 'Narratives & summaries')}</p>
 										</div>
 										<span class="text-laya-base text-surface-400">{modelLabel(space.trace_model)}</span>
 									</div>
 									<div class="px-4 py-2.5 flex items-center justify-between">
 										<div>
 											<span class="text-laya-base text-surface-200">Omni</span>
-											<p class="text-laya-secondary text-surface-500">Cross-platform digest</p>
+											<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_omni_desc', 'Cross-platform digest')}</p>
 										</div>
 										<span class="text-laya-base text-surface-400">{modelLabel(space.omni_model)}</span>
 									</div>
 									<!-- Agent -->
 									<div class="px-4 py-2.5 flex items-center justify-between">
 										<div>
-											<span class="text-laya-base text-surface-200">Coding Agent</span>
-											<p class="text-laya-secondary text-surface-500">CLI agent for engineer tasks</p>
+											<span class="text-laya-base text-surface-200">{$t('settingsData.role_coding_agent', 'Coding Agent')}</span>
+											<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_coding_agent_desc', 'CLI agent for engineer tasks')}</p>
 										</div>
 										<span class="text-laya-base text-surface-400">{agentLabel(space.coding_agent)}</span>
 									</div>
@@ -806,27 +813,27 @@
 									onclick={() => keySpaceId === space.space_id ? (keySpaceId = null) : openSpaceKeys(space.space_id)}
 									class="text-laya-base font-semibold text-surface-200 hover:text-surface-100 transition-colors"
 								>
-									{keySpaceId === space.space_id ? '▾' : '▸'} API Keys
+									{keySpaceId === space.space_id ? '▾' : '▸'} {$t('settingsData.spaces_api_keys', 'API Keys')}
 								</button>
 								{#if keySpaceId === space.space_id}
 									<div class="mt-2 space-y-2.5">
-										<p class="text-laya-base text-surface-500">Override global API keys for this space. Uses global key when not set.</p>
+										<p class="text-laya-base text-surface-500">{$t('settingsData.spaces_api_keys_desc', 'Override global API keys for this space. Uses global key when not set.')}</p>
 										{#each providers as provider}
 											<div class="flex items-center gap-2">
 												<span class="w-20 text-laya-base text-surface-400">{provider.label}</span>
 												{#if spaceKeyStatus[provider.id]}
-													<span class="text-laya-secondary text-green-400">Configured</span>
+													<span class="text-laya-secondary text-green-400">{$t('settingsData.spaces_configured', 'Configured')}</span>
 													<button
 														onclick={() => removeSpaceKey(provider.id)}
 														class="ml-auto text-laya-secondary text-red-400/60 hover:text-red-400 transition-colors"
 													>
-														Remove
+														{$t('settingsData.spaces_remove', 'Remove')}
 													</button>
 												{:else}
 													<input
 														type="password"
 														bind:value={spaceKeyInputs[provider.id]}
-														placeholder="Enter API key..."
+														placeholder={$t('settingsData.spaces_enter_api_key', 'Enter API key...')}
 														class="flex-1 rounded border border-surface-600 bg-surface-700 px-2 py-1 text-laya-secondary text-surface-100 placeholder:text-surface-500"
 													/>
 													<button
@@ -834,7 +841,7 @@
 														disabled={!spaceKeyInputs[provider.id]?.trim() || savingSpaceKey === provider.id}
 														class="rounded bg-surface-600 px-2 py-1 text-laya-secondary text-surface-200 hover:bg-surface-500 disabled:opacity-50 transition-colors"
 													>
-														{savingSpaceKey === provider.id ? '...' : 'Save'}
+														{savingSpaceKey === provider.id ? '...' : $t('common.save', 'Save')}
 													</button>
 												{/if}
 											</div>
@@ -850,20 +857,20 @@
 										onclick={() => startEdit(space)}
 										class="text-laya-base text-surface-400 hover:text-surface-200 transition-colors"
 									>
-										Edit
+										{$t('common.edit', 'Edit')}
 									</button>
 									<button
 										onclick={() => deleteSpace(space)}
 										class="text-laya-base text-red-400/60 hover:text-red-400 transition-colors"
 									>
-										Delete
+										{$t('common.delete', 'Delete')}
 									</button>
 								{:else}
 									<button
 										onclick={() => startEdit(space)}
 										class="text-laya-base text-surface-400 hover:text-surface-200 transition-colors"
 									>
-										Edit models
+										{$t('settingsData.spaces_edit_models', 'Edit models')}
 									</button>
 								{/if}
 							</div>
@@ -878,8 +885,8 @@
 			{@const targetSpace = spaces.find((s) => s.space_id === assigningSpaceId)}
 			<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
 				<div class="mx-4 w-full max-w-lg rounded-xl border p-5 shadow-xl {$glassTheme ? 'glass-dropdown border-white/[0.12]' : 'border-surface-600 bg-surface-800'}">
-					<h4 class="mb-1 text-base font-semibold text-surface-50">Assign Integrations to {targetSpace?.name}</h4>
-					<p class="mb-4 text-laya-base text-surface-400">Select integrations to assign to this space.</p>
+					<h4 class="mb-1 text-base font-semibold text-surface-50">{$t('settingsData.spaces_assign_title', 'Assign Integrations to {name}', { name: targetSpace?.name ?? '' })}</h4>
+					<p class="mb-4 text-laya-base text-surface-400">{$t('settingsData.spaces_assign_desc', 'Select integrations to assign to this space.')}</p>
 
 					<!-- Search -->
 					<div class="relative mb-3">
@@ -889,15 +896,15 @@
 						<input
 							type="text"
 							bind:value={workflowSearch}
-							placeholder="Search integrations..."
+							placeholder={$t('settingsData.spaces_search_integrations', 'Search integrations...')}
 							class="w-full rounded-lg border border-surface-600 bg-surface-700 py-2 pl-9 pr-3 text-laya-base text-surface-100 placeholder:text-surface-500 focus:border-laya-orange/40 focus:outline-none"
 						/>
 					</div>
 
 					{#if workflows.length === 0}
-						<p class="py-4 text-center text-laya-base text-surface-400">No Laya ingestion workflows found in n8n.</p>
+						<p class="py-4 text-center text-laya-base text-surface-400">{$t('settingsData.spaces_no_workflows', 'No Laya ingestion workflows found in n8n.')}</p>
 					{:else if filteredWorkflows.length === 0}
-						<p class="py-4 text-center text-laya-base text-surface-400">No workflows matching "{workflowSearch}"</p>
+						<p class="py-4 text-center text-laya-base text-surface-400">{$t('settingsData.spaces_no_matching', 'No workflows matching "{query}"', { query: workflowSearch })}</p>
 					{:else}
 						<div class="max-h-72 space-y-1 overflow-y-auto">
 							{#each filteredWorkflows as wf (wf.workflow_id)}
@@ -918,14 +925,14 @@
 										<p class="mt-0.5 text-laya-secondary text-surface-500">
 											{wf.platform}
 											{#if currentSpace}
-												<span class="text-surface-600">· in {currentSpace.space_name || 'Default'}</span>
+												<span class="text-surface-600">{$t('settingsData.spaces_in_space', '· in {space}', { space: currentSpace.space_name || 'Default' })}</span>
 											{/if}
 										</p>
 									</div>
 									{#if selectedWorkflows.has(wf.workflow_ids[0])}
 										<span class="text-laya-orange">✓</span>
 									{:else if isOwnedByTarget}
-										<span class="text-laya-secondary text-surface-500">Already here</span>
+										<span class="text-laya-secondary text-surface-500">{$t('settingsData.spaces_already_here', 'Already here')}</span>
 									{/if}
 								</button>
 							{/each}
@@ -937,14 +944,14 @@
 							onclick={cancelAssigning}
 							class="rounded-md px-4 py-2 text-laya-base text-surface-400 hover:text-surface-200 transition-colors"
 						>
-							Cancel
+							{$t('common.cancel', 'Cancel')}
 						</button>
 						<button
 							onclick={assignSelected}
 							disabled={selectedWorkflows.size === 0 || saving}
 							class="rounded-md bg-laya-orange px-4 py-2 text-laya-base font-medium text-white hover:bg-laya-orange/90 disabled:opacity-50 transition-colors"
 						>
-							{saving ? 'Assigning...' : `Assign ${filteredWorkflows.filter(w => selectedWorkflows.has(w.workflow_id)).length} integration${filteredWorkflows.filter(w => selectedWorkflows.has(w.workflow_id)).length !== 1 ? 's' : ''}`}
+							{saving ? $t('settingsData.spaces_assigning', 'Assigning...') : tp(filteredWorkflows.filter(w => selectedWorkflows.has(w.workflow_id)).length, 'settingsData.spaces_assign_count', 'Assign {count} integration', 'Assign {count} integrations')}
 						</button>
 					</div>
 				</div>
@@ -958,12 +965,12 @@
 	<div class="space-y-4">
 		<!-- Name -->
 		<div>
-			<label for="space-name" class="mb-1 block text-laya-base text-surface-400">Name</label>
+			<label for="space-name" class="mb-1 block text-laya-base text-surface-400">{$t('settingsData.spaces_name', 'Name')}</label>
 			<input
 				id="space-name"
 				type="text"
 				bind:value={formName}
-				placeholder="e.g. Work, Personal"
+				placeholder={$t('settingsData.spaces_name_placeholder', 'e.g. Work, Personal')}
 				maxlength="50"
 				class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 			/>
@@ -971,12 +978,12 @@
 
 		<!-- Description -->
 		<div>
-			<label for="space-desc" class="mb-1 block text-laya-base text-surface-400">Description <span class="text-surface-500">(optional)</span></label>
+			<label for="space-desc" class="mb-1 block text-laya-base text-surface-400">{$t('settingsData.spaces_description', 'Description')} <span class="text-surface-500">{$t('settingsData.spaces_optional', '(optional)')}</span></label>
 			<input
 				id="space-desc"
 				type="text"
 				bind:value={formDescription}
-				placeholder="What this space is for..."
+				placeholder={$t('settingsData.spaces_description_placeholder', 'What this space is for...')}
 				class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 			/>
 		</div>
@@ -984,7 +991,7 @@
 		<!-- Color -->
 		<div>
 			<!-- svelte-ignore a11y_label_has_associated_control -->
-			<label class="mb-2 block text-laya-base text-surface-400">Color</label>
+			<label class="mb-2 block text-laya-base text-surface-400">{$t('settingsData.spaces_color', 'Color')}</label>
 			<div class="flex gap-2">
 				{#each presetColors as color}
 					<button
@@ -992,7 +999,7 @@
 						class="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110
 							{formColor === color ? 'border-white scale-110' : 'border-transparent'}"
 						style="background-color: {color}"
-						aria-label="Select color {color}"
+						aria-label={$t('settingsData.spaces_select_color', 'Select color {color}', { color })}
 					></button>
 				{/each}
 			</div>
@@ -1001,17 +1008,17 @@
 		<!-- Model & Agent Configuration -->
 		<div>
 			<!-- svelte-ignore a11y_label_has_associated_control -->
-			<label class="mb-3 block text-laya-base text-surface-400">Model & Agent Configuration</label>
+			<label class="mb-3 block text-laya-base text-surface-400">{$t('settingsData.spaces_model_agent_config', 'Model & Agent Configuration')}</label>
 			<div class="{$glassTheme ? 'rounded-lg border border-white/[0.06] divide-y divide-white/[0.05]' : 'rounded-lg border border-surface-700 divide-y divide-surface-700'}">
 				<!-- Inference backend: provider dropdowns vs installed agent (typed model strings) -->
 				<div class="px-4 py-3">
 					<div class="flex items-center gap-3">
-						<span class="text-laya-base text-surface-200">Backend</span>
+						<span class="text-laya-base text-surface-200">{$t('settingsData.spaces_backend', 'Backend')}</span>
 						<div class="ml-auto inline-flex rounded-md border {$glassTheme ? 'border-white/15' : 'border-surface-600'} p-0.5">
 							<button type="button" onclick={() => setFormAgentMode(false)}
-								class="rounded px-2.5 py-1 text-laya-base transition-colors {!formAgentMode ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-300'}">Provider</button>
+								class="rounded px-2.5 py-1 text-laya-base transition-colors {!formAgentMode ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-300'}">{$t('settingsData.spaces_provider', 'Provider')}</button>
 							<button type="button" onclick={() => setFormAgentMode(true)}
-								class="inline-flex items-center gap-1 rounded px-2.5 py-1 text-laya-base transition-colors {formAgentMode ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-300'}">Agent
+								class="inline-flex items-center gap-1 rounded px-2.5 py-1 text-laya-base transition-colors {formAgentMode ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-300'}">{$t('settings.agent', 'Agent')}
 								<span class="rounded bg-laya-gold/25 px-1 text-laya-micro font-semibold uppercase tracking-wide text-laya-amber">Beta</span>
 							</button>
 						</div>
@@ -1022,23 +1029,23 @@
 								<button type="button" onclick={() => b.available && selectFormAgent(b.agent_id)} disabled={!b.available} title={b.hint}
 									class="flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-laya-secondary transition-colors {formSelectedAgent === b.agent_id ? 'border-laya-orange/40 bg-laya-orange/10 text-laya-orange' : 'border-surface-600 text-surface-300 hover:border-surface-500'} {!b.available ? 'cursor-not-allowed opacity-50' : ''}">
 									{AGENT_LABELS[b.agent_id] || b.agent_id}
-									<span class="rounded px-1 text-laya-micro {b.tier === 'native' ? 'bg-laya-gold/25 text-laya-amber' : 'bg-surface-700 text-surface-400'}">{b.tier === 'native' ? 'native' : 'best-effort'}</span>
+									<span class="rounded px-1 text-laya-micro {b.tier === 'native' ? 'bg-laya-gold/25 text-laya-amber' : 'bg-surface-700 text-surface-400'}">{b.tier === 'native' ? $t('settingsData.spaces_tier_native', 'native') : $t('settingsData.spaces_tier_best_effort', 'best-effort')}</span>
 								</button>
 							{/each}
 						</div>
-						<p class="mt-1.5 text-laya-micro text-surface-500">Chat &amp; Coherence keep using a model provider (agents can’t stream those).</p>
+						<p class="mt-1.5 text-laya-micro text-surface-500">{$t('settingsData.spaces_agent_note', 'Chat & Coherence keep using a model provider (agents can’t stream those).')}</p>
 					{/if}
 				</div>
 				<!-- Pipeline Models -->
 				<div class="px-4 py-3 flex items-center gap-4">
 					<div class="min-w-0 flex-1">
-						<span class="text-laya-base text-surface-200">Router</span>
-						<p class="text-laya-secondary text-surface-500">Classifies incoming events</p>
+						<span class="text-laya-base text-surface-200">{$t('settingsData.role_router', 'Router')}</span>
+						<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_router_desc', 'Classifies incoming events')}</p>
 					</div>
 					<div class="w-48 shrink-0">
 						{#if formAgentMode}
 							<input type="text" value={formAgentModelString('router')} onchange={handleFormAgentInput('router')}
-								placeholder={AGENT_MODEL_PH[formSelectedAgent] || 'model (blank = default)'} spellcheck="false" autocapitalize="off"
+								placeholder={AGENT_MODEL_PH[formSelectedAgent] || $t('settingsData.spaces_model_placeholder', 'model (blank = default)')} spellcheck="false" autocapitalize="off"
 								class="w-full rounded-md border px-3 py-2 font-mono text-laya-base text-surface-100 placeholder:text-surface-500 focus:outline-none {$glassTheme ? 'glass-input' : 'border-surface-600 bg-surface-700 focus:border-surface-500'}" />
 						{:else}
 							<ModelSelect
@@ -1046,20 +1053,20 @@
 								providers={availableModels}
 								onchange={(v) => (formRouterModel = v)}
 								allowEmpty={true}
-								emptyLabel="Use default"
+								emptyLabel={$t('settingsData.spaces_use_default', 'Use default')}
 							/>
 						{/if}
 					</div>
 				</div>
 				<div class="px-4 py-3 flex items-center gap-4">
 					<div class="min-w-0 flex-1">
-						<span class="text-laya-base text-surface-200">Stager</span>
-						<p class="text-laya-secondary text-surface-500">Stages actions from events</p>
+						<span class="text-laya-base text-surface-200">{$t('settingsData.role_stager', 'Stager')}</span>
+						<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_stager_desc', 'Stages actions from events')}</p>
 					</div>
 					<div class="w-48 shrink-0">
 						{#if formAgentMode}
 							<input type="text" value={formAgentModelString('stager')} onchange={handleFormAgentInput('stager')}
-								placeholder={AGENT_MODEL_PH[formSelectedAgent] || 'model (blank = default)'} spellcheck="false" autocapitalize="off"
+								placeholder={AGENT_MODEL_PH[formSelectedAgent] || $t('settingsData.spaces_model_placeholder', 'model (blank = default)')} spellcheck="false" autocapitalize="off"
 								class="w-full rounded-md border px-3 py-2 font-mono text-laya-base text-surface-100 placeholder:text-surface-500 focus:outline-none {$glassTheme ? 'glass-input' : 'border-surface-600 bg-surface-700 focus:border-surface-500'}" />
 						{:else}
 							<ModelSelect
@@ -1067,7 +1074,7 @@
 								providers={availableModels}
 								onchange={(v) => (formStagerModel = v)}
 								allowEmpty={true}
-								emptyLabel="Use default"
+								emptyLabel={$t('settingsData.spaces_use_default', 'Use default')}
 							/>
 						{/if}
 					</div>
@@ -1075,8 +1082,8 @@
 				<!-- Interactive Models -->
 				<div class="px-4 py-3 flex items-center gap-4">
 					<div class="min-w-0 flex-1">
-						<span class="text-laya-base text-surface-200">Chat</span>
-						<p class="text-laya-secondary text-surface-500">Conversational assistant</p>
+						<span class="text-laya-base text-surface-200">{$t('common.chat', 'Chat')}</span>
+						<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_chat_desc', 'Conversational assistant')}</p>
 					</div>
 					<div class="w-48 shrink-0">
 						<ModelSelect
@@ -1084,14 +1091,14 @@
 							providers={availableModels}
 							onchange={(v) => (formChatModel = v)}
 							allowEmpty={true}
-							emptyLabel="Use default"
+							emptyLabel={$t('settingsData.spaces_use_default', 'Use default')}
 						/>
 					</div>
 				</div>
 				<div class="px-4 py-3 flex items-center gap-4">
 					<div class="min-w-0 flex-1">
-						<span class="text-laya-base text-surface-200">Coherence</span>
-						<p class="text-laya-secondary text-surface-500">Narratives & summaries</p>
+						<span class="text-laya-base text-surface-200">{$t('nav.coherence', 'Coherence')}</span>
+						<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_coherence_desc', 'Narratives & summaries')}</p>
 					</div>
 					<div class="w-48 shrink-0">
 						<ModelSelect
@@ -1099,19 +1106,19 @@
 							providers={availableModels}
 							onchange={(v) => (formTraceModel = v)}
 							allowEmpty={true}
-							emptyLabel="Use default"
+							emptyLabel={$t('settingsData.spaces_use_default', 'Use default')}
 						/>
 					</div>
 				</div>
 				<div class="px-4 py-3 flex items-center gap-4">
 					<div class="min-w-0 flex-1">
 						<span class="text-laya-base text-surface-200">Omni</span>
-						<p class="text-laya-secondary text-surface-500">Cross-platform digest</p>
+						<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_omni_desc', 'Cross-platform digest')}</p>
 					</div>
 					<div class="w-48 shrink-0">
 						{#if formAgentMode}
 							<input type="text" value={formAgentModelString('omni')} onchange={handleFormAgentInput('omni')}
-								placeholder={AGENT_MODEL_PH[formSelectedAgent] || 'model (blank = default)'} spellcheck="false" autocapitalize="off"
+								placeholder={AGENT_MODEL_PH[formSelectedAgent] || $t('settingsData.spaces_model_placeholder', 'model (blank = default)')} spellcheck="false" autocapitalize="off"
 								class="w-full rounded-md border px-3 py-2 font-mono text-laya-base text-surface-100 placeholder:text-surface-500 focus:outline-none {$glassTheme ? 'glass-input' : 'border-surface-600 bg-surface-700 focus:border-surface-500'}" />
 						{:else}
 							<ModelSelect
@@ -1119,7 +1126,7 @@
 								providers={availableModels}
 								onchange={(v) => (formOmniModel = v)}
 								allowEmpty={true}
-								emptyLabel="Use default"
+								emptyLabel={$t('settingsData.spaces_use_default', 'Use default')}
 							/>
 						{/if}
 					</div>
@@ -1127,8 +1134,8 @@
 				<!-- Coding Agent -->
 				<div class="px-4 py-3 flex items-center gap-4">
 					<div class="min-w-0 flex-1">
-						<span class="text-laya-base text-surface-200">Coding Agent</span>
-						<p class="text-laya-secondary text-surface-500">CLI agent for engineer tasks</p>
+						<span class="text-laya-base text-surface-200">{$t('settingsData.role_coding_agent', 'Coding Agent')}</span>
+						<p class="text-laya-secondary text-surface-500">{$t('settingsData.role_coding_agent_desc', 'CLI agent for engineer tasks')}</p>
 					</div>
 					<div class="w-48 shrink-0">
 						<select
@@ -1152,13 +1159,13 @@
 				disabled={!formName.trim() || saving}
 				class="rounded-md bg-laya-orange px-4 py-2 text-laya-base font-medium text-white transition-colors hover:bg-laya-orange/90 disabled:opacity-50"
 			>
-				{saving ? 'Saving...' : isInline ? 'Update Space' : 'Create Space'}
+				{saving ? $t('settingsData.spaces_saving', 'Saving...') : isInline ? $t('settingsData.spaces_update', 'Update Space') : $t('settingsData.spaces_create', 'Create Space')}
 			</button>
 			<button
 				onclick={cancelForm}
 				class="rounded-md px-4 py-2 text-laya-base text-surface-400 transition-colors hover:text-surface-200"
 			>
-				Cancel
+				{$t('common.cancel', 'Cancel')}
 			</button>
 		</div>
 	</div>

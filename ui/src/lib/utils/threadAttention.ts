@@ -7,6 +7,7 @@
 
 import type { ActionCard } from '$lib/api/types';
 import { parseBackendDate } from '$lib/utils/datetime';
+import { tr } from '$lib/i18n';
 
 /** Statuses that end a thread — nothing terminal can be escalating. */
 export const TERMINAL_STATUSES = new Set(['done', 'dismissed', 'archived']);
@@ -92,7 +93,7 @@ export function threadAttention(cards: ActionCard[], opts: AttentionOptions = {}
 	let reason = '';
 	if (latest.status === 'failed') {
 		escalating = true;
-		reason = 'Latest event failed';
+		reason = tr('feedGroups.reason_failed', 'Latest event failed');
 	} else if (
 		LOUD_PRIORITIES.has(topPriority) &&
 		openCards.length > 0 &&
@@ -100,15 +101,18 @@ export function threadAttention(cards: ActionCard[], opts: AttentionOptions = {}
 		latestAgeH > staleHours
 	) {
 		escalating = true;
-		reason = `Unanswered for ${Math.floor(latestAgeH)}h across ${cards.length} events`;
+		reason = tr('feedGroups.reason_unanswered', 'Unanswered for {hours}h across {count} events', {
+			hours: Math.floor(latestAgeH),
+			count: cards.length
+		});
 	} else if (topPriority === 'CRITICAL' && openCards.length > 0 && openAgeH > criticalHours) {
 		escalating = true;
-		reason = `Critical and open ${Math.floor(openAgeH)}h`;
+		reason = tr('feedGroups.reason_critical_open', 'Critical and open {hours}h', { hours: Math.floor(openAgeH) });
 	}
 
 	if (!reason) {
-		if (agentRunning) reason = 'Agent running';
-		else if (awaitingInput) reason = 'Awaiting your input';
+		if (agentRunning) reason = tr('feedGroups.reason_agent_running', 'Agent running');
+		else if (awaitingInput) reason = tr('feedGroups.reason_awaiting_input', 'Awaiting your input');
 	}
 
 	return { escalating, agentRunning, awaitingInput, needsYou, reason };

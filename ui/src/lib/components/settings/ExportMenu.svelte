@@ -7,9 +7,10 @@
 -->
 <script lang="ts">
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 
 	let {
-		label = 'Export',
+		label,
 		onexport,
 		disabled = false,
 		// The leading download glyph. Off in the Audit "events filtered" banner so this
@@ -24,13 +25,13 @@
 	} = $props();
 
 	// Timeframe choices — "how far back". days=0 is the all-time sentinel.
-	const OPTIONS = [
-		{ label: 'Last 24 hours', days: 1 },
-		{ label: 'Last 7 days', days: 7 },
-		{ label: 'Last 30 days', days: 30 },
-		{ label: 'Last 90 days', days: 90 },
-		{ label: 'All time', days: 0 }
-	];
+	const OPTIONS = $derived([
+		{ label: $t('settingsRules.export_last_24h', 'Last 24 hours'), days: 1 },
+		{ label: $t('settingsRules.export_last_7d', 'Last 7 days'), days: 7 },
+		{ label: $t('settingsRules.export_last_30d', 'Last 30 days'), days: 30 },
+		{ label: $t('settingsRules.export_last_90d', 'Last 90 days'), days: 90 },
+		{ label: $t('settingsRules.export_all_time', 'All time'), days: 0 }
+	]);
 
 	let open = $state(false);
 	let busy = $state(false);
@@ -63,14 +64,14 @@
 	>
 		{#if busy}
 			<span class="h-3 w-3 animate-spin rounded-full border-2 border-surface-400 border-t-transparent"></span>
-			Exporting…
+			{$t('settingsRules.exporting', 'Exporting…')}
 		{:else}
 			{#if showIcon}
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
 				</svg>
 			{/if}
-			{label}
+			{label ?? $t('settingsRules.export', 'Export')}
 			<svg class="h-3 w-3 transition-transform {open ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 			</svg>
@@ -82,7 +83,7 @@
 			class="absolute right-0 z-50 mt-1 min-w-[170px] overflow-hidden rounded-lg border p-1 {$glassTheme ? 'glass-dropdown border-white/15' : 'border-surface-600 bg-surface-800 shadow-xl shadow-black/30'}"
 			role="menu"
 		>
-			<div class="px-2.5 py-1 text-[11px] uppercase tracking-wide text-surface-500">How far back?</div>
+			<div class="px-2.5 py-1 text-[11px] uppercase tracking-wide text-surface-500">{$t('settingsRules.export_how_far', 'How far back?')}</div>
 			{#each OPTIONS as opt}
 				<button
 					type="button"

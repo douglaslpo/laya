@@ -13,6 +13,7 @@
 	import FeatureCostChart from '$lib/components/dashboard/FeatureCostChart.svelte';
 	import ThroughputChart from '$lib/components/dashboard/ThroughputChart.svelte';
 	import WaitTimeChart from '$lib/components/dashboard/WaitTimeChart.svelte';
+	import { t } from '$lib/i18n';
 
 	const cardClass = $derived($glassTheme ? 'rounded-xl glass-section p-4' : 'rounded-xl border border-surface-700 bg-surface-800 p-4');
 
@@ -25,7 +26,9 @@
 	}
 
 	function statusLabel(status: string | undefined, fallback = 'unknown'): string {
-		return status ?? fallback;
+		const value = status ?? fallback;
+		if (value === 'checking...') return $t('status.checking', 'Checking...');
+		return $t(`shell.svc_${value}`, value);
 	}
 
 	// n8n process management (available in Tauri)
@@ -75,7 +78,7 @@
 		try {
 			throughputData = await engineApi.getThroughput(throughputMinutes);
 		} catch (e) {
-			throughputError = e instanceof Error ? e.message : 'Failed to load throughput';
+			throughputError = e instanceof Error ? e.message : $t('shell.load_throughput_failed', 'Failed to load throughput');
 		} finally {
 			throughputLoading = false;
 		}
@@ -93,7 +96,7 @@
 		try {
 			dashboard = await engineApi.getDashboard(days);
 		} catch (e) {
-			dashError = e instanceof Error ? e.message : 'Failed to load analytics';
+			dashError = e instanceof Error ? e.message : $t('shell.load_analytics_failed', 'Failed to load analytics');
 		} finally {
 			dashLoading = false;
 			// Scroll to hash anchor after data loads (e.g. #cost from footer link)
@@ -110,9 +113,9 @@
 		const d = dashboard;
 		if (!d) return [];
 		return [
-			{ label: 'Pending', value: d.stats.cards_pending, color: '#f6bc66' },
-			{ label: 'Approved', value: d.stats.cards_approved, color: '#f6ac69' },
-			{ label: 'Dismissed', value: d.stats.cards_dismissed, color: '#8b7a62' }
+			{ label: $t('shared.status_pending', 'Pending'), value: d.stats.cards_pending, color: '#f6bc66' },
+			{ label: $t('shared.status_approved', 'Approved'), value: d.stats.cards_approved, color: '#f6ac69' },
+			{ label: $t('shared.status_dismissed', 'Dismissed'), value: d.stats.cards_dismissed, color: '#8b7a62' }
 		];
 	});
 
@@ -120,10 +123,10 @@
 		const d = dashboard;
 		if (!d) return [];
 		return [
-			{ label: 'Completed', value: d.stats.actions_completed, color: '#f6ac69' },
-			{ label: 'Failed', value: d.stats.actions_failed, color: '#ff9770' },
+			{ label: $t('shared.status_completed', 'Completed'), value: d.stats.actions_completed, color: '#f6ac69' },
+			{ label: $t('shared.status_failed', 'Failed'), value: d.stats.actions_failed, color: '#ff9770' },
 			{
-				label: 'In Progress',
+				label: $t('shell.in_progress', 'In Progress'),
 				value: Math.max(0, d.stats.actions_executed - d.stats.actions_completed - d.stats.actions_failed),
 				color: '#f6bc66'
 			}
@@ -140,7 +143,7 @@
 		const d = dashboard;
 		if (!d) return [];
 		return d.approval_by_persona.map((p: { persona: string; rate: number }) => ({
-			label: p.persona,
+			label: $t(`shared.persona_${p.persona}`, p.persona),
 			value: Math.round(p.rate * 100)
 		}));
 	});
@@ -178,22 +181,28 @@
 </script>
 
 <svelte:head>
-	<title>Status - Laya</title>
+	<title>{$t('shell.status_page_title', 'Status - Laya')}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-6xl space-y-8">
 	<!-- System Status section -->
 	<section>
-		<h2 class="mb-4 text-lg font-semibold">System Status</h2>
+		<h2 class="mb-4 text-lg font-semibold">{$t('nav.status', 'System Status')}</h2>
 		<div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
 			<!-- Engine -->
 			<div class={cardClass}>
 				<div class="mb-1.5 text-[10px] uppercase tracking-wider text-surface-400">Engine</div>
 				{#if $healthError || !$health}
-					<span class="text-sm text-red-400">Offline</span>
+					<span class="text-sm text-red-400">{$t('shell.offline', 'Offline')}</span>
 				{:else}
 					<span class="text-sm {statusIcon($health.engine)}">{statusLabel($health.engine)}</span>
-					<div class="mt-1 text-[10px] text-surface-500">Uptime: {Math.floor($health.uptime_seconds / 3600)}h {Math.floor(($health.uptime_seconds % 3600) / 60)}m {Math.floor($health.uptime_seconds % 60)}s</div>
+					<div class="mt-1 text-[10px] text-surface-500">
+						{$t('shell.uptime', 'Uptime: {h}h {m}m {s}s', {
+							h: Math.floor($health.uptime_seconds / 3600),
+							m: Math.floor(($health.uptime_seconds % 3600) / 60),
+							s: Math.floor($health.uptime_seconds % 60)
+						})}
+					</div>
 				{/if}
 			</div>
 
@@ -201,7 +210,7 @@
 			<div class={cardClass}>
 				<div class="mb-1.5 text-[10px] uppercase tracking-wider text-surface-400">SQLite</div>
 				{#if $healthError || !$health}
-					<span class="text-sm text-red-400">Offline</span>
+					<span class="text-sm text-red-400">{$t('shell.offline', 'Offline')}</span>
 				{:else}
 					<span class="text-sm {statusIcon($health.sqlite)}">{statusLabel($health.sqlite)}</span>
 				{/if}
@@ -211,11 +220,11 @@
 			<div class={cardClass}>
 				<div class="mb-1.5 text-[10px] uppercase tracking-wider text-surface-400">ChromaDB</div>
 				{#if $healthError || !$health}
-					<span class="text-sm text-red-400">Offline</span>
+					<span class="text-sm text-red-400">{$t('shell.offline', 'Offline')}</span>
 				{:else}
 					<span class="text-sm {statusIcon($health.chromadb)}">{statusLabel($health.chromadb)}</span>
 					{#if $health.chromadb === 'starting'}
-						<div class="mt-1 text-[10px] text-surface-500">Setting up semantic search</div>
+						<div class="mt-1 text-[10px] text-surface-500">{$t('shell.vector_setting_up', 'Setting up semantic search')}</div>
 					{/if}
 				{/if}
 			</div>
@@ -224,7 +233,7 @@
 			<div class={cardClass}>
 				<div class="mb-1.5 text-[10px] uppercase tracking-wider text-surface-400">n8n</div>
 				{#if $healthError || !$health}
-					<span class="text-sm text-red-400">Offline</span>
+					<span class="text-sm text-red-400">{$t('shell.offline', 'Offline')}</span>
 				{:else}
 					<span class="text-sm {statusIcon($health.n8n)}">{statusLabel($health.n8n)}</span>
 				{/if}
@@ -234,7 +243,7 @@
 			<div class={cardClass}>
 				<div class="mb-1.5 text-[10px] uppercase tracking-wider text-surface-400">WebSocket</div>
 				<span class="text-sm {statusIcon($wsStatus === 'connected' ? 'healthy' : 'unhealthy')}">
-					{$wsStatus}
+					{statusLabel($wsStatus)}
 				</span>
 			</div>
 		</div>
@@ -249,18 +258,20 @@
 						<div class="mt-1 flex items-center gap-2">
 							{#if emb.status === 'not_initialized'}
 								<span class="text-sm text-surface-400">
-									{$health.chromadb === 'starting' ? 'Loading…' : 'Not loaded'}
+									{$health.chromadb === 'starting'
+										? $t('common.loading', 'Loading…')
+										: $t('shell.not_loaded', 'Not loaded')}
 								</span>
 							{:else}
 								<span class="text-sm text-surface-200">{emb.model}</span>
 								<span class="text-[10px] text-surface-500">{emb.dimensions}d</span>
 							{/if}
 							{#if emb.status === 'fallback'}
-								<span class="rounded-full bg-laya-gold/20 px-2 py-0.5 text-[10px] font-medium text-laya-amber">Fallback</span>
+								<span class="rounded-full bg-laya-gold/20 px-2 py-0.5 text-[10px] font-medium text-laya-amber">{$t('shell.fallback', 'Fallback')}</span>
 							{:else if emb.status === 'active'}
-								<span class="rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] font-medium text-green-400">Active</span>
+								<span class="rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] font-medium text-green-400">{$t('common.active', 'Active')}</span>
 							{:else if emb.status !== 'not_initialized'}
-								<span class="rounded-full bg-surface-600/50 px-2 py-0.5 text-[10px] font-medium text-surface-400">{emb.status}</span>
+								<span class="rounded-full bg-surface-600/50 px-2 py-0.5 text-[10px] font-medium text-surface-400">{statusLabel(emb.status)}</span>
 							{/if}
 						</div>
 					</div>
@@ -270,7 +281,7 @@
 							{#if emb.backend === 'nomic'}
 								sentence-transformers
 							{:else if emb.backend === 'chromadb_default'}
-								ChromaDB built-in (onnxruntime)
+								{$t('shell.chromadb_builtin', 'ChromaDB built-in (onnxruntime)')}
 							{:else if emb.status === 'not_initialized'}
 								—
 							{:else}
@@ -286,10 +297,10 @@
 		<div class="mt-3 {cardClass}">
 			<div class="flex items-center justify-between">
 				<div>
-					<div class="text-[10px] uppercase tracking-wider text-surface-400">n8n Process</div>
+					<div class="text-[10px] uppercase tracking-wider text-surface-400">{$t('shell.n8n_process', 'n8n Process')}</div>
 					<div class="mt-1 text-sm">
 						<span class={n8nProcessStatus === 'running' ? 'text-green-400' : n8nProcessStatus === 'starting' ? 'text-yellow-400' : 'text-surface-400'}>
-							{n8nProcessStatus}
+							{statusLabel(n8nProcessStatus)}
 						</span>
 					</div>
 				</div>
@@ -300,7 +311,7 @@
 							onclick={startN8n}
 							disabled={!!n8nAction}
 						>
-							{n8nAction === 'starting' ? 'Starting...' : 'Start'}
+							{n8nAction === 'starting' ? $t('shell.starting', 'Starting...') : $t('shell.start', 'Start')}
 						</button>
 					{:else if n8nProcessStatus === 'running'}
 						<button
@@ -308,7 +319,7 @@
 							onclick={stopN8n}
 							disabled={!!n8nAction}
 						>
-							{n8nAction === 'stopping' ? 'Stopping...' : 'Stop'}
+							{n8nAction === 'stopping' ? $t('shell.stopping', 'Stopping...') : $t('shell.stop', 'Stop')}
 						</button>
 					{/if}
 				</div>
@@ -321,7 +332,7 @@
 			{@const wsLines = wsJson.split('\n')}
 			{@const wsOverflows = wsLines.length > 7}
 			<div class="mt-3 {cardClass}">
-				<div class="mb-1.5 text-[10px] uppercase tracking-wider text-surface-400">Last WS Message</div>
+				<div class="mb-1.5 text-[10px] uppercase tracking-wider text-surface-400">{$t('shell.last_ws_message', 'Last WS Message')}</div>
 				<pre
 					class="overflow-x-auto text-xs text-surface-300"
 					style="max-height: {wsExpanded || !wsOverflows ? 'none' : '7.5lh'}; overflow-y: hidden; {wsOverflows && !wsExpanded ? '-webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%); mask-image: linear-gradient(to bottom, black 50%, transparent 100%);' : ''}"
@@ -331,7 +342,9 @@
 						class="mt-1 text-[10px] text-surface-400 transition-colors hover:text-surface-200"
 						onclick={() => wsExpanded = !wsExpanded}
 					>
-						{wsExpanded ? 'Collapse' : `Show all (${wsLines.length} lines)`}
+						{wsExpanded
+							? $t('shell.collapse', 'Collapse')
+							: $t('shell.show_all_lines', 'Show all ({count} lines)', { count: wsLines.length })}
 					</button>
 				{/if}
 			</div>
@@ -341,17 +354,17 @@
 	<!-- Throughput & Wait Time section -->
 	<section>
 		<div class="mb-4 flex items-center justify-between">
-			<h2 class="text-lg font-semibold">Throughput & Wait Time</h2>
+			<h2 class="text-lg font-semibold">{$t('shell.throughput_wait_title', 'Throughput & Wait Time')}</h2>
 			<select
 				bind:value={throughputMinutes}
 				onchange={loadThroughput}
 				class="rounded-lg border px-3 py-1.5 text-sm text-surface-200 focus:border-laya-orange/50 focus:outline-none {$glassTheme ? 'glass-input' : 'border-surface-600 bg-surface-800'}"
 			>
-				<option value={60}>Last 60 min</option>
-				<option value={300}>Last 5 hours</option>
-				<option value={1440}>Last 24 hours</option>
-				<option value={10080}>Last 7 days</option>
-				<option value={43200}>Last 30 days</option>
+				<option value={60}>{$t('shell.last_60_min', 'Last 60 min')}</option>
+				<option value={300}>{$t('shell.last_hours', 'Last {count} hours', { count: 5 })}</option>
+				<option value={1440}>{$t('shell.last_hours', 'Last {count} hours', { count: 24 })}</option>
+				<option value={10080}>{$t('shell.last_days', 'Last {count} days', { count: 7 })}</option>
+				<option value={43200}>{$t('shell.last_days', 'Last {count} days', { count: 30 })}</option>
 			</select>
 		</div>
 
@@ -370,7 +383,7 @@
 			</div>
 		{:else}
 			<div class={cardClass}>
-				<p class="text-sm text-surface-500">No throughput data in the selected window.</p>
+				<p class="text-sm text-surface-500">{$t('shell.no_throughput', 'No throughput data in the selected window.')}</p>
 			</div>
 		{/if}
 	</section>
@@ -378,16 +391,16 @@
 	<!-- Analytics section -->
 	<section>
 		<div class="mb-4 flex items-center justify-between">
-			<h2 class="text-lg font-semibold">Analytics</h2>
+			<h2 class="text-lg font-semibold">{$t('shell.analytics', 'Analytics')}</h2>
 			<select
 				bind:value={days}
 				onchange={loadDashboard}
 				class="rounded-lg border px-3 py-1.5 text-sm text-surface-200 focus:border-laya-orange/50 focus:outline-none {$glassTheme ? 'glass-input' : 'border-surface-600 bg-surface-800'}"
 			>
-				<option value={7}>Last 7 days</option>
-				<option value={14}>Last 14 days</option>
-				<option value={30}>Last 30 days</option>
-				<option value={90}>Last 90 days</option>
+				<option value={7}>{$t('shell.last_days', 'Last {count} days', { count: 7 })}</option>
+				<option value={14}>{$t('shell.last_days', 'Last {count} days', { count: 14 })}</option>
+				<option value={30}>{$t('shell.last_days', 'Last {count} days', { count: 30 })}</option>
+				<option value={90}>{$t('shell.last_days', 'Last {count} days', { count: 90 })}</option>
 			</select>
 		</div>
 
@@ -402,24 +415,26 @@
 		{:else if dashboard}
 			<!-- Top-level stats -->
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-				<StatCard label="Events Processed" value={String(dashboard.stats.events_processed)} />
+				<StatCard label={$t('shell.stat_events_processed', 'Events Processed')} value={String(dashboard.stats.events_processed)} />
 				<StatCard
-					label="Events Filtered"
+					label={$t('shell.stat_events_filtered', 'Events Filtered')}
 					value={String(dashboard.stats.events_filtered)}
-					subtitle="{dashboard.stats.events_processed > 0 ? Math.round((dashboard.stats.events_filtered / dashboard.stats.events_processed) * 100) : 0}% filter rate"
+					subtitle={$t('shell.stat_filter_rate', '{rate}% filter rate', {
+						rate: dashboard.stats.events_processed > 0 ? Math.round((dashboard.stats.events_filtered / dashboard.stats.events_processed) * 100) : 0
+					})}
 				/>
 				<StatCard
-					label="Cards Generated"
+					label={$t('shell.stat_cards_generated', 'Cards Generated')}
 					value={String(dashboard.stats.cards_generated)}
 					color="text-blue-400"
 				/>
 				<StatCard
-					label="Actions Executed"
+					label={$t('shell.stat_actions_executed', 'Actions Executed')}
 					value={String(dashboard.stats.actions_executed)}
 					color="text-emerald-400"
 				/>
 				<StatCard
-					label="Time Saved (BETA)"
+					label={$t('shell.stat_time_saved', 'Time Saved (BETA)')}
 					value={formatTime(dashboard.time_saved.total_minutes)}
 					color="text-amber-400"
 				/>
@@ -428,32 +443,38 @@
 			<!-- Cost + Response Time row -->
 			<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
 				<StatCard
-					label="LLM Cost"
+					label={$t('shell.stat_llm_cost', 'LLM Cost')}
 					value={formatCost(dashboard.llm_costs.total_cost_usd)}
-					subtitle="{formatTokens(dashboard.llm_costs.total_input_tokens)} in / {formatTokens(dashboard.llm_costs.total_output_tokens)} out"
+					subtitle={$t('shell.stat_tokens', '{input} in / {output} out', {
+						input: formatTokens(dashboard.llm_costs.total_input_tokens),
+						output: formatTokens(dashboard.llm_costs.total_output_tokens)
+					})}
 				/>
 				<StatCard
-					label="Avg Response"
+					label={$t('shell.stat_avg_response', 'Avg Response')}
 					value="{Math.round(dashboard.response_time.avg_ms)}ms"
 					subtitle="p50: {Math.round(dashboard.response_time.p50_ms)}ms / p95: {Math.round(dashboard.response_time.p95_ms)}ms"
 				/>
 				<StatCard
-					label="Approval Rate"
+					label={$t('shell.stat_approval_rate', 'Approval Rate')}
 					value="{dashboard.stats.cards_approved + dashboard.stats.cards_dismissed > 0 ? Math.round((dashboard.stats.cards_approved / (dashboard.stats.cards_approved + dashboard.stats.cards_dismissed)) * 100) : 0}%"
-					subtitle="{dashboard.stats.cards_approved} approved / {dashboard.stats.cards_dismissed} dismissed"
+					subtitle={$t('shell.stat_approved_dismissed', '{approved} approved / {dismissed} dismissed', {
+						approved: dashboard.stats.cards_approved,
+						dismissed: dashboard.stats.cards_dismissed
+					})}
 					color="text-green-400"
 				/>
 			</div>
 
 			<!-- Charts row -->
 			<div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-				<DonutChart data={cardStatusData} title="Cards by Status" />
-				<DonutChart data={actionStatusData} title="Actions by Status" />
+				<DonutChart data={cardStatusData} title={$t('shell.chart_cards_by_status', 'Cards by Status')} />
+				<DonutChart data={actionStatusData} title={$t('shell.chart_actions_by_status', 'Actions by Status')} />
 			</div>
 
 			{#if sourceData.length > 0}
 				<div class="mt-3">
-					<BarChart data={sourceData} title="Events by Source" />
+					<BarChart data={sourceData} title={$t('shell.chart_events_by_source', 'Events by Source')} />
 				</div>
 			{/if}
 
@@ -468,13 +489,13 @@
 
 			{#if costByModel.length > 0}
 				<div class="mt-3">
-					<BarChart data={costByModel} title="LLM Cost by Model ($)" />
+					<BarChart data={costByModel} title={$t('shell.chart_cost_by_model', 'LLM Cost by Model ($)')} />
 				</div>
 			{/if}
 
 			{#if approvalData.length > 0}
 				<div class="mt-3">
-					<BarChart data={approvalData} title="Approval Rate by Persona (%)" />
+					<BarChart data={approvalData} title={$t('shell.chart_approval_by_persona', 'Approval Rate by Persona (%)')} />
 				</div>
 			{/if}
 		{/if}

@@ -4,6 +4,7 @@
 	import type { ProviderModels } from '$lib/api/types';
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { portal } from '$lib/actions/portal';
+	import { t } from '$lib/i18n';
 
 	interface Props {
 		id?: string;
@@ -20,10 +21,13 @@
 		value = $bindable(),
 		providers,
 		onchange,
-		placeholder = 'Select a model...',
+		placeholder: placeholderProp,
 		allowEmpty = false,
-		emptyLabel = 'Use default'
+		emptyLabel: emptyLabelProp
 	}: Props = $props();
+
+	let placeholder = $derived(placeholderProp ?? $t('settingsModels.select_model', 'Select a model...'));
+	let emptyLabel = $derived(emptyLabelProp ?? $t('settingsModels.use_default', 'Use default'));
 
 	let open = $state(false);
 	let search = $state('');
@@ -174,7 +178,7 @@
 					bind:value={search}
 					onkeydown={handleKeydown}
 					type="text"
-					placeholder="Search models..."
+					placeholder={$t('settingsModels.search_models', 'Search models...')}
 					class="w-full rounded border px-2 py-1.5 text-laya-base text-surface-100 placeholder:text-surface-500 focus:outline-none {$glassTheme ? 'glass-input' : 'border-surface-600 bg-surface-700 focus:border-surface-500'}"
 				/>
 			</div>
@@ -216,7 +220,7 @@
 
 				{#if filteredProviders.length === 0}
 					<div class="px-3 py-3 text-center text-laya-base text-surface-500">
-						{providers.length === 0 ? 'No API keys configured' : 'No models match your search'}
+						{providers.length === 0 ? $t('settingsModels.no_api_keys', 'No API keys configured') : $t('settingsModels.no_models_match', 'No models match your search')}
 					</div>
 				{/if}
 			</div>

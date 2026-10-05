@@ -2,6 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import type { EgressPreviewResponse } from '$lib/api/types';
+	import { t } from '$lib/i18n';
 
 	let {
 		preview,
@@ -42,7 +43,7 @@
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 	role="dialog"
-	aria-label="Confirm action"
+	aria-label={$t('actions.confirm_aria', 'Confirm action')}
 	tabindex="0"
 	onclick={handleBackdrop}
 	onkeydown={handleKeydown}
@@ -99,7 +100,7 @@
 				onclick={onCancel}
 				disabled={loading}
 			>
-				Cancel
+				{$t('common.cancel', 'Cancel')}
 			</button>
 			<button
 				class="inline-flex items-center gap-1.5 rounded-md bg-laya-orange/20 px-3 py-1.5 text-xs font-medium text-laya-orange transition-colors hover:bg-laya-orange/30 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -111,9 +112,9 @@
 						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 					</svg>
-					Executing...
+					{$t('actions.executing', 'Executing...')}
 				{:else}
-					Confirm
+					{$t('actions.confirm', 'Confirm')}
 				{/if}
 			</button>
 		</div>

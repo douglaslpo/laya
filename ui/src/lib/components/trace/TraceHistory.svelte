@@ -8,6 +8,7 @@
 	import { portal } from '$lib/actions/portal';
 	import PlatformBadge from '$lib/components/PlatformBadge.svelte';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		traces,
@@ -55,7 +56,7 @@
 		<svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
 			<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
 		</svg>
-		<p class="text-laya-base">No searches yet. Search for an entity to get started.</p>
+		<p class="text-laya-base">{$t('omniTrace.no_searches_yet', 'No searches yet. Search for an entity to get started.')}</p>
 	</div>
 {:else}
 	<div class="space-y-2">
@@ -80,7 +81,7 @@
 						</h3>
 						{#if trace.fuzzy_search}
 							<span class="shrink-0 px-1.5 py-0.5 rounded text-laya-micro font-medium bg-laya-orange/15 text-laya-orange border border-laya-orange/30">
-								Fuzzy
+								{$t('omniTrace.badge_fuzzy', 'Fuzzy')}
 							</span>
 						{/if}
 					</div>
@@ -88,9 +89,9 @@
 						{#if onrerun}
 							<button
 								onclick={(e) => { e.stopPropagation(); onrerun?.(trace.trace_id); }}
-								onmouseenter={(e) => showTooltip(e, 'Re-run')}
+								onmouseenter={(e) => showTooltip(e, $t('omniTrace.rerun', 'Re-run'))}
 								onmouseleave={hideTooltip}
-								aria-label="Re-run"
+								aria-label={$t('omniTrace.rerun', 'Re-run')}
 								class="p-1.5 rounded text-surface-400 hover:text-surface-200 {$glassTheme ? 'glass-hover' : 'hover:bg-surface-700'} transition-colors"
 							>
 								<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -101,9 +102,9 @@
 						{#if ondelete}
 							<button
 								onclick={(e) => handleDelete(e, trace.trace_id)}
-								onmouseenter={(e) => showTooltip(e, 'Delete')}
+								onmouseenter={(e) => showTooltip(e, $t('common.delete', 'Delete'))}
 								onmouseleave={hideTooltip}
-								aria-label="Delete"
+								aria-label={$t('common.delete', 'Delete')}
 								class="p-1.5 rounded text-surface-400 hover:text-red-400 {$glassTheme ? 'glass-hover' : 'hover:bg-surface-700'} transition-colors"
 							>
 								<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -119,10 +120,12 @@
 						<PlatformBadge {platform} />
 					{/each}
 					<span class="text-laya-secondary text-surface-500">
-						{trace.total_cards} cards
+						{trace.total_cards === 1
+							? $t('omniTrace.cards_one', '{count} card', { count: trace.total_cards })
+							: $t('omniTrace.cards_other', '{count} cards', { count: trace.total_cards })}
 					</span>
 					<span class="text-laya-secondary text-surface-600">
-						{parseBackendDate(trace.created_at)?.toLocaleDateString(undefined, {
+						{parseBackendDate(trace.created_at)?.toLocaleDateString($locale, {
 							month: 'short',
 							day: 'numeric',
 							hour: '2-digit',
@@ -132,16 +135,16 @@
 					{#if trace.enable_semantic || trace.enable_text || trace.enable_llm_filter || trace.fuzzy_search}
 						<div class="flex items-center gap-1.5 ml-auto">
 							{#if trace.enable_semantic}
-								<span class="px-1.5 py-0.5 rounded bg-laya-orange/10 text-laya-orange text-laya-micro font-medium">Semantic</span>
+								<span class="px-1.5 py-0.5 rounded bg-laya-orange/10 text-laya-orange text-laya-micro font-medium">{$t('omniTrace.badge_semantic', 'Semantic')}</span>
 							{/if}
 							{#if trace.enable_text}
-								<span class="px-1.5 py-0.5 rounded bg-laya-gold/10 text-laya-gold text-laya-micro font-medium">Text</span>
+								<span class="px-1.5 py-0.5 rounded bg-laya-gold/10 text-laya-gold text-laya-micro font-medium">{$t('omniTrace.badge_text', 'Text')}</span>
 							{/if}
 							{#if trace.enable_llm_filter}
-								<span class="px-1.5 py-0.5 rounded bg-laya-peach/10 text-laya-peach text-laya-micro font-medium">AI Filter</span>
+								<span class="px-1.5 py-0.5 rounded bg-laya-peach/10 text-laya-peach text-laya-micro font-medium">{$t('omniTrace.badge_ai_filter', 'AI Filter')}</span>
 							{/if}
 							{#if trace.fuzzy_search}
-								<span class="px-1.5 py-0.5 rounded bg-laya-coral/10 text-laya-coral text-laya-micro font-medium">Fuzzy</span>
+								<span class="px-1.5 py-0.5 rounded bg-laya-coral/10 text-laya-coral text-laya-micro font-medium">{$t('omniTrace.badge_fuzzy', 'Fuzzy')}</span>
 							{/if}
 						</div>
 					{/if}

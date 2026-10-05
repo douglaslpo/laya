@@ -6,6 +6,7 @@
 	import { engineApi } from '$lib/api/engine';
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { reducedMotion } from '$lib/stores/reducedMotion';
+	import { t } from '$lib/i18n';
 	import PlatformIcon from './PlatformIcon.svelte';
 	import type {
 		N8nTestResult,
@@ -74,7 +75,7 @@
 				await loadWorkflows();
 			}
 		} catch {
-			error = 'Failed to load settings';
+			error = $t('settingsModels.load_settings_failed', 'Failed to load settings');
 		} finally {
 			loading = false;
 		}
@@ -100,7 +101,7 @@
 			workflows = wfResp.workflows;
 			sources = srcResp.sources;
 		} catch (e) {
-			workflowError = e instanceof Error ? e.message : 'Failed to load workflows';
+			workflowError = e instanceof Error ? e.message : $t('settingsModels.load_workflows_failed', 'Failed to load workflows');
 		} finally {
 			loadingWorkflows = false;
 		}
@@ -120,7 +121,7 @@
 		} catch {
 			bootstrapResult = {
 				status: 'error',
-				message: 'Failed to connect to engine',
+				message: $t('settingsModels.engine_connect_failed', 'Failed to connect to engine'),
 				has_api_key: false
 			};
 		} finally {
@@ -139,7 +140,7 @@
 			showManualKeyInput = false;
 			await loadWorkflows();
 		} catch {
-			error = 'Failed to save n8n API key';
+			error = $t('settingsModels.save_n8n_key_failed', 'Failed to save n8n API key');
 		} finally {
 			savingApiKey = false;
 		}
@@ -153,7 +154,7 @@
 			sources = [];
 			bootstrapResult = null;
 		} catch {
-			error = 'Failed to remove n8n API key';
+			error = $t('settingsModels.remove_n8n_key_failed', 'Failed to remove n8n API key');
 		}
 	}
 
@@ -164,7 +165,7 @@
 		try {
 			await engineApi.updateSettings({ n8n: { base_url: baseUrl, webhooks } } as any);
 		} catch {
-			error = 'Failed to save settings';
+			error = $t('settingsModels.save_settings_failed', 'Failed to save settings');
 		} finally {
 			saving = false;
 		}
@@ -235,7 +236,7 @@
 				workflows = [...workflows];
 			}
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : 'Failed to toggle workflow';
+			const msg = e instanceof Error ? e.message : $t('settingsModels.toggle_workflow_failed', 'Failed to toggle workflow');
 			// Try to parse structured issues from the error
 			try {
 				const parsed = JSON.parse(msg);
@@ -268,11 +269,20 @@
 		const executor = workflows.filter((w) => w.source_type === 'executor');
 		const other = workflows.filter((w) => w.source_type !== 'ingestion' && w.source_type !== 'executor');
 		const groups: { label: string; items: AvailableWorkflow[] }[] = [];
-		if (ingestion.length) groups.push({ label: 'Ingestion Workflows', items: ingestion });
-		if (executor.length) groups.push({ label: 'Executor Workflows', items: executor });
-		if (other.length) groups.push({ label: 'Other Workflows', items: other });
+		if (ingestion.length) groups.push({ label: $t('settingsModels.workflows_ingestion', 'Ingestion Workflows'), items: ingestion });
+		if (executor.length) groups.push({ label: $t('settingsModels.workflows_executor', 'Executor Workflows'), items: executor });
+		if (other.length) groups.push({ label: $t('settingsModels.workflows_other', 'Other Workflows'), items: other });
 		return groups;
 	});
+
+	const webhookMappingDesc = $derived(
+		splitAround($t('settingsModels.webhook_mapping_desc', 'Map each platform to its n8n webhook path. The full URL will be {url}'), '{url}')
+	);
+
+	function splitAround(text: string, marker: string): [string, string] {
+		const i = text.indexOf(marker);
+		return i < 0 ? [text, ''] : [text.slice(0, i), text.slice(i + marker.length)];
+	}
 
 	const workflowStats = $derived({
 		total: workflows.length,
@@ -283,7 +293,7 @@
 
 {#if loading}
 	<div class="flex items-center justify-center py-12 text-surface-400">
-		Loading...
+		{$t('common.loading', 'Loading...')}
 	</div>
 {:else}
 	<div class="space-y-6">
@@ -309,13 +319,13 @@
 					</div>
 					<span class="text-laya-base text-surface-400">
 						{#if hasN8nKey && n8nHealth === 'healthy'}
-							Connected and ready
+							{$t('settingsModels.n8n_ready', 'Connected and ready')}
 						{:else if n8nHealth === 'healthy' && !hasN8nKey}
-							Running — needs configuration
+							{$t('settingsModels.n8n_needs_config', 'Running — needs configuration')}
 						{:else if n8nHealth === 'unreachable'}
-							Not running
+							{$t('settingsModels.n8n_not_running', 'Not running')}
 						{:else}
-							Checking...
+							{$t('status.checking', 'Checking...')}
 						{/if}
 					</span>
 				</div>
@@ -327,20 +337,20 @@
 							disabled={bootstrapping || n8nHealth === 'unreachable'}
 							class="rounded-md bg-primary-600 px-4 py-1.5 text-laya-base font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
 						>
-							{bootstrapping ? 'Configuring...' : 'Auto-configure'}
+							{bootstrapping ? $t('settingsModels.configuring', 'Configuring...') : $t('settingsModels.auto_configure', 'Auto-configure')}
 						</button>
 						<button
 							onclick={() => (showManualKeyInput = !showManualKeyInput)}
 							class="rounded-md px-3 py-1.5 text-laya-base text-surface-400 transition-colors hover:text-surface-200"
 						>
-							Manual
+							{$t('settingsModels.manual', 'Manual')}
 						</button>
 					{:else}
 						<button
 							onclick={() => (showAdvanced = !showAdvanced)}
 							class="rounded-md px-3 py-1.5 text-laya-base text-surface-400 transition-colors hover:text-surface-200"
 						>
-							{showAdvanced ? 'Hide' : 'Settings'}
+							{showAdvanced ? $t('settingsModels.hide', 'Hide') : $t('nav.settings', 'Settings')}
 						</button>
 					{/if}
 				</div>
@@ -370,7 +380,7 @@
 					<input
 						type="password"
 						bind:value={n8nApiKey}
-						placeholder="Enter n8n API key"
+						placeholder={$t('settingsModels.enter_n8n_key', 'Enter n8n API key')}
 						class="flex-1 rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 					/>
 					<button
@@ -378,7 +388,7 @@
 						disabled={savingApiKey || !n8nApiKey.trim()}
 						class="rounded-md bg-primary-600 px-4 py-2 text-laya-base font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
 					>
-						{savingApiKey ? 'Saving...' : 'Save Key'}
+						{savingApiKey ? $t('settingsModels.saving', 'Saving…') : $t('setup.save_key', 'Save Key')}
 					</button>
 				</div>
 			{/if}
@@ -397,16 +407,16 @@
 							onclick={() => checkHealth()}
 							class="rounded-md bg-surface-600 px-3 py-2 text-laya-base font-medium transition-colors hover:bg-surface-500"
 						>
-							Test
+							{$t('settingsModels.test', 'Test')}
 						</button>
 					</div>
 					<div class="flex items-center gap-3">
-						<span class="text-laya-secondary text-surface-500">API Key configured</span>
+						<span class="text-laya-secondary text-surface-500">{$t('settingsModels.api_key_configured', 'API Key configured')}</span>
 						<button
 							onclick={removeN8nApiKey}
 							class="text-laya-secondary text-red-400 hover:text-red-300"
 						>
-							Remove API Key
+							{$t('settingsModels.remove_api_key', 'Remove API Key')}
 						</button>
 					</div>
 					<a
@@ -418,7 +428,7 @@
 						<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 						</svg>
-						Open n8n Dashboard
+						{$t('settingsModels.open_n8n_dashboard', 'Open n8n Dashboard')}
 					</a>
 				</div>
 			{/if}
@@ -433,18 +443,18 @@
 						{#if workflowError}
 							<div class="flex items-center gap-2 rounded-md border border-red-800/50 bg-surface-800 px-3 py-1.5 shadow-lg">
 								<span class="text-laya-secondary text-red-300 flex-1 truncate">{workflowError}</span>
-								<button onclick={() => (workflowError = null)} aria-label="Dismiss error" class="shrink-0 text-red-500/60 hover:text-red-300 transition-colors">
+								<button onclick={() => (workflowError = null)} aria-label={$t('settingsModels.dismiss_error', 'Dismiss error')} class="shrink-0 text-red-500/60 hover:text-red-300 transition-colors">
 									<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 								</button>
 							</div>
 						{:else if workflowIssues}
 							<div class="flex items-center gap-2 rounded-md border border-yellow-700/40 bg-surface-800 px-3 py-1.5 shadow-lg">
 								<span class="text-laya-secondary text-yellow-300/90 flex-1 truncate">
-									<span class="font-medium">Cannot activate "{workflowIssues.name}"</span>
+									<span class="font-medium">{$t('settingsModels.cannot_activate', 'Cannot activate "{name}"', { name: workflowIssues.name })}</span>
 									<span class="text-yellow-400/60"> — </span>
 									<span class="text-yellow-300/70">{workflowIssues.issues.join('; ')}</span>
 								</span>
-								<button onclick={() => (workflowIssues = null)} aria-label="Dismiss warning" class="shrink-0 text-yellow-500/60 hover:text-yellow-300 transition-colors">
+								<button onclick={() => (workflowIssues = null)} aria-label={$t('settingsModels.dismiss_warning', 'Dismiss warning')} class="shrink-0 text-yellow-500/60 hover:text-yellow-300 transition-colors">
 									<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 								</button>
 							</div>
@@ -454,27 +464,33 @@
 			{/if}
 
 			{#if loadingWorkflows}
-				<div class="py-8 text-center text-laya-base text-surface-400">Loading workflows...</div>
+				<div class="py-8 text-center text-laya-base text-surface-400">{$t('settingsModels.loading_workflows', 'Loading workflows...')}</div>
 			{:else if workflows.length === 0}
 				<div class="rounded-lg border border-dashed border-surface-700 px-6 py-8 text-center">
-					<p class="text-laya-base text-surface-400">No workflows found in n8n</p>
-					<p class="mt-1 text-laya-secondary text-surface-500">Create workflows in the n8n dashboard to see them here</p>
+					<p class="text-laya-base text-surface-400">{$t('settingsModels.no_workflows', 'No workflows found in n8n')}</p>
+					<p class="mt-1 text-laya-secondary text-surface-500">{$t('settingsModels.no_workflows_hint', 'Create workflows in the n8n dashboard to see them here')}</p>
 				</div>
 			{:else}
 				<!-- Stats bar -->
 				<div class="flex items-center gap-4 text-laya-secondary text-surface-400">
-					<span>{workflowStats.total} workflows</span>
+					<span>{workflowStats.total === 1
+						? $t('settingsModels.workflows_count_one', '{count} workflow', { count: workflowStats.total })
+						: $t('settingsModels.workflows_count_other', '{count} workflows', { count: workflowStats.total })}</span>
 					<span class="text-surface-600">|</span>
 					<span class="flex items-center gap-1">
 						<span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-						{workflowStats.active} active
+						{workflowStats.active === 1
+							? $t('settingsModels.active_count_one', '{count} active', { count: workflowStats.active })
+							: $t('settingsModels.active_count_other', '{count} active', { count: workflowStats.active })}
 					</span>
 					<span class="text-surface-600">|</span>
-					<span>{workflowStats.registered} registered as sources</span>
+					<span>{workflowStats.registered === 1
+						? $t('settingsModels.registered_count_one', '{count} registered as source', { count: workflowStats.registered })
+						: $t('settingsModels.registered_count_other', '{count} registered as sources', { count: workflowStats.registered })}</span>
 					<button
 						onclick={loadWorkflows}
 						class="ml-auto text-surface-500 transition-colors hover:text-surface-200"
-						title="Refresh"
+						title={$t('settingsModels.refresh', 'Refresh')}
 					>
 						<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5" />
@@ -494,10 +510,10 @@
 							<table class="w-full text-laya-base">
 								<thead class="{$glassTheme ? 'bg-white/[0.03]' : 'bg-surface-900'} text-left text-laya-secondary uppercase tracking-wider text-surface-500">
 									<tr>
-										<th class="px-4 py-2.5">Workflow</th>
-										<th class="px-4 py-2.5">Platform</th>
-										<th class="px-4 py-2.5">Status</th>
-										<th class="px-4 py-2.5">Source</th>
+										<th class="px-4 py-2.5">{$t('settingsModels.col_workflow', 'Workflow')}</th>
+										<th class="px-4 py-2.5">{$t('settingsModels.col_platform', 'Platform')}</th>
+										<th class="px-4 py-2.5">{$t('settingsModels.col_status', 'Status')}</th>
+										<th class="px-4 py-2.5">{$t('settingsModels.col_source', 'Source')}</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y {$glassTheme ? 'divide-white/[0.06]' : 'divide-surface-700/50'}">
@@ -527,13 +543,13 @@
 															? 'bg-green-900/30 text-green-400 hover:bg-green-900/50'
 															: ($glassTheme ? 'bg-white/[0.08] text-surface-400 hover:bg-white/[0.14]' : 'bg-surface-700 text-surface-400 hover:bg-surface-600')}
 														{togglingWorkflow === wf.workflow_id ? 'opacity-50' : ''}"
-													title={wf.active ? 'Click to deactivate' : 'Click to activate'}
+													title={wf.active ? $t('settingsModels.click_deactivate', 'Click to deactivate') : $t('settingsModels.click_activate', 'Click to activate')}
 												>
 													<span class="h-1.5 w-1.5 rounded-full {wf.active ? 'bg-green-400' : 'bg-surface-500'}"></span>
 													{#if togglingWorkflow === wf.workflow_id}
 														...
 													{:else}
-														{wf.active ? 'Active' : 'Inactive'}
+														{wf.active ? $t('common.active', 'Active') : $t('settingsModels.inactive', 'Inactive')}
 													{/if}
 												</button>
 											</td>
@@ -543,8 +559,8 @@
 														{#if source.space_name}
 															<span class="h-1.5 w-1.5 rounded-full shrink-0" style="background-color: {source.space_name === 'Default' ? '#F97316' : '#6366f1'}"></span>
 														{/if}
-														<span class="text-laya-secondary text-surface-300" title="Registered as source: {source.name} in {source.space_name ?? 'Default'}">
-															{source.space_name ?? 'Default'}
+														<span class="text-laya-secondary text-surface-300" title={$t('settingsModels.registered_as_source', 'Registered as source: {name} in {space}', { name: source.name, space: source.space_name ?? $t('settingsModels.default_space', 'Default') })}>
+															{source.space_name ?? $t('settingsModels.default_space', 'Default')}
 														</span>
 													</div>
 												{:else}
@@ -568,13 +584,13 @@
 				class="flex w-full items-center justify-between p-4 text-left transition-colors {$glassTheme ? 'hover:bg-white/[0.04]' : 'hover:bg-surface-700/50'}"
 			>
 				<div>
-					<span class="text-laya-base font-medium">Advanced: Webhook Mappings</span>
+					<span class="text-laya-base font-medium">{$t('settingsModels.webhook_mappings_title', 'Advanced: Webhook Mappings')}</span>
 					<span class="ml-2 text-laya-secondary text-surface-500"
-						>({Object.keys(webhooks).length} configured)</span
+						>{$t('settingsModels.webhooks_configured', '({count} configured)', { count: Object.keys(webhooks).length })}</span
 					>
 				</div>
 				{#if saving}
-					<span class="text-laya-micro text-laya-orange">Saving…</span>
+					<span class="text-laya-micro text-laya-orange">{$t('settingsModels.saving', 'Saving…')}</span>
 				{/if}
 				<svg
 					class="h-4 w-4 text-surface-400 transition-transform {showWebhooks
@@ -596,10 +612,9 @@
 			{#if showWebhooks}
 				<div class="border-t border-surface-700 p-5">
 					<p class="mb-4 text-laya-base text-surface-400">
-						Map each platform to its n8n webhook path. The full URL will be
-						<code class="rounded bg-surface-700 px-1 py-0.5 text-laya-secondary"
+						{webhookMappingDesc[0]}<code class="rounded bg-surface-700 px-1 py-0.5 text-laya-secondary"
 							>{baseUrl}/webhook/&lt;path&gt;</code
-						>
+						>{webhookMappingDesc[1]}
 					</p>
 
 					<div class="overflow-hidden {$glassTheme ? 'rounded-xl border border-white/[0.06]' : 'rounded-xl border border-surface-700'}">
@@ -608,9 +623,9 @@
 								class="{$glassTheme ? 'bg-white/[0.03]' : 'bg-surface-900'} text-left text-laya-secondary uppercase tracking-wider text-surface-400"
 							>
 								<tr>
-									<th class="px-4 py-3">Platform</th>
-									<th class="px-4 py-3">Webhook Path</th>
-									<th class="px-4 py-3 text-right">Actions</th>
+									<th class="px-4 py-3">{$t('settingsModels.col_platform', 'Platform')}</th>
+									<th class="px-4 py-3">{$t('settingsModels.col_webhook_path', 'Webhook Path')}</th>
+									<th class="px-4 py-3 text-right">{$t('settingsModels.col_actions', 'Actions')}</th>
 								</tr>
 							</thead>
 							<tbody class="divide-y {$glassTheme ? 'divide-white/[0.06]' : 'divide-surface-700'}">
@@ -632,24 +647,24 @@
 											{#if editingPlatform === platform}
 												<button
 													class="text-green-400 hover:text-green-300"
-													onclick={saveEdit}>Save</button
+													onclick={saveEdit}>{$t('common.save', 'Save')}</button
 												>
 												<button
 													class="ml-2 text-surface-400 hover:text-surface-200"
-													onclick={cancelEdit}>Cancel</button
+													onclick={cancelEdit}>{$t('common.cancel', 'Cancel')}</button
 												>
 											{:else}
 												<button
 													class="text-surface-400 hover:text-surface-100"
-													onclick={() => testConnection(path)}>Test</button
+													onclick={() => testConnection(path)}>{$t('settingsModels.test', 'Test')}</button
 												>
 												<button
 													class="ml-2 text-surface-400 hover:text-surface-100"
-													onclick={() => startEdit(platform)}>Edit</button
+													onclick={() => startEdit(platform)}>{$t('common.edit', 'Edit')}</button
 												>
 												<button
 													class="ml-2 text-red-400 hover:text-red-300"
-													onclick={() => removeWebhook(platform)}>Remove</button
+													onclick={() => removeWebhook(platform)}>{$t('settingsModels.remove', 'Remove')}</button
 												>
 											{/if}
 										</td>
@@ -658,7 +673,7 @@
 								{#if Object.keys(webhooks).length === 0}
 									<tr>
 										<td colspan="3" class="px-4 py-6 text-center text-surface-500"
-											>No webhook mappings configured</td
+											>{$t('settingsModels.no_webhooks', 'No webhook mappings configured')}</td
 										>
 									</tr>
 								{/if}
@@ -678,9 +693,9 @@
 									? 'text-green-400'
 									: 'text-yellow-400'}
 							>
-								Webhook "{testResult.webhook.path}": {testResult.webhook.reachable
-									? `reachable (${testResult.webhook.status_code})`
-									: testResult.webhook.error || 'unreachable'}
+								{testResult.webhook.reachable
+									? $t('settingsModels.webhook_reachable', 'Webhook "{path}": reachable ({status})', { path: testResult.webhook.path, status: String(testResult.webhook.status_code) })
+									: $t('settingsModels.webhook_unreachable', 'Webhook "{path}": {error}', { path: testResult.webhook.path, error: testResult.webhook.error || $t('settingsModels.unreachable_lower', 'unreachable') })}
 							</span>
 						</div>
 					{/if}
@@ -690,13 +705,13 @@
 							<input
 								type="text"
 								bind:value={newPlatform}
-								placeholder="Platform (e.g. github)"
+								placeholder={$t('settingsModels.platform_placeholder', 'Platform (e.g. github)')}
 								class="rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 							/>
 							<input
 								type="text"
 								bind:value={newPath}
-								placeholder="Webhook path"
+								placeholder={$t('settingsModels.webhook_path_placeholder', 'Webhook path')}
 								class="flex-1 rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 							/>
 							<button
@@ -704,13 +719,13 @@
 								disabled={!newPlatform.trim() || !newPath.trim()}
 								class="rounded-md bg-surface-600 px-4 py-2 text-laya-base font-medium hover:bg-surface-500 disabled:opacity-50"
 							>
-								Add
+								{$t('settingsModels.add', 'Add')}
 							</button>
 							<button
 								onclick={() => (showAddWebhook = false)}
 								class="text-laya-base text-surface-400 hover:text-surface-200"
 							>
-								Cancel
+								{$t('common.cancel', 'Cancel')}
 							</button>
 						</div>
 					{:else}
@@ -718,7 +733,7 @@
 							class="mt-4 rounded-lg border border-dashed border-surface-600 px-4 py-2 text-laya-base text-surface-400 transition-colors hover:border-surface-400 hover:text-surface-200"
 							onclick={() => (showAddWebhook = true)}
 						>
-							+ Add Webhook
+							{$t('settingsModels.add_webhook', '+ Add Webhook')}
 						</button>
 					{/if}
 

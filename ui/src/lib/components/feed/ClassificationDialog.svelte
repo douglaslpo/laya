@@ -5,6 +5,7 @@
 	import type { ActionCard } from '$lib/api/types';
 	import { engineApi } from '$lib/api/engine';
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 
 	let {
 		card,
@@ -44,7 +45,7 @@
 			onupdated?.();
 			onclose();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to update classification';
+			error = e instanceof Error ? e.message : $t('feedCards.classify_failed', 'Failed to update classification');
 		} finally {
 			saving = false;
 		}
@@ -65,7 +66,7 @@
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 	role="dialog"
-	aria-label="Adjust classification"
+	aria-label={$t('feedCards.classify_dialog_label', 'Adjust classification')}
 	tabindex="-1"
 	onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
 	onkeydown={(e) => { if (e.key === 'Escape') onclose(); }}
@@ -73,8 +74,8 @@
 	<div class="mx-4 w-full max-w-lg rounded-xl border {$glassTheme ? 'glass-card border-surface-700/40 bg-surface-900/40' : 'border-surface-700 bg-surface-800 shadow-2xl'}">
 		<!-- Header -->
 		<div class="border-b px-5 py-4 {$glassTheme ? 'border-surface-700/40' : 'border-surface-700'}">
-			<h3 class="text-sm font-semibold text-surface-50">Adjust Classification</h3>
-			<p class="mt-1 text-xs text-surface-400">Correct the priority or persona for this card. Your changes help Laya learn.</p>
+			<h3 class="text-sm font-semibold text-surface-50">{$t('feedCards.classify_title', 'Adjust Classification')}</h3>
+			<p class="mt-1 text-xs text-surface-400">{$t('feedCards.classify_desc', 'Correct the priority or persona for this card. Your changes help Laya learn.')}</p>
 		</div>
 
 		<!-- Body -->
@@ -85,8 +86,8 @@
 
 			<!-- Priority -->
 			<div>
-				<span class="mb-1.5 block text-xs font-medium text-surface-300">Priority</span>
-				<div class="flex gap-1.5" role="group" aria-label="Priority">
+				<span class="mb-1.5 block text-xs font-medium text-surface-300">{$t('feedCards.priority', 'Priority')}</span>
+				<div class="flex gap-1.5" role="group" aria-label={$t('feedCards.priority', 'Priority')}>
 					{#each priorities as p}
 						<button
 							class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors
@@ -95,19 +96,19 @@
 									: 'bg-surface-700 text-surface-400 hover:text-surface-200'}"
 							onclick={() => (priority = p)}
 						>
-							{p}
+							{$t(`shared.priority_${p}`, p)}
 						</button>
 					{/each}
 				</div>
 				{#if priority !== card.priority}
-					<p class="mt-1 text-[10px] text-surface-500">{card.priority} → {priority}</p>
+					<p class="mt-1 text-[10px] text-surface-500">{$t(`shared.priority_${card.priority}`, card.priority)} → {$t(`shared.priority_${priority}`, priority)}</p>
 				{/if}
 			</div>
 
 			<!-- Persona -->
 			<div>
-				<span class="mb-1.5 block text-xs font-medium text-surface-300">Persona</span>
-				<div class="flex gap-1.5" role="group" aria-label="Persona">
+				<span class="mb-1.5 block text-xs font-medium text-surface-300">{$t('feedCards.persona', 'Persona')}</span>
+				<div class="flex gap-1.5" role="group" aria-label={$t('feedCards.persona', 'Persona')}>
 					{#each personas as p}
 						<button
 							class="rounded-md border px-3 py-1.5 text-xs font-medium transition-colors
@@ -116,27 +117,27 @@
 									: 'border-surface-600 text-surface-400 hover:text-surface-200'}"
 							onclick={() => (persona = p)}
 						>
-							{p}
+							{$t(`shared.persona_${p}`, p)}
 						</button>
 					{/each}
 				</div>
 				{#if persona !== card.persona}
-					<p class="mt-1 text-[10px] text-surface-500">{card.persona} → {persona}</p>
+					<p class="mt-1 text-[10px] text-surface-500">{$t(`shared.persona_${card.persona}`, card.persona)} → {$t(`shared.persona_${persona}`, persona)}</p>
 				{/if}
 			</div>
 
 			<!-- Rule (optional) -->
 			<div>
 				<label class="mb-1.5 block text-xs font-medium text-surface-300" for="classification-rule">
-					Add a rule <span class="font-normal text-surface-500">(optional)</span>
+					{$t('feedCards.add_rule', 'Add a rule')} <span class="font-normal text-surface-500">{$t('feedCards.optional', '(optional)')}</span>
 				</label>
 				<input
 					id="classification-rule"
 					bind:value={ruleText}
-					placeholder='e.g., "Always treat emails from legal@acme.com as HIGH priority"'
+					placeholder={$t('feedCards.rule_placeholder', 'e.g., "Always treat emails from legal@acme.com as HIGH priority"')}
 					class="w-full rounded-lg border px-3 py-2 text-sm text-surface-50 placeholder-surface-500 {$glassTheme ? 'border-surface-600/40 bg-surface-800/40 backdrop-blur-sm' : 'border-surface-600 bg-surface-900'}"
 				/>
-				<p class="mt-1 text-[10px] text-surface-500">Rules are applied to all future cards and can be managed in Settings → Rules.</p>
+				<p class="mt-1 text-[10px] text-surface-500">{$t('feedCards.rule_hint', 'Rules are applied to all future cards and can be managed in Settings → Rules.')}</p>
 			</div>
 		</div>
 
@@ -147,14 +148,14 @@
 				onclick={onclose}
 				disabled={saving}
 			>
-				Cancel
+				{$t('common.cancel', 'Cancel')}
 			</button>
 			<button
 				class="rounded-md bg-laya-orange px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-laya-orange/80 disabled:opacity-50"
 				onclick={save}
 				disabled={!hasChanges || saving}
 			>
-				{saving ? 'Saving...' : 'Save'}
+				{saving ? $t('feedCards.saving', 'Saving...') : $t('common.save', 'Save')}
 			</button>
 		</div>
 	</div>

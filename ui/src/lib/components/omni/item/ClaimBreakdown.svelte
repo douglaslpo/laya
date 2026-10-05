@@ -6,6 +6,7 @@
 	import { actorAvatarColor, actorInitials } from '$lib/utils/cardVisuals';
 	import { hhmm } from '$lib/omni/layers';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		cards,
@@ -23,6 +24,10 @@
 	// sentence stays untouched prose above; these are the structure under it.
 	const counts = $derived(bucketCounts(cards));
 	const buckets = $derived(activeBuckets(counts));
+	const bucketLabels = $derived.by(() => {
+		void $locale;
+		return { ...BUCKET_LABELS };
+	});
 	const total = $derived(cards.length);
 
 	// --- Mini timeline: one dot per card, positioned by created_at ---
@@ -38,13 +43,14 @@
 
 	const rangeLabel = $derived.by(() => {
 		if (times.length === 0) return '';
-		const start = hhmm(times[0].card.created_at);
-		const end = hhmm(times[times.length - 1].card.created_at);
+		const loc = $locale;
+		const start = hhmm(times[0].card.created_at, loc);
+		const end = hhmm(times[times.length - 1].card.created_at, loc);
 		const startDate = new Date(first);
 		const isToday = new Date().toDateString() === startDate.toDateString();
 		const dayPart = isToday
-			? 'today'
-			: startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+			? $t('omniTrace.today_lower', 'today')
+			: startDate.toLocaleDateString(loc, { month: 'short', day: 'numeric' });
 		return start === end ? `${start} · ${dayPart}` : `${start} → ${end} · ${dayPart}`;
 	});
 
@@ -93,8 +99,10 @@
 							border: 1px solid {active ? `var(--om-${BUCKET_TOKEN[bucket]}-dot)` : 'transparent'};"
 						aria-pressed={active}
 						title={active
-							? `Showing only ${BUCKET_LABELS[bucket]} — click to clear`
-							: `Filter to ${BUCKET_LABELS[bucket]}`}
+							? $t('omniTrace.filter_showing_only', 'Showing only {label} — click to clear', {
+									label: bucketLabels[bucket]
+								})
+							: $t('omniTrace.filter_to', 'Filter to {label}', { label: bucketLabels[bucket] })}
 						onclick={() => onFilter(active ? null : bucket)}
 					>
 						<span
@@ -102,13 +110,13 @@
 							style="background: var(--om-{BUCKET_TOKEN[bucket]}-dot);"
 						></span>
 						<span class="om-mono font-semibold">{counts[bucket]}</span>
-						{BUCKET_LABELS[bucket]}
+						{bucketLabels[bucket]}
 					</button>
 				{/each}
 			</div>
 		{:else}
 			<span class="om-pill-t" style="color: var(--om-text-meta);">
-				No evidence cards could be loaded for this line.
+				{$t('omniTrace.no_evidence_loaded', 'No evidence cards could be loaded for this line.')}
 			</span>
 		{/if}
 	</div>
@@ -119,7 +127,7 @@
 		style="border-left: 1px solid var(--om-border);"
 	>
 		<div class="flex items-center gap-2">
-			<span class="om-micro whitespace-nowrap">When it happened</span>
+			<span class="om-micro whitespace-nowrap">{$t('omniTrace.when_it_happened', 'When it happened')}</span>
 			<span class="flex-1"></span>
 			<span class="om-mono text-[calc(9px*var(--om-scale))] whitespace-nowrap" style="color: var(--om-text-faint);">
 				{rangeLabel}
@@ -142,8 +150,8 @@
 					style="left: {pct}%;
 						background: var(--om-{BUCKET_TOKEN[bucket]}-dot);
 						box-shadow: 0 0 0 2.5px var(--om-bar);"
-					aria-label="{entry.card.header} — {hhmm(entry.card.created_at)}"
-					title="{hhmm(entry.card.created_at)} · {entry.card.header}"
+					aria-label="{entry.card.header} — {hhmm(entry.card.created_at, $locale)}"
+					title="{hhmm(entry.card.created_at, $locale)} · {entry.card.header}"
 					onclick={() => onSelectCard(entry.card.card_id)}
 				></button>
 			{/each}

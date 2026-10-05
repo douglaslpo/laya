@@ -3,7 +3,8 @@
 <script lang="ts">
 	import type { GroupSummary, CardGroup, ActionCard, CardEgressContext, CardEgressAction, KeyEvent } from '$lib/api/types';
 	import { engineApi } from '$lib/api/engine';
-	import { parseBackendDate, timeAgo } from '$lib/utils/datetime';
+	import { parseBackendDate, timeAgo as _timeAgo } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 	import { PRIORITY_LABELS, PRIORITY_COLORS } from '$lib/utils/cardVisuals';
 	import { goto } from '$app/navigation';
 	import { chatOpen, chatCardContext, chatCardIds, chatListOpen } from '$lib/stores/chat';
@@ -52,7 +53,7 @@
 		try {
 			const d = parseBackendDate(iso);
 			if (!d || isNaN(d.getTime())) return '';
-			return d.toLocaleString(undefined, {
+			return d.toLocaleString($locale, {
 				month: 'short',
 				day: 'numeric',
 				hour: 'numeric',
@@ -205,7 +206,15 @@
 
 	const priorityColors = PRIORITY_COLORS;
 
-	const priorityLabel = PRIORITY_LABELS;
+	const priorityLabel = $derived(
+		Object.fromEntries(
+			Object.entries(PRIORITY_LABELS).map(([p, label]) => [p, $t(`feedCards.priority_short_${p}`, label)])
+		) as Record<string, string>
+	);
+	const timeAgo = $derived.by(() => {
+		void $locale;
+		return (dateStr?: string) => _timeAgo(dateStr);
+	});
 
 	const platformLabel: Record<string, string> = {
 		jira: 'Jira', gmail: 'Gmail', slack: 'Slack',
@@ -223,7 +232,7 @@
 
 	const platformName = $derived(
 		group.platforms && group.platforms.length > 1
-			? 'Multiple'
+			? $t('feedGroups.multiple_platforms', 'Multiple')
 			: platformLabel[group.platform] ?? group.platform
 	);
 
@@ -239,7 +248,7 @@
 			// 30s HTTP timeout.  The backend continues and delivers the result
 			// via WebSocket, so only surface non-timeout errors.
 			if (e instanceof DOMException && e.name === 'AbortError') return;
-			regenerateError = 'Failed to regenerate summary';
+			regenerateError = $t('feedGroups.regenerate_failed', 'Failed to regenerate summary');
 		}
 	}
 </script>
@@ -254,7 +263,7 @@
 				{priorityLabel[group.top_priority] ?? group.top_priority}
 			</span>
 			<span class="rounded border border-surface-600 px-1.5 py-0.5 text-[10px] font-medium text-surface-400">
-				{group.card_count} cards
+				{group.card_count === 1 ? $t('feedGroups.cards_one', '{count} card', { count: group.card_count }) : $t('feedGroups.cards_other', '{count} cards', { count: group.card_count })}
 			</span>
 		</div>
 		<div class="flex items-center gap-1">
@@ -263,32 +272,32 @@
 					<button
 						onclick={() => ongotogroup?.(group.entity_id)}
 						class="rounded p-1.5 text-surface-500 transition-colors hover:text-laya-orange"
-						aria-label="Go to group"
+						aria-label={$t('feedGroups.go_to_group', 'Go to group')}
 					>
 						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
 						</svg>
 					</button>
-					<span class="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/act:opacity-100">Go to group</span>
+					<span class="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/act:opacity-100">{$t('feedGroups.go_to_group', 'Go to group')}</span>
 				</div>
 			{/if}
 			<div class="group/act relative">
 				<button
 					onclick={chatAboutGroup}
-					aria-label="Chat about this group"
+					aria-label={$t('feedGroups.chat_about_this_group', 'Chat about this group')}
 					class="rounded p-1.5 text-surface-500 transition-colors hover:text-laya-orange"
 				>
 					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
 					</svg>
 				</button>
-				<span class="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/act:opacity-100">Chat about group</span>
+				<span class="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/act:opacity-100">{$t('feedGroups.chat_about_group', 'Chat about group')}</span>
 			</div>
 			<!-- Expand / collapse the wide focus-mode overlay (same as the chat sidebar). -->
 			<div class="group/act relative">
 				<button
 					onclick={() => detailExpanded.set(!$detailExpanded)}
-					aria-label={$detailExpanded ? 'Collapse panel' : 'Expand panel'}
+					aria-label={$detailExpanded ? $t('feedGroups.collapse_panel', 'Collapse panel') : $t('feedGroups.expand_panel', 'Expand panel')}
 					class="rounded p-1.5 text-surface-500 transition-colors hover:text-surface-200"
 				>
 					{#if $detailExpanded}
@@ -301,9 +310,9 @@
 						</svg>
 					{/if}
 				</button>
-				<span class="pointer-events-none absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/act:opacity-100">{$detailExpanded ? 'Collapse' : 'Expand'}</span>
+				<span class="pointer-events-none absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/act:opacity-100">{$detailExpanded ? $t('feedGroups.collapse', 'Collapse') : $t('feedGroups.expand', 'Expand')}</span>
 			</div>
-			<button aria-label="Close" class="rounded p-1.5 text-surface-400 transition-colors hover:text-surface-100" onclick={() => ondismiss ? ondismiss() : onclose()}>
+			<button aria-label={$t('common.close', 'Close')} class="rounded p-1.5 text-surface-400 transition-colors hover:text-surface-100" onclick={() => ondismiss ? ondismiss() : onclose()}>
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 				</svg>
@@ -343,7 +352,7 @@
 			{#each statusSummary as { status, count }}
 				<span class="flex items-center gap-1 shrink-0">
 					<StatusDot {status} />
-					<span class="text-[11px] text-surface-400">{count} {status.replace('_', ' ')}</span>
+					<span class="text-[11px] text-surface-400">{count} {$t(`shared.status_${status}`, status.replace('_', ' '))}</span>
 				</span>
 			{/each}
 		</div>
@@ -362,7 +371,7 @@
 			<!-- Key developments -->
 			{#if summary.key_events && summary.key_events.length > 0}
 				<div class="mb-5">
-					<h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">Key Developments</h3>
+					<h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">{$t('feedGroups.key_developments', 'Key Developments')}</h3>
 					<ul class="space-y-2.5">
 						{#each summary.key_events as item}
 							{@const parsed = parseKeyEvent(item)}
@@ -386,7 +395,7 @@
 			<!-- Current status -->
 			{#if summary.current_status}
 				<div class="mb-5">
-					<h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">Current Status</h3>
+					<h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">{$t('feedGroups.current_status', 'Current Status')}</h3>
 					<div class="flex items-start gap-2">
 						<span class="mt-1 h-2 w-2 flex-shrink-0 rounded-full bg-green-400"></span>
 						<p class="text-laya-base text-surface-200">{summary.current_status}</p>
@@ -397,7 +406,7 @@
 			<!-- Pending actions -->
 			{#if summary.pending_actions && summary.pending_actions.length > 0}
 				<div class="mb-5">
-					<h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">Needs Attention</h3>
+					<h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-surface-400">{$t('feedGroups.needs_attention', 'Needs Attention')}</h3>
 					<ul class="space-y-1.5">
 						{#each summary.pending_actions as action}
 							<li class="flex items-start gap-2 text-laya-base text-surface-300">
@@ -412,7 +421,7 @@
 			<!-- Updated time -->
 			{#if summary.updated_at}
 				<p class="mb-5 text-[10px] text-surface-500">
-					Summary updated {timeAgo(summary.updated_at)}
+					{$t('feedGroups.summary_updated', 'Summary updated {time}', { time: timeAgo(summary.updated_at) })}
 				</p>
 			{/if}
 		{:else}
@@ -422,15 +431,15 @@
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 				</svg>
 				<div>
-					<p class="text-sm font-medium text-surface-300">No summary yet</p>
-					<p class="mt-1 text-xs text-surface-500">A summary will be generated when new activity arrives for this entity.</p>
+					<p class="text-sm font-medium text-surface-300">{$t('feedGroups.no_summary', 'No summary yet')}</p>
+					<p class="mt-1 text-xs text-surface-500">{$t('feedGroups.group_summary_hint', 'A summary will be generated when new activity arrives for this entity.')}</p>
 				</div>
 				<button
 					class="mt-2 rounded-lg border border-laya-orange/30 bg-laya-orange/10 px-4 py-2 text-xs font-medium text-laya-orange transition-colors hover:bg-laya-orange/20 disabled:opacity-50"
 					disabled={generating}
 					onclick={regenerate}
 				>
-					{generating ? 'Generating...' : 'Generate now'}
+					{generating ? $t('feedGroups.generating', 'Generating...') : $t('feedGroups.generate_now', 'Generate now')}
 				</button>
 			</div>
 		{/if}
@@ -452,7 +461,7 @@
 						bind:this={overflowBtnEl}
 						class="flex items-center justify-center rounded-md px-1.5 py-1 text-[11px] text-surface-400 transition-colors hover:bg-surface-700/50 hover:text-surface-200"
 						onclick={toggleOverflow}
-						aria-label="More actions"
+						aria-label={$t('feedGroups.more_actions', 'More actions')}
 					>
 						<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
 							<path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -473,7 +482,7 @@
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
 			</svg>
-			Show all ({group.card_count})
+			{$t('feedGroups.show_all_count', 'Show all ({count})', { count: group.card_count })}
 		</button>
 	{:else if key === 'related'}
 		<button
@@ -481,7 +490,7 @@
 			onclick={() => onshowrelated?.(group.cards[0])}
 		>
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" stroke-width="2" /><circle cx="19" cy="6" r="2" stroke-width="2" /><circle cx="19" cy="18" r="2" stroke-width="2" /><path stroke-linecap="round" stroke-width="2" d="M7 11l10-4M7 13l10 4" /></svg>
-			Related ({relatedCount})
+			{$t('feedGroups.related_count', 'Related ({count})', { count: relatedCount ?? 0 })}
 		</button>
 	{:else if key === 'runagent'}
 		<button
@@ -489,7 +498,7 @@
 			onclick={() => onrunagent?.(group.entity_id)}
 		>
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-			Run Agent
+			{$t('feedGroups.run_agent', 'Run Agent')}
 		</button>
 	{:else if key === 'workspace'}
 		<button
@@ -497,7 +506,7 @@
 			onclick={() => goto(`/workspace/${workspaceCardId}`)}
 		>
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-			Workspace
+			{$t('feedGroups.workspace', 'Workspace')}
 		</button>
 	{:else if key === 'regenerate'}
 		<button
@@ -508,7 +517,7 @@
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 			</svg>
-			{generating ? '...' : 'Regenerate'}
+			{generating ? '...' : $t('feedGroups.regenerate', 'Regenerate')}
 		</button>
 	{/if}
 {/snippet}
@@ -523,7 +532,7 @@
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
 			</svg>
-			Show all ({group.card_count})
+			{$t('feedGroups.show_all_count', 'Show all ({count})', { count: group.card_count })}
 		</button>
 	{:else if key === 'related'}
 		<button
@@ -531,7 +540,7 @@
 			onclick={() => { overflowOpen = false; onshowrelated?.(group.cards[0]); }}
 		>
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" stroke-width="2" /><circle cx="19" cy="6" r="2" stroke-width="2" /><circle cx="19" cy="18" r="2" stroke-width="2" /><path stroke-linecap="round" stroke-width="2" d="M7 11l10-4M7 13l10 4" /></svg>
-			Related ({relatedCount})
+			{$t('feedGroups.related_count', 'Related ({count})', { count: relatedCount ?? 0 })}
 		</button>
 	{:else if key === 'runagent'}
 		<button
@@ -539,7 +548,7 @@
 			onclick={() => { overflowOpen = false; onrunagent?.(group.entity_id); }}
 		>
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-			Run Agent
+			{$t('feedGroups.run_agent', 'Run Agent')}
 		</button>
 	{:else if key === 'workspace'}
 		<button
@@ -547,7 +556,7 @@
 			onclick={() => { overflowOpen = false; goto(`/workspace/${workspaceCardId}`); }}
 		>
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-			Workspace
+			{$t('feedGroups.workspace', 'Workspace')}
 		</button>
 	{:else if key === 'regenerate'}
 		<button
@@ -558,7 +567,7 @@
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 			</svg>
-			{generating ? '...' : 'Regenerate'}
+			{generating ? '...' : $t('feedGroups.regenerate', 'Regenerate')}
 		</button>
 	{/if}
 {/snippet}
@@ -593,7 +602,7 @@
 			{/each}
 			{#if !egressContext.connected}
 				<p class="px-2 py-1 text-[10px] text-surface-500 italic">
-					Connect {egressContext.platform} to use
+					{$t('feedGroups.connect_to_use', 'Connect {platform} to use', { platform: egressContext.platform })}
 				</p>
 			{/if}
 		{/if}

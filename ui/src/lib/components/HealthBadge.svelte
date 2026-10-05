@@ -4,6 +4,7 @@
 	import { health, healthError } from '$lib/stores/health';
 	import { wsStatus } from '$lib/stores/websocket';
 	import { vectorStoreState } from '$lib/utils/vectorStore';
+	import { t } from '$lib/i18n';
 
 	// Yellow = the engine is usable but degraded: live updates are disconnected,
 	// or the vector store (semantic search) is still starting or unavailable.
@@ -17,10 +18,10 @@
 	});
 
 	let statusText = $derived.by(() => {
-		if ($healthError || !$health) return 'Offline';
-		if ($health.engine === 'healthy' && $wsStatus === 'connected') return 'Connected';
-		if ($health.engine === 'healthy') return 'Engine OK';
-		return 'Unhealthy';
+		if ($healthError || !$health) return $t('shell.offline', 'Offline');
+		if ($health.engine === 'healthy' && $wsStatus === 'connected') return $t('shell.connected', 'Connected');
+		if ($health.engine === 'healthy') return $t('shell.health_engine_ok', 'Engine OK');
+		return $t('shell.health_unhealthy', 'Unhealthy');
 	});
 </script>
 

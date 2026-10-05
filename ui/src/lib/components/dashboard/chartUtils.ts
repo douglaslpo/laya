@@ -1,7 +1,9 @@
 // Copyright 2026 Aayush Chawla
 // SPDX-License-Identifier: Apache-2.0
 
+import { get } from 'svelte/store';
 import { parseBackendDate } from '$lib/utils/datetime';
+import { locale } from '$lib/i18n';
 
 type Pt = { x: number; y: number };
 
@@ -91,18 +93,22 @@ export function niceStep(maxVal: number, targetTicks: number): number {
  * Format an ISO UTC timestamp as a local-time label.
  * Adapts format to the chart's window size.
  */
-export function formatBucketLabel(iso: string, windowMinutes: number): string {
+export function formatBucketLabel(
+	iso: string,
+	windowMinutes: number,
+	loc: string = get(locale)
+): string {
 	const d = parseBackendDate(iso);
 	if (!d) return '';
 	if (windowMinutes <= 360) {
-		return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+		return d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', hour12: false });
 	}
 	if (windowMinutes <= 1440) {
-		const day = d.toLocaleDateString([], { weekday: 'short' });
-		const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+		const day = d.toLocaleDateString(loc, { weekday: 'short' });
+		const time = d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', hour12: false });
 		return `${day} ${time}`;
 	}
-	return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+	return d.toLocaleDateString(loc, { month: 'short', day: 'numeric' });
 }
 
 function r(v: number): string {

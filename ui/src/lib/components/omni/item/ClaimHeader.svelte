@@ -4,6 +4,7 @@
 	import type { OmniEvidenceCard, OmniItem, OmniLineage } from '$lib/api/types';
 	import { duration, num } from '$lib/omni/layers';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		item,
@@ -27,6 +28,7 @@
 	);
 
 	const span = $derived.by(() => {
+		void $locale;
 		const times = cards
 			.map((c) => parseBackendDate(c.created_at)?.getTime())
 			.filter((t): t is number => t !== undefined);
@@ -39,23 +41,44 @@
 	const provenance = $derived.by((): Entry[] => {
 		const out: Entry[] = [
 			{
-				value: num(sourceCardCount),
-				label: sourceCardCount === 1 ? 'source card' : 'source cards'
+				value: num(sourceCardCount, $locale),
+				label:
+					sourceCardCount === 1
+						? $t('omniTrace.prov_source_card_one', 'source card')
+						: $t('omniTrace.prov_source_card_other', 'source cards')
 			}
 		];
 		if (platformCount > 0) {
-			out.push({ value: String(platformCount), label: platformCount === 1 ? 'platform' : 'platforms' });
+			out.push({
+				value: String(platformCount),
+				label:
+					platformCount === 1
+						? $t('omniTrace.prov_platform_one', 'platform')
+						: $t('omniTrace.prov_platform_other', 'platforms')
+			});
 		}
 		if (peopleCount > 0) {
-			out.push({ value: String(peopleCount), label: peopleCount === 1 ? 'person' : 'people' });
+			out.push({
+				value: String(peopleCount),
+				label:
+					peopleCount === 1
+						? $t('omniTrace.prov_person_one', 'person')
+						: $t('omniTrace.prov_person_other', 'people')
+			});
 		}
-		if (span) out.push({ value: span, label: 'span' });
+		if (span) out.push({ value: span, label: $t('omniTrace.prov_span', 'span') });
 		if (lineage) {
-			out.push({ value: `v${lineage.first_version}`, label: 'first appeared' });
+			out.push({
+				value: `v${lineage.first_version}`,
+				label: $t('omniTrace.prov_first_appeared', 'first appeared')
+			});
 			const carried = lineage.versions_carried;
 			out.push({
 				value: `${carried}${lineage.truncated ? '+' : ''}`,
-				label: carried === 1 ? 'synthesis carried through' : 'syntheses carried through'
+				label:
+					carried === 1
+						? $t('omniTrace.prov_carried_one', 'synthesis carried through')
+						: $t('omniTrace.prov_carried_other', 'syntheses carried through')
 			});
 		}
 		return out;
@@ -72,7 +95,7 @@
 	     third row below the claim, which cost ~26px of header for six short
 	     numbers; on the rule line they read as the claim's dateline instead. -->
 	<div class="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-		<span class="om-micro whitespace-nowrap">The line you clicked</span>
+		<span class="om-micro whitespace-nowrap">{$t('omniTrace.line_you_clicked', 'The line you clicked')}</span>
 		<span
 			class="h-px min-w-[20px] flex-1"
 			style="background: linear-gradient(90deg, var(--om-border-soft), transparent);"
@@ -98,8 +121,9 @@
 		<!-- Legacy ?cards= link: there is no claim to show, so say that plainly
 		     rather than rendering an empty heading. -->
 		<h1 class="om-claim-t max-w-[1080px]" style="color: var(--om-text-dim);">
-			{sourceCardCount}
-			{sourceCardCount === 1 ? 'card' : 'cards'} from an older Omni link
+			{sourceCardCount === 1
+				? $t('omniTrace.legacy_link_one', '{count} card from an older Omni link', { count: sourceCardCount })
+				: $t('omniTrace.legacy_link_other', '{count} cards from an older Omni link', { count: sourceCardCount })}
 		</h1>
 	{/if}
 </div>

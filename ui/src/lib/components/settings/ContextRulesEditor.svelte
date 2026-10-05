@@ -7,6 +7,7 @@
 	import { flip } from 'svelte/animate';
 	import { cubicInOut } from 'svelte/easing';
 	import type { ContextRule } from '$lib/api/types';
+	import { t } from '$lib/i18n';
 
 	// Out-transition for a deleted rule: fades the card while collapsing its
 	// height (incl. padding/margin) so neighbouring rules visibly slide up to
@@ -62,7 +63,7 @@
 			rules = resp.rules;
 			total = resp.total;
 		} catch {
-			error = 'Failed to load context rules';
+			error = $t('settingsRules.err_load_ctx', 'Failed to load context rules');
 		} finally {
 			if (!silent) loading = false;
 		}
@@ -99,7 +100,7 @@
 			offset = 0; // newest first — jump to the top so the new rule is visible
 			await load();
 		} catch {
-			error = 'Failed to create rule';
+			error = $t('settingsRules.err_create_rule', 'Failed to create rule');
 		} finally {
 			saving = false;
 		}
@@ -120,7 +121,7 @@
 			resetForm();
 			await load();
 		} catch {
-			error = 'Failed to update rule';
+			error = $t('settingsRules.err_update_rule', 'Failed to update rule');
 		} finally {
 			saving = false;
 		}
@@ -132,7 +133,7 @@
 			const idx = rules.findIndex((r) => r.id === rule.id);
 			if (idx !== -1) rules[idx] = { ...rules[idx], active: !rule.active };
 		} catch {
-			error = 'Failed to toggle rule';
+			error = $t('settingsRules.err_toggle_rule', 'Failed to toggle rule');
 		}
 	}
 
@@ -149,18 +150,16 @@
 			// (keeps it full) without a loading flash that would cut the animation.
 			await load(true);
 		} catch {
-			error = 'Failed to delete rule';
+			error = $t('settingsRules.err_delete_rule', 'Failed to delete rule');
 		}
 	}
 </script>
 
 <div class="space-y-4">
 	<div>
-		<h3 class="text-laya-heading font-semibold text-surface-50">Context Rules</h3>
+		<h3 class="text-laya-heading font-semibold text-surface-50">{$t('settingsRules.ctx_title', 'Context Rules')}</h3>
 		<p class="mt-1 text-laya-base text-surface-400">
-			Context rules guide how Laya decides whether two notifications belong to the same context
-			group. Most are learned automatically from your link/unlink actions; you can edit, disable,
-			or add your own. They're injected into the AI's grouping instructions.
+			{$t('settingsRules.ctx_desc', "Context rules guide how Laya decides whether two notifications belong to the same context group. Most are learned automatically from your link/unlink actions; you can edit, disable, or add your own. They're injected into the AI's grouping instructions.")}
 		</p>
 	</div>
 
@@ -169,17 +168,17 @@
 	{/if}
 
 	{#if loading}
-		<div class="text-surface-400 text-laya-base">Loading context rules...</div>
+		<div class="text-surface-400 text-laya-base">{$t('settingsRules.loading_ctx', 'Loading context rules...')}</div>
 	{:else}
 		<!-- Top pagination bar: surfaces the rule count + page controls above the
 		     table so they're visible without scrolling to the bottom of a long list. -->
 		<div class="flex items-center justify-between text-laya-secondary text-surface-400">
-			<span>{total} rule{total !== 1 ? 's' : ''}</span>
+			<span>{total === 1 ? $t('settingsRules.rules_count_one', '{count} rule', { count: total }) : $t('settingsRules.rules_count_other', '{count} rules', { count: total })}</span>
 			{#if total > limit}
 				<div class="flex items-center gap-2">
-					<button onclick={prevPage} disabled={offset === 0} class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30">Prev</button>
+					<button onclick={prevPage} disabled={offset === 0} class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30">{$t('settingsRules.prev', 'Prev')}</button>
 					<span>{page} / {totalPages}</span>
-					<button onclick={nextPage} disabled={offset + limit >= total} class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30">Next</button>
+					<button onclick={nextPage} disabled={offset + limit >= total} class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30">{$t('settingsRules.next', 'Next')}</button>
 				</div>
 			{/if}
 		</div>
@@ -192,7 +191,7 @@
 					<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} border-laya-orange/30 p-3 space-y-2">
 						<input
 							bind:value={formText}
-							placeholder="Rule text"
+							placeholder={$t('settingsRules.rule_text_placeholder', 'Rule text')}
 							class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500"
 						/>
 						<div class="flex gap-2">
@@ -201,10 +200,10 @@
 								onclick={saveEdit}
 								disabled={!formValid || saving}
 							>
-								{saving ? 'Saving...' : 'Save'}
+								{saving ? $t('settingsRules.saving', 'Saving...') : $t('common.save', 'Save')}
 							</button>
 							<button class="rounded-lg px-4 py-1.5 text-laya-base text-surface-400 hover:text-surface-200" onclick={resetForm}>
-								Cancel
+								{$t('common.cancel', 'Cancel')}
 							</button>
 						</div>
 					</div>
@@ -214,23 +213,23 @@
 							<button
 								class="relative h-5 w-9 shrink-0 rounded-full transition-colors {rule.active ? 'bg-green-600' : 'bg-surface-600'}"
 								onclick={() => toggleRule(rule)}
-								aria-label="Toggle rule"
+								aria-label={$t('settingsRules.toggle_rule', 'Toggle rule')}
 							>
 								<span class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform {rule.active ? 'left-[1.125rem]' : 'left-0.5'}"></span>
 							</button>
 							<span class="rounded px-1.5 py-0.5 text-laya-micro font-semibold uppercase shrink-0
 								{rule.source === 'learned' ? 'bg-blue-900/50 text-blue-400' : 'bg-surface-700 text-surface-400'}">
-								{rule.source}
+								{$t(`settingsRules.source_${rule.source}`, rule.source)}
 							</span>
 							{#if rule.space_id}
-								<span class="rounded px-1.5 py-0.5 text-laya-micro text-surface-500 shrink-0" title="Space">{rule.space_id}</span>
+								<span class="rounded px-1.5 py-0.5 text-laya-micro text-surface-500 shrink-0" title={$t('settingsRules.space', 'Space')}>{rule.space_id}</span>
 							{/if}
 							<p class="flex-1 min-w-0 text-laya-base {rule.active ? 'text-surface-200' : 'text-surface-500'}">{rule.rule_text}</p>
 							<div class="flex items-center gap-1 shrink-0">
-								<button class="rounded p-1 text-surface-500 transition-colors hover:text-surface-200" onclick={() => startEdit(rule)} aria-label="Edit rule" title="Edit">
+								<button class="rounded p-1 text-surface-500 transition-colors hover:text-surface-200" onclick={() => startEdit(rule)} aria-label={$t('settingsRules.edit_rule', 'Edit rule')} title={$t('common.edit', 'Edit')}>
 									<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
 								</button>
-								<button class="rounded p-1 text-surface-500 transition-colors hover:text-red-400" onclick={() => removeRule(rule)} aria-label="Remove rule" title="Remove">
+								<button class="rounded p-1 text-surface-500 transition-colors hover:text-red-400" onclick={() => removeRule(rule)} aria-label={$t('settingsRules.remove_rule', 'Remove rule')} title={$t('settingsRules.remove', 'Remove')}>
 									<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 								</button>
 							</div>
@@ -241,7 +240,7 @@
 			{/each}
 			{#if rules.length === 0}
 				<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-6 text-center text-surface-500">
-					No context rules yet. They're learned as you link/unlink cards, or add one below.
+					{$t('settingsRules.no_ctx_rules', "No context rules yet. They're learned as you link/unlink cards, or add one below.")}
 				</div>
 			{/if}
 		</div>
@@ -251,7 +250,7 @@
 			<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-3 space-y-2">
 				<input
 					bind:value={formText}
-					placeholder='e.g., "Group a deployment alert with the incident thread that references the same service"'
+					placeholder={$t('settingsRules.ctx_placeholder', 'e.g., "Group a deployment alert with the incident thread that references the same service"')}
 					class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500"
 				/>
 				<div class="flex gap-2">
@@ -260,10 +259,10 @@
 						onclick={addRule}
 						disabled={!formValid || saving}
 					>
-						{saving ? 'Saving...' : 'Add'}
+						{saving ? $t('settingsRules.saving', 'Saving...') : $t('settingsRules.add', 'Add')}
 					</button>
 					<button class="rounded-lg px-4 py-1.5 text-laya-base text-surface-400 hover:text-surface-200" onclick={resetForm}>
-						Cancel
+						{$t('common.cancel', 'Cancel')}
 					</button>
 				</div>
 			</div>
@@ -272,7 +271,7 @@
 				class="rounded-lg border border-dashed border-surface-600 px-4 py-2 text-laya-base text-surface-400 transition-colors hover:border-surface-400 hover:text-surface-200"
 				onclick={() => (showAddForm = true)}
 			>
-				+ Add Context Rule
+				{$t('settingsRules.add_ctx_rule', '+ Add Context Rule')}
 			</button>
 		{/if}
 	{/if}

@@ -2,6 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 	let {
 		byFeature,
 		byStep
@@ -65,7 +66,7 @@
 					.filter(([step]) => (STEP_TO_FEATURE[step] ?? 'Other') === name)
 					.map(([step, stepCost]) => ({
 						key: step,
-						label: STEP_LABELS[step] ?? step,
+						label: $t(`shell.step_${step}`, STEP_LABELS[step] ?? step),
 						cost: stepCost
 					}))
 					.sort((a, b) => b.cost - a.cost);
@@ -78,7 +79,7 @@
 			.filter(([step]) => !(STEP_TO_FEATURE[step]) && !entries.some((f) => f.name === 'Other'))
 			.map(([step, stepCost]) => ({
 				key: step,
-				label: STEP_LABELS[step] ?? step,
+				label: $t(`shell.step_${step}`, STEP_LABELS[step] ?? step),
 				cost: stepCost
 			}))
 			.sort((a, b) => b.cost - a.cost);
@@ -123,11 +124,11 @@
 
 <div class="rounded-xl border p-5 {$glassTheme ? 'glass-section' : 'border-surface-700 bg-surface-800'}">
 	<h3 class="mb-4 text-xs font-semibold uppercase tracking-wider text-surface-400">
-		LLM Cost by Feature ($)
+		{$t('shell.feature_cost_title', 'LLM Cost by Feature ($)')}
 	</h3>
 
 	{#if features.length === 0}
-		<p class="text-sm text-surface-500">No data</p>
+		<p class="text-sm text-surface-500">{$t('shell.no_data', 'No data')}</p>
 	{:else}
 		<div class="space-y-1">
 			{#each features as feature}
@@ -147,7 +148,7 @@
 							<span class="inline-block transition-transform {isExpanded ? 'rotate-90' : ''}">&#9654;</span>
 						{/if}
 					</span>
-					<span class="w-[35%] min-w-0 truncate text-xs font-medium text-surface-200">{feature.name}</span>
+					<span class="w-[35%] min-w-0 truncate text-xs font-medium text-surface-200">{$t(`shell.feature_${feature.name}`, feature.name)}</span>
 					<div class="relative flex-1">
 						<div class="h-2.5 overflow-hidden rounded-full bg-surface-700">
 							<div
@@ -182,6 +183,6 @@
 				{/if}
 			{/each}
 		</div>
-		<div class="mt-3 text-xs text-surface-500">Total: {formatCost(total)}</div>
+		<div class="mt-3 text-xs text-surface-500">{$t('shell.total', 'Total: {value}', { value: formatCost(total) })}</div>
 	{/if}
 </div>

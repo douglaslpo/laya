@@ -9,6 +9,7 @@
 	import { agentLabel } from '$lib/config';
 	import { tick } from 'svelte';
 	import MarkdownRender from '$lib/components/MarkdownRender.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		card,
@@ -250,7 +251,7 @@
 			const pattern = (input?.pattern as string) ?? '';
 			return `${tool}: ${pattern.length > 50 ? pattern.slice(0, 47) + '...' : pattern}`;
 		}
-		return tool || 'Tool';
+		return tool || $t('actions.tool', 'Tool');
 	}
 
 	function selectOption(eventId: string, qIdx: number, label: string) {
@@ -352,7 +353,9 @@
 				<button
 					class="shrink-0 text-laya-orange transition-transform duration-200"
 					onclick={ontoggletime}
-					title="{timelineOpen ? 'Hide' : 'Show'} timeline"
+					title={timelineOpen
+						? $t('actions.hide_timeline', 'Hide timeline')
+						: $t('actions.show_timeline', 'Show timeline')}
 				>
 					<svg class="h-4 w-4 transition-transform duration-200 {timelineOpen ? '' : 'rotate-180'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
@@ -370,16 +373,16 @@
 						class="px-2 py-0.5 transition-colors {agentMode === 'plan' ? ($glassTheme ? 'backdrop-blur-sm bg-blue-400/15 text-blue-300' : 'bg-blue-900/50 text-blue-300') : $glassTheme ? 'bg-white/[0.04] text-surface-400 hover:text-surface-200' : 'bg-surface-800 text-surface-400 hover:text-surface-200'}"
 						onclick={() => (agentMode = 'plan')}
 						disabled={!canToggleMode}
-					>Plan</button>
+					>{$t('actions.mode_plan', 'Plan')}</button>
 					<button
 						class="px-2 py-0.5 transition-colors {agentMode !== 'plan' ? ($glassTheme ? 'backdrop-blur-sm bg-amber-400/15 text-amber-300' : 'bg-amber-900/50 text-amber-300') : $glassTheme ? 'bg-white/[0.04] text-surface-400 hover:text-surface-200' : 'bg-surface-800 text-surface-400 hover:text-surface-200'}"
 						onclick={() => (agentMode = 'acceptEdits')}
 						disabled={!canToggleMode}
-					>Act</button>
+					>{$t('actions.act', 'Act')}</button>
 				</div>
 
 				<span class="rounded px-1.5 py-0.5 text-[10px] font-medium {sessionStatusColors[session.status] ?? 'bg-surface-700 text-surface-300'}">
-					{session.status}
+					{$t(`actions.session_status_${session.status}`, session.status)}
 				</span>
 				<span class="text-[10px] text-surface-500">{agentLabel(session.agent_type, session.agent_type)}</span>
 			{/if}
@@ -390,17 +393,17 @@
 						<button
 							class="rounded px-2 py-1 text-[11px] text-surface-300 {$glassTheme ? 'hover:bg-white/[0.06]' : 'hover:bg-surface-700'}"
 							onclick={() => controlSession('resume')}
-						>Resume</button>
+						>{$t('actions.resume', 'Resume')}</button>
 					{:else}
 						<button
 							class="rounded px-2 py-1 text-[11px] text-surface-300 {$glassTheme ? 'hover:bg-white/[0.06]' : 'hover:bg-surface-700'}"
 							onclick={() => controlSession('pause')}
-						>Pause</button>
+						>{$t('actions.pause', 'Pause')}</button>
 					{/if}
 					<button
 						class="rounded px-2 py-1 text-[11px] text-red-400 hover:bg-red-900/30"
 						onclick={() => controlSession('cancel')}
-					>Cancel</button>
+					>{$t('common.cancel', 'Cancel')}</button>
 				</div>
 			{/if}
 		</div>
@@ -414,7 +417,9 @@
 					class="rounded-lg border {$glassTheme ? 'border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.06]' : 'border-surface-600 bg-surface-800 hover:bg-surface-700'} px-3 py-1.5 text-[11px] text-surface-400 transition-colors hover:text-surface-200"
 					onclick={() => (showAll = true)}
 				>
-					Show {hiddenCount} older messages
+					{hiddenCount === 1
+						? $t('actions.show_older_messages_one', 'Show {count} older message', { count: hiddenCount })
+						: $t('actions.show_older_messages_other', 'Show {count} older messages', { count: hiddenCount })}
 				</button>
 			</div>
 		{/if}
@@ -434,13 +439,13 @@
 							{@const formDisabled = isAnswered || isDismissed || isAgentActive}
 
 							<div class="mb-2 flex items-center gap-2">
-								<span class="text-xs font-medium text-laya-orange">Agent needs your input</span>
+								<span class="text-xs font-medium text-laya-orange">{$t('actions.agent_needs_input', 'Agent needs your input')}</span>
 								{#if isAnswered}
-									<span class="rounded bg-green-900/40 px-1.5 py-0.5 text-[9px] font-medium text-green-300">Answered</span>
+									<span class="rounded bg-green-900/40 px-1.5 py-0.5 text-[9px] font-medium text-green-300">{$t('actions.answered', 'Answered')}</span>
 								{:else if isDismissed}
-									<span class="rounded bg-surface-700 px-1.5 py-0.5 text-[9px] font-medium text-surface-400">Dismissed</span>
+									<span class="rounded bg-surface-700 px-1.5 py-0.5 text-[9px] font-medium text-surface-400">{$t('actions.dismissed', 'Dismissed')}</span>
 								{:else if isAgentActive}
-									<span class="rounded bg-blue-900/40 px-1.5 py-0.5 text-[9px] font-medium text-blue-300">Agent working</span>
+									<span class="rounded bg-blue-900/40 px-1.5 py-0.5 text-[9px] font-medium text-blue-300">{$t('actions.agent_working', 'Agent working')}</span>
 								{/if}
 							</div>
 
@@ -481,7 +486,7 @@
 								<!-- Already answered or dismissed — no action needed -->
 							{:else if isAgentActive}
 								<div class="mt-3 rounded-lg border border-blue-800/40 bg-blue-900/20 px-3 py-2 text-center text-[11px] text-blue-300">
-									Waiting for agent to complete the current turn...
+									{$t('actions.waiting_turn', 'Waiting for agent to complete the current turn...')}
 								</div>
 							{:else}
 								{@const allAnswered = questions.every((_, idx) => questionSelections[`${event.event_id}_${idx}`])}
@@ -491,21 +496,25 @@
 										onclick={() => submitAnswers(event)}
 										disabled={!allAnswered || submittingAnswer}
 									>
-										{submittingAnswer ? 'Submitting...' : 'Submit answers'}
+										{submittingAnswer
+											? $t('actions.submitting', 'Submitting...')
+											: $t('actions.submit_answers', 'Submit answers')}
 									</button>
 									<button
 										class="w-full rounded-lg border py-2 text-xs font-medium text-surface-400 transition-colors hover:text-surface-200 disabled:opacity-40 disabled:cursor-not-allowed {$glassTheme ? 'border-white/[0.08] hover:bg-white/[0.06]' : 'border-surface-600 hover:bg-surface-800'}"
 										onclick={dismissQuestions}
 										disabled={dismissingQuestions}
 									>
-										{dismissingQuestions ? 'Dismissing...' : 'Skip questions'}
+										{dismissingQuestions
+											? $t('actions.dismissing', 'Dismissing...')
+											: $t('actions.skip_questions', 'Skip questions')}
 									</button>
 								</div>
 							{/if}
 
 						{:else if event.event_type === 'approval_request'}
 							<!-- Regular approval request -->
-							<div class="mb-2 text-xs text-yellow-300 font-medium">Approval Required</div>
+							<div class="mb-2 text-xs text-yellow-300 font-medium">{$t('actions.approval_required', 'Approval Required')}</div>
 							<MarkdownRender
 								content={String(event.content.description ?? event.content.message ?? JSON.stringify(event.content))}
 								class="break-words text-xs"
@@ -515,36 +524,36 @@
 									<button
 										class="rounded bg-green-700/40 px-3 py-1 text-xs text-green-300 hover:bg-green-700/60"
 										onclick={() => approveAction(event.event_id)}
-									>Approve</button>
+									>{$t('common.approve', 'Approve')}</button>
 									<button
 										class="rounded bg-surface-700/50 px-3 py-1 text-xs text-surface-300 hover:bg-surface-600"
 										onclick={() => (showDenyInput = event.event_id)}
-									>Deny</button>
+									>{$t('actions.deny', 'Deny')}</button>
 								</div>
 							{:else}
 								<div class="mt-2 flex gap-2">
 									<input
 										bind:value={approvalReason}
-										placeholder="Reason (optional)"
+										placeholder={$t('actions.reason_optional', 'Reason (optional)')}
 										class="flex-1 rounded border border-surface-600 bg-surface-900 px-2 py-1 text-xs text-surface-100 placeholder-surface-500"
 									/>
 									<button
 										class="rounded bg-red-700/40 px-3 py-1 text-xs text-red-300 hover:bg-red-700/60"
 										onclick={() => denyAction(event.event_id)}
-									>Deny</button>
+									>{$t('actions.deny', 'Deny')}</button>
 									<button
 										class="text-xs text-surface-400 hover:text-surface-200"
 										onclick={() => (showDenyInput = null)}
-									>Cancel</button>
+									>{$t('common.cancel', 'Cancel')}</button>
 								</div>
 							{/if}
 
 						{:else if event.event_type === 'questions_dismissed'}
-						<div class="text-xs italic text-surface-400">Questions dismissed</div>
+						<div class="text-xs italic text-surface-400">{$t('actions.questions_dismissed', 'Questions dismissed')}</div>
 
 					{:else if isPlanEvent(event)}
 							<div class="mb-1 flex items-center gap-2">
-								<span class="text-xs font-medium text-laya-gold">Implementation Plan</span>
+								<span class="text-xs font-medium text-laya-gold">{$t('actions.implementation_plan', 'Implementation Plan')}</span>
 							</div>
 							<MarkdownRender
 								content={getPlanText(event)}
@@ -558,7 +567,7 @@
 						{/if}
 
 						<p class="mt-1 text-[10px] text-surface-500">
-							{parseBackendDate(event.timestamp)?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+							{parseBackendDate(event.timestamp)?.toLocaleTimeString($locale, { hour: '2-digit', minute: '2-digit' })}
 						</p>
 					</div>
 				</div>
@@ -583,11 +592,13 @@
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 						</svg>
 						<span class="text-[10px] text-surface-600">
-							{groupEvents.length} tool{groupEvents.length === 1 ? '' : 's'}
+							{groupEvents.length === 1
+								? $t('actions.tools_one', '{count} tool', { count: groupEvents.length })
+								: $t('actions.tools_other', '{count} tools', { count: groupEvents.length })}
 						</span>
 						{#if !isExpanded}
 							<span class="truncate text-[10px] text-surface-600">
-								{previewNames.join(', ')}{remaining > 0 ? `, +${remaining} more` : ''}
+								{previewNames.join(', ')}{remaining > 0 ? `, ${$t('actions.plus_more', '+{count} more', { count: remaining })}` : ''}
 							</span>
 						{/if}
 					</button>
@@ -612,9 +623,9 @@
 		{#if agentEvents.length === 0}
 			<div class="py-12 text-center text-sm text-surface-500">
 				{#if session}
-					Waiting for agent output...
+					{$t('actions.waiting_output', 'Waiting for agent output...')}
 				{:else}
-					No workspace session
+					{$t('actions.no_session', 'No workspace session')}
 				{/if}
 			</div>
 		{/if}
@@ -625,7 +636,9 @@
 		<div class="flex gap-2 px-4 py-3 {$glassTheme ? '' : 'bg-surface-900'}">
 			<textarea
 				bind:value={userInput}
-				placeholder={isAgentActive ? 'Agent is working...' : 'Send a message to the agent...'}
+				placeholder={isAgentActive
+					? $t('actions.agent_is_working', 'Agent is working...')
+					: $t('actions.message_agent_placeholder', 'Send a message to the agent...')}
 				rows="1"
 				class="flex-1 resize-none rounded-lg px-3 py-2 text-sm text-surface-100 placeholder-surface-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed {$glassTheme ? 'glass-input' : 'border border-transparent bg-surface-800 focus:ring-1 focus:ring-laya-orange/40'}"
 				onkeydown={handleKeydown}
@@ -635,7 +648,7 @@
 				class="rounded-lg bg-laya-orange px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-laya-coral disabled:opacity-50 disabled:cursor-not-allowed"
 				onclick={sendUserInput}
 				disabled={!userInput.trim() || isAgentActive || sendingPrompt}
-			>{sendingPrompt ? 'Sending...' : 'Send'}</button>
+			>{sendingPrompt ? $t('actions.sending', 'Sending...') : $t('actions.send', 'Send')}</button>
 		</div>
 	{/if}
 </div>

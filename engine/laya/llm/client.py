@@ -470,6 +470,52 @@ def _inject_current_datetime(messages: list[dict]) -> list[dict]:
     return out
 
 
+_LANGUAGE_DIRECTIVE_PREFIX = "[Language Instruction:"
+
+
+def _get_language_instruction() -> str | None:
+    """Get language directive based on engine settings."""
+    try:
+        settings = load_settings()
+        lang = settings.get("language", "pt-BR")
+        if lang in ("pt-BR", "pt"):
+            return "Responda obrigatoriamente em Português do Brasil (pt-BR). Todos os títulos, resumos, descrições, cartões de ação e respostas de chat devem estar em Português."
+        elif lang in ("es", "es-ES"):
+            return "Responda de forma obligatoria en Español. Todos los títulos, resúmenes, descripciones, tarjetas de acción y respuestas de chat deben estar en Español."
+        elif lang in ("en", "en-US"):
+            return "Respond in English. All titles, summaries, descriptions, action cards, and chat responses must be in English."
+    except Exception:
+        pass
+    return "Responda obrigatoriamente em Português do Brasil (pt-BR)."
+
+
+def _inject_language_directive(messages: list[dict]) -> list[dict]:
+    """Inject language directive into the messages sequence."""
+    instruction = _get_language_instruction()
+    if not instruction or not messages:
+        return messages
+
+    out = list(messages)
+    hint = f"{_LANGUAGE_DIRECTIVE_PREFIX} {instruction}]"
+
+    # Prepend to system message if present
+    if out[0].get("role") == "system":
+        sys_content = out[0].get("content", "")
+        if _LANGUAGE_DIRECTIVE_PREFIX not in str(sys_content):
+            out[0] = {**out[0], "content": f"{sys_content}\n\n{hint}"}
+            return out
+
+    # Otherwise prepend to first user message
+    for i, msg in enumerate(out):
+        if msg.get("role") == "user":
+            content = msg.get("content", "")
+            if _LANGUAGE_DIRECTIVE_PREFIX not in str(content):
+                out[i] = {**msg, "content": f"{hint}\n\n{content}"}
+            break
+
+    return out
+
+
 # ── Prompt caching ──────────────────────────────────────────────────────
 
 # Providers where caching is opt-in via cache_control annotation.
@@ -624,7 +670,7 @@ async def _prepare_call_kwargs(
 
     kwargs: dict[str, Any] = {
         "model": model,
-        "messages": messages,
+        "messages": _inject_language_directive(messages),
         "temperature": effective_temperature,
         "max_tokens": max_tokens,
         "timeout": get_model_timeout(),

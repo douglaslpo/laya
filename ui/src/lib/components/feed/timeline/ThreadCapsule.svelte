@@ -15,6 +15,7 @@
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { fade } from 'svelte/transition';
 	import { reducedMotion } from '$lib/stores/reducedMotion';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		thread,
@@ -63,7 +64,11 @@
 	// lands — and a corner is chrome, so it can't be mistaken for a status dot the
 	// way a free-floating dot on the footer line was.
 	const spaceCorner = $derived(showSpace ? thread.spaceColor : undefined);
-	const priorityLabel = $derived(PRIORITY_LABELS[thread.priority] ?? thread.priority);
+	const priorityLabel = $derived(
+		PRIORITY_LABELS[thread.priority]
+			? $t(`feedCards.priority_short_${thread.priority}`, PRIORITY_LABELS[thread.priority])
+			: thread.priority
+	);
 	// Escalation owns the capsule's colour; the agent glow is the next loudest.
 	const escalating = $derived(thread.attention.escalating);
 	const agentGlow = $derived(!escalating && (thread.attention.agentRunning || thread.attention.awaitingInput));
@@ -108,7 +113,7 @@
 			style="left: 5.5px; top: {y}px; background: var(--tl-node-{statusTone(event.status)});
 				box-shadow: 0 0 0 2.5px var(--tl-dot-ring){event.cardId === selectedCardId ? ', 0 0 0 4px var(--color-laya-orange)' : ''};"
 			transition:fade={{ duration: $reducedMotion ? 0 : 180 }}
-			aria-label="{event.statusLabel} at {formatMinutes(event.minute)}"
+			aria-label={$t('feedGroups.event_at', '{status} at {time}', { status: event.statusLabel, time: formatMinutes(event.minute) })}
 			onclick={(e) => {
 				e.stopPropagation();
 				onselectcard(thread, event.cardId);
@@ -162,7 +167,9 @@
 
 	<!-- Footer: event count and how long the thread stayed open -->
 	<div class="absolute truncate font-mono text-[8px]" style="left: 20px; right: 6px; bottom: 4px; color: var(--tl-capsule-foot)">
-		{thread.cardCount} {thread.cardCount === 1 ? 'event' : 'events'} · {thread.openHours.toFixed(1)}h{thread.carriedForward ? ' · carried' : ''}
+		{thread.cardCount === 1
+			? $t('feedGroups.events_one', '{count} event', { count: thread.cardCount })
+			: $t('feedGroups.events_other', '{count} events', { count: thread.cardCount })} · {thread.openHours.toLocaleString($locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h{thread.carriedForward ? ` · ${$t('feedGroups.carried', 'carried')}` : ''}
 	</div>
 
 	{#if spaceCorner}

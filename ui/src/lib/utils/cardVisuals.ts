@@ -5,12 +5,15 @@
 // and the priority badge label map (byte-identical across six card components
 // before this — review §5.5, P7-7).
 
-// Abbreviated priority labels for badges (CRIT/HIGH/MED/LOW).
+import { tr } from '$lib/i18n';
+
+// Abbreviated priority labels for badges (CRIT/HIGH/MED/LOW), resolved in the
+// current locale on each read.
 export const PRIORITY_LABELS: Record<string, string> = {
-	CRITICAL: 'CRIT',
-	HIGH: 'HIGH',
-	MEDIUM: 'MED',
-	LOW: 'LOW'
+	get CRITICAL() { return tr('feedCards.priority_short_CRITICAL', 'CRIT'); },
+	get HIGH() { return tr('feedCards.priority_short_HIGH', 'HIGH'); },
+	get MEDIUM() { return tr('feedCards.priority_short_MEDIUM', 'MED'); },
+	get LOW() { return tr('feedCards.priority_short_LOW', 'LOW'); }
 };
 
 // Priority badge colors (bg + text). This was copy-pasted ~8× and had split into
@@ -52,9 +55,9 @@ const PLATFORM_LABELS: Record<string, string> = {
 	bitbucket_server: 'Bitbucket Server',
 	jira: 'Jira',
 	outlook: 'Outlook',
-	outlook_calendar: 'Outlook Cal',
-	calendar: 'Calendar',
-	google_calendar: 'Google Cal',
+	get outlook_calendar() { return tr('feedCards.platform_outlook_calendar', 'Outlook Cal'); },
+	get calendar() { return tr('feedCards.platform_calendar', 'Calendar'); },
+	get google_calendar() { return tr('feedCards.platform_google_calendar', 'Google Cal'); },
 	slack: 'Slack',
 	linear: 'Linear',
 	notion: 'Notion',

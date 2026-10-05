@@ -4,6 +4,7 @@
 	import type { WorkspaceEvent } from '$lib/api/types';
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let { events, onselect }: { events: WorkspaceEvent[]; onselect?: (event: WorkspaceEvent) => void } = $props();
 
@@ -48,33 +49,35 @@
 			case 'file_write':
 				return (c.file as string) ?? (c.file_path as string) ?? event.event_type;
 			case 'agent_message':
-				return ((c.text as string) ?? (c.message as string) ?? '').slice(0, 60) || 'Agent message';
+				return ((c.text as string) ?? (c.message as string) ?? '').slice(0, 60) || $t('actions.summary_agent_message', 'Agent message');
 			case 'user_response':
-				return ((c.text as string) ?? (c.message as string) ?? '').slice(0, 60) || 'User message';
+				return ((c.text as string) ?? (c.message as string) ?? '').slice(0, 60) || $t('actions.summary_user_message', 'User message');
 			case 'tool_call':
-				return (c.tool as string) ?? 'Tool call';
+				return (c.tool as string) ?? $t('actions.summary_tool_call', 'Tool call');
 			case 'approval_request':
-				return (c.description as string)?.slice(0, 60) ?? 'Approval needed';
+				return (c.description as string)?.slice(0, 60) ?? $t('actions.summary_approval_needed', 'Approval needed');
 			case 'approval_response':
-				return c.approved ? 'Approved' : 'Denied';
+				return c.approved ? $t('actions.summary_approved', 'Approved') : $t('actions.summary_denied', 'Denied');
 			case 'status_change':
-				return (c.action as string) ?? (c.status as string) ?? 'Status changed';
+				return (c.action as string) ?? (c.status as string) ?? $t('actions.summary_status_changed', 'Status changed');
 			case 'error':
-				return ((c.message as string) ?? (c.error as string) ?? 'Error').slice(0, 60);
+				return ((c.message as string) ?? (c.error as string) ?? $t('common.error', 'Error')).slice(0, 60);
 			default:
 				return event.event_type;
 		}
 	}
 
 	function formatTime(ts: string): string {
-		return parseBackendDate(ts)?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) ?? '';
+		return parseBackendDate(ts)?.toLocaleTimeString($locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) ?? '';
 	}
 </script>
 
 <div class="flex h-full w-72 flex-col border-t {$glassTheme ? 'glass-panel border-white/[0.06]' : 'border-surface-700 bg-surface-850'}">
 	<div class="flex h-11 items-center gap-2 border-b {$glassTheme ? 'border-white/[0.06]' : 'border-surface-700'} px-4">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-surface-400">Timeline</h2>
-		<span class="text-[10px] text-surface-500">{events.length} events</span>
+		<h2 class="text-xs font-semibold uppercase tracking-wider text-surface-400">{$t('actions.timeline', 'Timeline')}</h2>
+		<span class="text-[10px] text-surface-500">{events.length === 1
+			? $t('actions.events_one', '{count} event', { count: events.length })
+			: $t('actions.events_other', '{count} events', { count: events.length })}</span>
 	</div>
 
 	<div class="flex-1 overflow-y-auto">
@@ -83,7 +86,9 @@
 				class="flex w-full items-center justify-center gap-1 border-b {$glassTheme ? 'border-white/[0.06] hover:bg-white/[0.04]' : 'border-surface-700 hover:bg-surface-800'} px-3 py-2 text-[11px] text-surface-400 transition-colors hover:text-surface-200"
 				onclick={() => (showAll = true)}
 			>
-				Show {hiddenCount} older events
+				{hiddenCount === 1
+					? $t('actions.show_older_events_one', 'Show {count} older event', { count: hiddenCount })
+					: $t('actions.show_older_events_other', 'Show {count} older events', { count: hiddenCount })}
 			</button>
 		{/if}
 
@@ -104,13 +109,13 @@
 					<p class="text-[10px] text-surface-500">{formatTime(event.timestamp)}</p>
 				</div>
 				{#if event.requires_input}
-					<span class="mt-0.5 flex-shrink-0 rounded bg-yellow-900/50 px-1 py-0.5 text-[9px] font-medium text-yellow-300">INPUT</span>
+					<span class="mt-0.5 flex-shrink-0 rounded bg-yellow-900/50 px-1 py-0.5 text-[9px] font-medium text-yellow-300">{$t('actions.input_badge', 'INPUT')}</span>
 				{/if}
 			</button>
 		{/each}
 
 		{#if events.length === 0}
-			<div class="px-4 py-8 text-center text-xs text-surface-500">No events yet</div>
+			<div class="px-4 py-8 text-center text-xs text-surface-500">{$t('actions.no_events', 'No events yet')}</div>
 		{/if}
 	</div>
 </div>

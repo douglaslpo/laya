@@ -11,6 +11,7 @@
 	import { budgetPaused, loadBudgetStatus, loadAgentBudgetStatus, fmtTokens } from '$lib/stores/budget';
 	import { portal } from '$lib/actions/portal';
 	import { CODING_AGENTS } from '$lib/config';
+	import { t, locale } from '$lib/i18n';
 	import ModelSelect from './ModelSelect.svelte';
 
 	let guideTooltip = $state<{ text: string; top: number; left: number } | null>(null);
@@ -22,18 +23,18 @@
 	}
 	function hideGuide() { guideTooltip = null; }
 
-	const roles = [
-		{ id: 'router', label: 'Router', hint: 'Classifies incoming events',
-			guide: 'Classifies each incoming event by persona (Engineer/Comms/Ops) and priority. Output is structured JSON, not prose. A small, fast model works well here.' },
-		{ id: 'stager', label: 'Stager', hint: 'Synthesises action cards',
-			guide: 'Reads the classified event and writes the action card: headline, summary, suggested actions, and draft replies. Quality of card content scales directly with model capability — use a stronger model if you want richer summaries.' },
-		{ id: 'chat', label: 'Chat', hint: 'Conversational responses',
-			guide: 'Powers the chat panel where you ask questions about your cards, events, and workspace. A capable model gives better conversational and reasoning quality.' },
-		{ id: 'trace', label: 'Coherence', hint: 'Generates trace narratives',
-			guide: 'Generates narrative summaries when you search for related activity across platforms. The heavy lifting is semantic search — the model just synthesises results into prose. A smaller model is usually sufficient.' },
-		{ id: 'omni', label: 'Omni', hint: 'Resynthesises rolling summaries',
-			guide: 'Periodically compresses your rolling cross-platform summary into a concise digest. Needs to merge and deduplicate information across many events. A mid-tier model balances cost and coherence well.' }
-	];
+	const roles = $derived([
+		{ id: 'router', label: $t('settingsModels.role_router', 'Router'), hint: $t('settingsModels.role_router_hint', 'Classifies incoming events'),
+			guide: $t('settingsModels.role_router_guide', 'Classifies each incoming event by persona (Engineer/Comms/Ops) and priority. Output is structured JSON, not prose. A small, fast model works well here.') },
+		{ id: 'stager', label: $t('settingsModels.role_stager', 'Stager'), hint: $t('settingsModels.role_stager_hint', 'Synthesises action cards'),
+			guide: $t('settingsModels.role_stager_guide', 'Reads the classified event and writes the action card: headline, summary, suggested actions, and draft replies. Quality of card content scales directly with model capability — use a stronger model if you want richer summaries.') },
+		{ id: 'chat', label: $t('common.chat', 'Chat'), hint: $t('settingsModels.role_chat_hint', 'Conversational responses'),
+			guide: $t('settingsModels.role_chat_guide', 'Powers the chat panel where you ask questions about your cards, events, and workspace. A capable model gives better conversational and reasoning quality.') },
+		{ id: 'trace', label: $t('nav.coherence', 'Coherence'), hint: $t('settingsModels.role_trace_hint', 'Generates trace narratives'),
+			guide: $t('settingsModels.role_trace_guide', 'Generates narrative summaries when you search for related activity across platforms. The heavy lifting is semantic search — the model just synthesises results into prose. A smaller model is usually sufficient.') },
+		{ id: 'omni', label: 'Omni', hint: $t('settingsModels.role_omni_hint', 'Resynthesises rolling summaries'),
+			guide: $t('settingsModels.role_omni_guide', 'Periodically compresses your rolling cross-platform summary into a concise digest. Needs to merge and deduplicate information across many events. A mid-tier model balances cost and coherence well.') }
+	]);
 
 	const cloudProviders = [
 		{ id: 'anthropic', label: 'Anthropic', envVar: 'ANTHROPIC_API_KEY' },
@@ -42,11 +43,11 @@
 		{ id: 'openrouter', label: 'OpenRouter', envVar: 'OPENROUTER_API_KEY' }
 	];
 
-	const providerTypes = [
+	const providerTypes = $derived([
 		{ id: 'lmstudio', label: 'LM Studio', defaultUrl: 'http://localhost:1234' },
 		{ id: 'ollama', label: 'Ollama', defaultUrl: 'http://localhost:11434' },
-		{ id: 'openai_compatible', label: 'OpenAI Compatible', defaultUrl: 'http://localhost:8080' }
-	];
+		{ id: 'openai_compatible', label: $t('settingsModels.provider_type_openai_compatible', 'OpenAI Compatible'), defaultUrl: 'http://localhost:8080' }
+	]);
 
 	let models = $state({
 		router: 'claude-haiku-4-5',
@@ -68,15 +69,20 @@
 	const AGENT_LABELS: Record<string, string> = Object.fromEntries(
 		CODING_AGENTS.filter((a) => a.value !== 'none').map((a) => [a.value, a.label])
 	);
-	const AGENT_MODEL_PLACEHOLDERS: Record<string, string> = {
-		claude_code: 'e.g. claude-sonnet-4-6 — blank uses Claude Code’s default',
-		codex_cli: 'e.g. gpt-5-codex — blank uses Codex’s default',
-		gemini_cli: 'e.g. gemini-2.5-pro — blank uses Gemini’s default',
-		pi_cli: 'e.g. lmstudio/qwen3.6-35b-a3b — blank uses Pi’s default'
+	const AGENT_MODEL_EXAMPLES: Record<string, { model: string; agent: string }> = {
+		claude_code: { model: 'claude-sonnet-4-6', agent: 'Claude Code' },
+		codex_cli: { model: 'gpt-5-codex', agent: 'Codex' },
+		gemini_cli: { model: 'gemini-2.5-pro', agent: 'Gemini' },
+		pi_cli: { model: 'lmstudio/qwen3.6-35b-a3b', agent: 'Pi' }
 	};
 
 	let agentMode = $state(false);
 	let selectedAgent = $state('claude_code');
+	const agentModelPlaceholder = $derived(
+		AGENT_MODEL_EXAMPLES[selectedAgent]
+			? $t('settingsModels.agent_model_placeholder', 'e.g. {model} — blank uses {agent}’s default', AGENT_MODEL_EXAMPLES[selectedAgent])
+			: $t('settingsModels.agent_model_placeholder_fallback', 'Model string (blank = agent default)')
+	);
 	let agentBackends = $state<AgentBackend[]>([]);
 	let providerBackup = $state<Record<string, string>>({});
 	let selectedBackend = $derived(agentBackends.find((b) => b.agent_id === selectedAgent));
@@ -308,7 +314,7 @@
 	function formatMonth(ym: string): string {
 		const [y, m] = ym.split('-');
 		const date = new Date(parseInt(y), parseInt(m) - 1);
-		return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+		return date.toLocaleDateString($locale, { month: 'long', year: 'numeric' });
 	}
 
 	onMount(async () => {
@@ -480,7 +486,7 @@
 			// Refresh models to include models from new provider
 			await fetchModels(true);
 		} catch (e: any) {
-			addError = e.message || 'Failed to add provider';
+			addError = e.message || $t('settingsModels.add_provider_failed', 'Failed to add provider');
 		} finally {
 			addingProvider = false;
 		}
@@ -516,7 +522,7 @@
 				embedding_count: 0,
 				inference_ok: false,
 				latency_ms: 0,
-				error: e.message || 'Connection failed'
+				error: e.message || $t('settingsModels.connection_failed', 'Connection failed')
 			};
 		} finally {
 			testingProvider = null;
@@ -588,14 +594,14 @@
 </script>
 
 {#if !loaded}
-	<div class="flex items-center justify-center py-12 text-surface-400">Loading settings...</div>
+	<div class="flex items-center justify-center py-12 text-surface-400">{$t('settingsModels.loading_settings', 'Loading settings...')}</div>
 {:else}
 	<div class="space-y-8">
 		<!-- API Keys -->
 		<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-5">
-			<h3 class="mb-4 text-laya-heading font-medium">API Keys</h3>
+			<h3 class="mb-4 text-laya-heading font-medium">{$t('settingsModels.api_keys_title', 'API Keys')}</h3>
 			<p class="mb-4 text-laya-base text-surface-400">
-				Keys are stored securely in your OS keychain. They are never sent to the UI.
+				{$t('settingsModels.api_keys_desc', 'Keys are stored securely in your OS keychain. They are never sent to the UI.')}
 			</p>
 			<div class="space-y-4">
 				{#each cloudProviders as provider}
@@ -610,18 +616,18 @@
 						</div>
 
 						{#if apiKeys[provider.id]}
-							<span class="text-laya-base text-green-400">Configured</span>
+							<span class="text-laya-base text-green-400">{$t('settingsModels.configured', 'Configured')}</span>
 							<button
 								onclick={() => removeApiKey(provider.id)}
 								class="ml-auto text-laya-base text-red-400 transition-colors hover:text-red-300"
 							>
-								Remove
+								{$t('settingsModels.remove', 'Remove')}
 							</button>
 						{:else}
 							<input
 								type="password"
 								bind:value={keyInputs[provider.id]}
-								placeholder="Enter API key..."
+								placeholder={$t('settingsModels.enter_api_key', 'Enter API key...')}
 								class="flex-1 rounded-md border border-surface-600 bg-surface-700 px-3 py-1.5 text-laya-base text-surface-100 placeholder:text-surface-500"
 							/>
 							<button
@@ -629,7 +635,7 @@
 								disabled={!keyInputs[provider.id].trim() || savingKey === provider.id}
 								class="rounded-md bg-primary-600 px-3 py-1.5 text-laya-base font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
 							>
-								{savingKey === provider.id ? 'Saving...' : 'Save'}
+								{savingKey === provider.id ? $t('settingsModels.saving', 'Saving…') : $t('common.save', 'Save')}
 							</button>
 						{/if}
 					</div>
@@ -641,14 +647,14 @@
 		<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-5">
 			<div class="mb-4 flex items-center justify-between">
 				<div>
-					<h3 class="mb-1 text-laya-heading font-medium">Local Providers</h3>
-					<p class="text-laya-secondary text-surface-500">Connect to LM Studio, Ollama, or any OpenAI-compatible server running on your machine.</p>
+					<h3 class="mb-1 text-laya-heading font-medium">{$t('settingsModels.local_providers_title', 'Local Providers')}</h3>
+					<p class="text-laya-secondary text-surface-500">{$t('settingsModels.local_providers_desc', 'Connect to LM Studio, Ollama, or any OpenAI-compatible server running on your machine.')}</p>
 				</div>
 				<button
 					onclick={() => { showAddProvider = !showAddProvider; addError = ''; }}
 					class="rounded-md border border-surface-600 px-3 py-1.5 text-laya-base text-surface-400 transition-colors hover:border-surface-500 hover:text-surface-300"
 				>
-					{showAddProvider ? 'Cancel' : '+ Add Provider'}
+					{showAddProvider ? $t('common.cancel', 'Cancel') : $t('settingsModels.add_provider_toggle', '+ Add Provider')}
 				</button>
 			</div>
 
@@ -672,7 +678,7 @@
 						<input
 							type="text"
 							bind:value={newProvider.name}
-							placeholder="Display name (e.g. My LM Studio)"
+							placeholder={$t('settingsModels.display_name_example', 'Display name (e.g. My LM Studio)')}
 							class="rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 						/>
 						<input
@@ -685,7 +691,7 @@
 										<input
 						type="password"
 						bind:value={newProvider.api_key}
-						placeholder="API key (optional — leave blank if not required)"
+						placeholder={$t('settingsModels.api_key_optional', 'API key (optional — leave blank if not required)')}
 						class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 					/>
 					{#if addError}
@@ -697,7 +703,7 @@
 							disabled={!newProvider.name.trim() || !newProvider.base_url.trim() || addingProvider}
 							class="rounded-md bg-laya-orange px-4 py-2 text-laya-base font-medium text-surface-900 transition-colors hover:bg-laya-gold disabled:opacity-50"
 						>
-							{addingProvider ? 'Adding...' : 'Add Provider'}
+							{addingProvider ? $t('settingsModels.adding', 'Adding...') : $t('settingsModels.add_provider', 'Add Provider')}
 						</button>
 					</div>
 				</div>
@@ -706,8 +712,8 @@
 			<!-- Provider List -->
 			{#if customProviders.length === 0 && !showAddProvider}
 				<div class="rounded-md border border-dashed border-surface-600 py-8 text-center">
-					<p class="text-laya-base text-surface-500">No local providers configured</p>
-					<p class="mt-1 text-laya-secondary text-surface-600">Add LM Studio, Ollama, or another local server to use local models</p>
+					<p class="text-laya-base text-surface-500">{$t('settingsModels.no_local_providers', 'No local providers configured')}</p>
+					<p class="mt-1 text-laya-secondary text-surface-600">{$t('settingsModels.no_local_providers_hint', 'Add LM Studio, Ollama, or another local server to use local models')}</p>
 				</div>
 			{:else}
 				<div class="space-y-3">
@@ -745,7 +751,7 @@
 										onclick={() => testProvider(provider.id)}
 										disabled={testingProvider === provider.id}
 										class="rounded px-2 py-1 text-laya-secondary text-surface-400 transition-colors hover:bg-surface-600 hover:text-surface-300 disabled:opacity-50"
-										title="Test connection"
+										title={$t('settingsModels.test_connection', 'Test connection')}
 									>
 										{#if testingProvider === provider.id}
 											<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -753,21 +759,21 @@
 												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 											</svg>
 										{:else}
-											Test
+											{$t('settingsModels.test', 'Test')}
 										{/if}
 									</button>
 									<button
 										onclick={() => startEdit(provider)}
 										class="rounded px-2 py-1 text-laya-secondary text-surface-400 transition-colors hover:bg-surface-600 hover:text-surface-300"
 									>
-										Edit
+										{$t('common.edit', 'Edit')}
 									</button>
 									<button
 										onclick={() => deleteProvider(provider.id)}
 										disabled={deletingProvider === provider.id}
 										class="rounded px-2 py-1 text-laya-secondary text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50"
 									>
-										{deletingProvider === provider.id ? '...' : 'Remove'}
+										{deletingProvider === provider.id ? '...' : $t('settingsModels.remove', 'Remove')}
 									</button>
 								</div>
 							</div>
@@ -778,13 +784,15 @@
 								<div class="border-t border-surface-600/50 px-4 py-2 text-laya-secondary">
 									{#if tr.reachable}
 										<div class="flex items-center gap-4 text-surface-400">
-											<span class="text-green-400">Connected</span>
-											<span>{tr.models_count} model{tr.models_count !== 1 ? 's' : ''}</span>
-											<span>Inference: <span class="{tr.inference_ok ? 'text-green-400' : 'text-yellow-400'}">{tr.inference_ok ? 'OK' : 'failed'}</span></span>
+											<span class="text-green-400">{$t('settingsModels.connected', 'Connected')}</span>
+											<span>{tr.models_count === 1
+												? $t('settingsModels.models_count_one', '{count} model', { count: tr.models_count })
+												: $t('settingsModels.models_count_other', '{count} models', { count: tr.models_count })}</span>
+											<span>{$t('settingsModels.inference_label', 'Inference:')} <span class="{tr.inference_ok ? 'text-green-400' : 'text-yellow-400'}">{tr.inference_ok ? $t('settingsModels.inference_ok', 'OK') : $t('settingsModels.inference_failed', 'failed')}</span></span>
 											<span>{tr.latency_ms}ms</span>
 										</div>
 									{:else}
-										<span class="text-red-400">{tr.error || 'Unreachable'}</span>
+										<span class="text-red-400">{tr.error || $t('settingsModels.unreachable', 'Unreachable')}</span>
 									{/if}
 								</div>
 							{/if}
@@ -796,20 +804,20 @@
 										<input
 											type="text"
 											bind:value={editForm.name}
-											placeholder="Display name"
+											placeholder={$t('settingsModels.display_name', 'Display name')}
 											class="rounded-md border border-surface-600 bg-surface-700 px-3 py-1.5 text-laya-base text-surface-100 placeholder:text-surface-500"
 										/>
 										<input
 											type="text"
 											bind:value={editForm.base_url}
-											placeholder="Base URL"
+											placeholder={$t('settingsModels.base_url', 'Base URL')}
 											class="rounded-md border border-surface-600 bg-surface-700 px-3 py-1.5 text-laya-base text-surface-100 placeholder:text-surface-500"
 										/>
 									</div>
 									<input
 										type="password"
 										bind:value={editForm.api_key}
-										placeholder="New API key (leave blank to keep current)"
+										placeholder={$t('settingsModels.new_api_key', 'New API key (leave blank to keep current)')}
 										class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-1.5 text-laya-base text-surface-100 placeholder:text-surface-500"
 									/>
 									<div class="flex justify-end gap-2">
@@ -817,14 +825,14 @@
 											onclick={() => { editingProvider = null; }}
 											class="rounded-md px-3 py-1.5 text-laya-base text-surface-400 hover:text-surface-300"
 										>
-											Cancel
+											{$t('common.cancel', 'Cancel')}
 										</button>
 										<button
 											onclick={() => saveEdit(provider.id)}
 											disabled={editSaving}
 											class="rounded-md bg-laya-orange px-3 py-1.5 text-laya-base font-medium text-surface-900 transition-colors hover:bg-laya-gold disabled:opacity-50"
 										>
-											{editSaving ? 'Saving...' : 'Save'}
+											{editSaving ? $t('settingsModels.saving', 'Saving…') : $t('common.save', 'Save')}
 										</button>
 									</div>
 								</div>
@@ -834,18 +842,18 @@
 							{#if expandedProvider === provider.id}
 								<div transition:slide={{ duration: $reducedMotion ? 0 : 200 }} class="border-t border-surface-600/50 px-4 py-3">
 									{#if !providerModels[provider.id]}
-										<p class="text-laya-secondary text-surface-500">Loading models...</p>
+										<p class="text-laya-secondary text-surface-500">{$t('settingsModels.loading_models', 'Loading models...')}</p>
 									{:else if providerModels[provider.id].length === 0}
-										<p class="text-laya-secondary text-surface-500">No models found. Is the server running?</p>
+										<p class="text-laya-secondary text-surface-500">{$t('settingsModels.no_models_found', 'No models found. Is the server running?')}</p>
 									{:else}
 										<div class="space-y-1.5">
 											{#each providerModels[provider.id] as model}
 												<div class="flex items-center gap-3 rounded px-2 py-1.5 text-laya-secondary hover:bg-surface-700/50">
 													<div class="flex items-center gap-1.5 min-w-0 flex-1">
 														{#if model.loaded}
-															<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" title="Loaded"></span>
+															<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500" title={$t('settingsModels.model_loaded', 'Loaded')}></span>
 														{:else}
-															<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-surface-500" title="Not loaded"></span>
+															<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-surface-500" title={$t('settingsModels.model_not_loaded', 'Not loaded')}></span>
 														{/if}
 														<span class="truncate text-surface-200">{model.name}</span>
 													</div>
@@ -857,13 +865,13 @@
 															<span class="rounded bg-surface-600 px-1.5 py-0.5">{model.quantization}</span>
 														{/if}
 														{#if model.max_context_length}
-															<span>{Math.round(model.max_context_length / 1024)}K ctx</span>
+															<span>{$t('settingsModels.context_size', '{size}K ctx', { size: Math.round(model.max_context_length / 1024) })}</span>
 														{/if}
 														{#if model.supports_tool_calling}
-															<span class="rounded bg-blue-500/15 px-1.5 py-0.5 text-blue-400" title="Supports tool calling">tools</span>
+															<span class="rounded bg-blue-500/15 px-1.5 py-0.5 text-blue-400" title={$t('settingsModels.supports_tools', 'Supports tool calling')}>{$t('settingsModels.tools_badge', 'tools')}</span>
 														{/if}
 														{#if model.supports_vision}
-															<span class="rounded bg-purple-500/15 px-1.5 py-0.5 text-purple-400" title="Supports vision">vision</span>
+															<span class="rounded bg-purple-500/15 px-1.5 py-0.5 text-purple-400" title={$t('settingsModels.supports_vision', 'Supports vision')}>{$t('settingsModels.vision_badge', 'vision')}</span>
 														{/if}
 													</div>
 												</div>
@@ -882,18 +890,18 @@
 		<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-5">
 			<div class="mb-4 flex items-center justify-between">
 				<div>
-					<h3 class="mb-1 text-laya-heading font-medium">Model Selection</h3>
-					<p class="text-laya-secondary text-surface-500">Choose a model for each pipeline stage, or switch the backend to an installed CLI agent.</p>
+					<h3 class="mb-1 text-laya-heading font-medium">{$t('settingsModels.model_selection_title', 'Model Selection')}</h3>
+					<p class="text-laya-secondary text-surface-500">{$t('settingsModels.model_selection_desc', 'Choose a model for each pipeline stage, or switch the backend to an installed CLI agent.')}</p>
 				</div>
 				<div class="flex items-center gap-3">
 					{#if saving}
-						<span class="text-laya-micro text-laya-orange">Saving…</span>
+						<span class="text-laya-micro text-laya-orange">{$t('settingsModels.saving', 'Saving…')}</span>
 					{/if}
 				<button
 					onclick={() => fetchModels(true)}
 					disabled={modelsLoading}
 					class="rounded-md border border-surface-600 px-2.5 py-1.5 text-laya-secondary text-surface-400 transition-colors hover:border-surface-500 hover:text-surface-300 disabled:opacity-50"
-					title="Refresh model list"
+					title={$t('settingsModels.refresh_models', 'Refresh model list')}
 				>
 					{#if modelsLoading}
 						<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -901,7 +909,7 @@
 							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 						</svg>
 					{:else}
-						Refresh
+						{$t('settingsModels.refresh', 'Refresh')}
 					{/if}
 				</button>
 				</div>
@@ -913,20 +921,20 @@
 						type="button"
 						onclick={() => setAgentMode(false)}
 						class="rounded px-3 py-1.5 text-laya-base transition-colors {!agentMode ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-300'}"
-					>Model provider</button>
+					>{$t('settingsModels.backend_model_provider', 'Model provider')}</button>
 					<button
 						type="button"
 						onclick={() => setAgentMode(true)}
 						class="flex items-center gap-1.5 rounded px-3 py-1.5 text-laya-base transition-colors {agentMode ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-300'}"
-					>Installed agent
-						<span class="rounded bg-laya-gold/25 px-1 text-laya-micro font-semibold uppercase tracking-wide text-laya-amber">Beta</span>
+					>{$t('settingsModels.backend_installed_agent', 'Installed agent')}
+						<span class="rounded bg-laya-gold/25 px-1 text-laya-micro font-semibold uppercase tracking-wide text-laya-amber">{$t('settingsModels.beta', 'Beta')}</span>
 					</button>
 				</div>
 				<p class="mt-2 text-laya-micro text-surface-500">
 					{#if agentMode}
-						Structured stages run through an installed CLI agent on its own subscription — no API key or local VRAM. Chat &amp; Coherence keep using a model provider.
+						{$t('settingsModels.backend_agent_desc', 'Structured stages run through an installed CLI agent on its own subscription — no API key or local VRAM. Chat & Coherence keep using a model provider.')}
 					{:else}
-						Use cloud or local-provider models for every stage.
+						{$t('settingsModels.backend_provider_desc', 'Use cloud or local-provider models for every stage.')}
 					{/if}
 				</p>
 
@@ -942,10 +950,10 @@
 							>
 								{AGENT_LABELS[b.agent_id] || b.agent_id}
 								<span class="rounded px-1.5 py-0.5 text-laya-micro {b.tier === 'native' ? 'bg-laya-gold/25 text-laya-amber' : 'bg-surface-700 text-surface-400'}">
-									{b.tier === 'native' ? 'native schema' : 'best-effort'}
+									{b.tier === 'native' ? $t('settingsModels.tier_native', 'native schema') : $t('settingsModels.tier_best_effort', 'best-effort')}
 								</span>
 								{#if !b.available}
-									<span class="text-laya-micro text-surface-500">not detected</span>
+									<span class="text-laya-micro text-surface-500">{$t('settingsModels.not_detected', 'not detected')}</span>
 								{/if}
 							</button>
 						{/each}
@@ -980,7 +988,7 @@
 								type="text"
 								value={agentModelString(role.id)}
 								onchange={handleAgentModelInput(role.id)}
-								placeholder={AGENT_MODEL_PLACEHOLDERS[selectedAgent] || 'Model string (blank = agent default)'}
+								placeholder={agentModelPlaceholder}
 								spellcheck="false"
 								autocapitalize="off"
 								class="w-full rounded-md border px-3 py-2 font-mono text-laya-base text-surface-100 placeholder:text-surface-500 focus:outline-none {$glassTheme ? 'glass-input' : 'border-surface-600 bg-surface-700 focus:border-surface-500'}"
@@ -1003,11 +1011,11 @@
 			<div id="agent-usage" class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-5">
 				<div class="mb-4">
 					<div class="mb-1 flex items-center gap-2">
-						<h3 class="text-laya-heading font-medium">Agent Usage Limits</h3>
-						<span class="rounded bg-laya-gold/25 px-1 text-laya-micro font-semibold uppercase tracking-wide text-laya-amber">Beta</span>
-						{#if savingAgentBudget}<span class="ml-auto text-laya-micro text-laya-orange">Saving…</span>{/if}
+						<h3 class="text-laya-heading font-medium">{$t('settingsModels.agent_usage_title', 'Agent Usage Limits')}</h3>
+						<span class="rounded bg-laya-gold/25 px-1 text-laya-micro font-semibold uppercase tracking-wide text-laya-amber">{$t('settingsModels.beta', 'Beta')}</span>
+						{#if savingAgentBudget}<span class="ml-auto text-laya-micro text-laya-orange">{$t('settingsModels.saving', 'Saving…')}</span>{/if}
 					</div>
-					<p class="text-laya-secondary text-surface-500">Agents bill against usage limits, not dollars. Set a token budget per rolling window — Laya pauses ingestion when reached and auto-resumes when the window resets.</p>
+					<p class="text-laya-secondary text-surface-500">{$t('settingsModels.agent_usage_desc', 'Agents bill against usage limits, not dollars. Set a token budget per rolling window — Laya pauses ingestion when reached and auto-resumes when the window resets.')}</p>
 				</div>
 
 				{#if agentBudgetStatus?.is_paused}
@@ -1017,7 +1025,11 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
 							<span class="text-laya-base text-red-300">
-								Usage limit reached — ingestion paused{#if agentBudgetStatus.paused_until} until {parseBackendDate(agentBudgetStatus.paused_until)?.toLocaleString()}{/if}
+								{#if agentBudgetStatus.paused_until}
+									{$t('settingsModels.usage_limit_paused_until', 'Usage limit reached — ingestion paused until {date}', { date: parseBackendDate(agentBudgetStatus.paused_until)?.toLocaleString($locale) ?? '' })}
+								{:else}
+									{$t('settingsModels.usage_limit_paused', 'Usage limit reached — ingestion paused')}
+								{/if}
 							</span>
 						</div>
 						<button
@@ -1025,7 +1037,7 @@
 							disabled={resumingAgentBudget}
 							class="rounded-md bg-red-500/20 px-3 py-1.5 text-laya-secondary font-medium text-red-300 transition-colors hover:bg-red-500/30 disabled:opacity-50"
 						>
-							{resumingAgentBudget ? 'Resuming…' : 'Resume Now'}
+							{resumingAgentBudget ? $t('settingsModels.resuming', 'Resuming…') : $t('settingsModels.resume_now', 'Resume Now')}
 						</button>
 					</div>
 				{/if}
@@ -1033,13 +1045,13 @@
 				<div class="space-y-4">
 					<div class="flex items-center gap-3">
 						<button
-							aria-label="Toggle agent usage limits"
+							aria-label={$t('settingsModels.toggle_agent_limits', 'Toggle agent usage limits')}
 							onclick={() => { agentBudgetEnabled = !agentBudgetEnabled; debounceSaveAgentBudget(); }}
 							class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors {agentBudgetEnabled ? 'bg-laya-orange' : 'bg-surface-600'}"
 						>
 							<span class="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform {agentBudgetEnabled ? 'translate-x-4' : 'translate-x-0.5'}"></span>
 						</button>
-						<span class="text-laya-base text-surface-300">Enable agent usage limits</span>
+						<span class="text-laya-base text-surface-300">{$t('settingsModels.enable_agent_limits', 'Enable agent usage limits')}</span>
 					</div>
 
 					{#if agentBudgetEnabled}
@@ -1052,25 +1064,29 @@
 										<span class="text-laya-base text-surface-200">{AGENT_LABELS[b.agent_id] || b.agent_id}</span>
 										{#if st?.rate_limit?.status}
 											<span class="text-laya-micro text-surface-500">
-												live limit: {st.rate_limit.status}{#if st.rate_limit.resets_at} · resets {new Date(st.rate_limit.resets_at * 1000).toLocaleTimeString()}{/if}
+												{#if st.rate_limit.resets_at}
+													{$t('settingsModels.live_limit_resets', 'live limit: {status} · resets {time}', { status: st.rate_limit.status, time: new Date(st.rate_limit.resets_at * 1000).toLocaleTimeString($locale) })}
+												{:else}
+													{$t('settingsModels.live_limit', 'live limit: {status}', { status: st.rate_limit.status })}
+												{/if}
 											</span>
 										{/if}
 									</div>
 									<div class="grid grid-cols-3 gap-3">
 										<label class="text-laya-micro text-surface-500">
-											Token budget
-											<input type="number" min="0" step="100000" placeholder="e.g. 5000000"
+											{$t('settingsModels.token_budget', 'Token budget')}
+											<input type="number" min="0" step="100000" placeholder={$t('settingsModels.example_tokens', 'e.g. 5000000')}
 												bind:value={c.window_token_limit} oninput={debounceSaveAgentBudget}
 												class="mt-1 w-full rounded-md border border-surface-600 bg-surface-700 px-2 py-1.5 text-laya-base text-surface-200 placeholder:text-surface-500" />
 										</label>
 										<label class="text-laya-micro text-surface-500">
-											Window (hours)
+											{$t('settingsModels.window_hours', 'Window (hours)')}
 											<input type="number" min="1" step="1"
 												bind:value={c.window_hours} oninput={debounceSaveAgentBudget}
 												class="mt-1 w-full rounded-md border border-surface-600 bg-surface-700 px-2 py-1.5 text-laya-base text-surface-200" />
 										</label>
 										<label class="text-laya-micro text-surface-500">
-											Pause at %
+											{$t('settingsModels.pause_at_percent', 'Pause at %')}
 											<input type="number" min="1" max="100"
 												bind:value={c.pause_at_percent} oninput={debounceSaveAgentBudget}
 												class="mt-1 w-full rounded-md border border-surface-600 bg-surface-700 px-2 py-1.5 text-laya-base text-surface-200" />
@@ -1079,7 +1095,7 @@
 									{#if st && st.window_token_limit > 0}
 										<div class="mt-3">
 											<div class="mb-1 flex justify-between text-laya-micro text-surface-500">
-												<span>{fmtTokensShort(st.tokens_used)} / {fmtTokensShort(st.window_token_limit)} tokens · last {st.window_hours}h</span>
+												<span>{$t('settingsModels.tokens_window', '{used} / {limit} tokens · last {hours}h', { used: fmtTokensShort(st.tokens_used), limit: fmtTokensShort(st.window_token_limit), hours: st.window_hours })}</span>
 												<span>{st.percent != null ? st.percent.toFixed(0) : 0}%</span>
 											</div>
 											<div class="h-2 w-full overflow-hidden rounded-full bg-surface-700">
@@ -1093,7 +1109,7 @@
 								</div>
 							{/if}
 						{/each}
-						<p class="text-laya-micro text-surface-500">Tip: set the token budget to match your plan’s window (e.g. Claude Code’s 5-hour window). Claude Code also reports its live limit above and resumes exactly at its reset.</p>
+						<p class="text-laya-micro text-surface-500">{$t('settingsModels.agent_limits_tip', 'Tip: set the token budget to match your plan’s window (e.g. Claude Code’s 5-hour window). Claude Code also reports its live limit above and resumes exactly at its reset.')}</p>
 					{/if}
 				</div>
 			</div>
@@ -1103,12 +1119,12 @@
 		<div id="cost-control" class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-5">
 			<div class="mb-4">
 				<div class="mb-1 flex items-center justify-between">
-					<h3 class="text-laya-heading font-medium">Cost Control</h3>
+					<h3 class="text-laya-heading font-medium">{$t('settingsModels.cost_control_title', 'Cost Control')}</h3>
 					{#if savingBudget}
-						<span class="text-laya-micro text-laya-orange">Saving…</span>
+						<span class="text-laya-micro text-laya-orange">{$t('settingsModels.saving', 'Saving…')}</span>
 					{/if}
 				</div>
-				<p class="text-laya-secondary text-surface-500">Set a monthly budget to automatically pause workflows when the limit is reached.</p>
+				<p class="text-laya-secondary text-surface-500">{$t('settingsModels.cost_control_desc', 'Set a monthly budget to automatically pause workflows when the limit is reached.')}</p>
 			</div>
 
 			<!-- Budget paused alert -->
@@ -1119,7 +1135,9 @@
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
 						</svg>
 						<span class="text-laya-base text-red-300">
-							Budget exceeded — {pausedWorkflowCount} workflow{pausedWorkflowCount !== 1 ? 's' : ''} paused
+							{pausedWorkflowCount === 1
+								? $t('settingsModels.budget_exceeded_one', 'Budget exceeded — {count} workflow paused', { count: pausedWorkflowCount })
+								: $t('settingsModels.budget_exceeded_other', 'Budget exceeded — {count} workflows paused', { count: pausedWorkflowCount })}
 						</span>
 					</div>
 					<button
@@ -1127,7 +1145,7 @@
 						disabled={resumingBudget}
 						class="rounded-md bg-red-500/20 px-3 py-1.5 text-laya-secondary font-medium text-red-300 transition-colors hover:bg-red-500/30 disabled:opacity-50"
 					>
-						{resumingBudget ? 'Resuming...' : 'Resume Workflows'}
+						{resumingBudget ? $t('settingsModels.resuming', 'Resuming…') : $t('settingsModels.resume_workflows', 'Resume Workflows')}
 					</button>
 				</div>
 			{/if}
@@ -1136,20 +1154,20 @@
 			<div class="space-y-4">
 				<div class="flex items-center gap-3">
 					<button
-						aria-label="Toggle monthly budget limit"
+						aria-label={$t('settingsModels.toggle_budget', 'Toggle monthly budget limit')}
 						onclick={() => { budgetEnabled = !budgetEnabled; debounceSaveBudget(); }}
 						class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors {budgetEnabled ? 'bg-laya-orange' : 'bg-surface-600'}"
 					>
 						<span class="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform {budgetEnabled ? 'translate-x-4' : 'translate-x-0.5'}"></span>
 					</button>
-					<span class="text-laya-base text-surface-300">Enable monthly budget limit</span>
+					<span class="text-laya-base text-surface-300">{$t('settingsModels.enable_budget', 'Enable monthly budget limit')}</span>
 				</div>
 
 				{#if budgetEnabled}
 					<div class="grid grid-cols-[200px_1fr] items-center gap-4">
 						<div>
-							<label for="budget-limit" class="text-laya-base text-surface-300">Monthly Limit</label>
-							<p class="text-laya-micro text-surface-500">Workflows pause when this amount is reached.</p>
+							<label for="budget-limit" class="text-laya-base text-surface-300">{$t('settingsModels.monthly_limit', 'Monthly Limit')}</label>
+							<p class="text-laya-micro text-surface-500">{$t('settingsModels.monthly_limit_desc', 'Workflows pause when this amount is reached.')}</p>
 						</div>
 						<div class="flex items-center gap-2">
 							<span class="text-laya-base text-surface-400">$</span>
@@ -1158,12 +1176,12 @@
 								type="number"
 								min="0.01"
 								step="0.50"
-								placeholder="e.g. 10.00"
+								placeholder={$t('settingsModels.example_amount', 'e.g. 10.00')}
 								bind:value={budgetLimitInput}
 								oninput={debounceSaveBudget}
 								class="w-32 rounded-md border border-surface-600 bg-surface-700 px-3 py-1.5 text-laya-base text-surface-200 placeholder:text-surface-500"
 							/>
-							<span class="text-laya-secondary text-surface-500">USD / month</span>
+							<span class="text-laya-secondary text-surface-500">{$t('settingsModels.usd_per_month', 'USD / month')}</span>
 						</div>
 					</div>
 
@@ -1171,7 +1189,7 @@
 					<div class="rounded-lg border border-surface-700 bg-surface-900/50 p-4">
 						<div class="mb-2 flex items-center justify-between">
 							<span class="text-[13px] leading-5 text-surface-400">
-								{currentMonth ? formatMonth(currentMonth) : 'Current Month'}
+								{currentMonth ? formatMonth(currentMonth) : $t('settingsModels.current_month', 'Current Month')}
 							</span>
 							<span class="text-[13px] leading-5">
 								<span class="font-semibold {budgetPercent >= 100 ? 'text-red-400' : budgetPercent >= 75 ? 'text-amber-400' : 'text-green-400'}">
@@ -1191,7 +1209,7 @@
 								></div>
 							</div>
 							<div class="mt-1.5 text-right text-laya-micro text-surface-500">
-								{budgetPercent.toFixed(0)}% used
+								{$t('settingsModels.percent_used', '{percent}% used', { percent: budgetPercent.toFixed(0) })}
 							</div>
 						{/if}
 
@@ -1225,14 +1243,14 @@
 						>
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 						</svg>
-						Monthly History
+						{$t('settingsModels.monthly_history', 'Monthly History')}
 					</button>
 					{#if showHistory}
 						<div class="mt-2 space-y-1.5">
 							{#if historyLoading}
-								<p class="text-laya-secondary text-surface-500">Loading...</p>
+								<p class="text-laya-secondary text-surface-500">{$t('common.loading', 'Loading...')}</p>
 							{:else if budgetHistory.length === 0}
-								<p class="text-laya-secondary text-surface-500">No cost history yet. History is recorded at the end of each month.</p>
+								<p class="text-laya-secondary text-surface-500">{$t('settingsModels.no_cost_history', 'No cost history yet. History is recorded at the end of each month.')}</p>
 							{:else}
 								{#each budgetHistory as entry}
 									<div class="flex items-center justify-between rounded-md border border-surface-700 bg-surface-900/30 px-3 py-2">
@@ -1254,11 +1272,11 @@
 				class="flex w-full items-center justify-between p-5 text-left"
 			>
 				<div>
-					<h3 class="text-laya-heading font-medium">Advanced</h3>
-					<p class="text-laya-secondary text-surface-500">Model timeout, retry attempts, and request concurrency</p>
+					<h3 class="text-laya-heading font-medium">{$t('settingsModels.advanced_title', 'Advanced')}</h3>
+					<p class="text-laya-secondary text-surface-500">{$t('settingsModels.advanced_desc', 'Model timeout, retry attempts, and request concurrency')}</p>
 				</div>
 				{#if savingPipeline}
-					<span class="text-laya-micro text-laya-orange">Saving…</span>
+					<span class="text-laya-micro text-laya-orange">{$t('settingsModels.saving', 'Saving…')}</span>
 				{/if}
 				<svg
 					class="h-5 w-5 shrink-0 text-surface-400 transition-transform {showAdvanced ? 'rotate-180' : ''}"
@@ -1273,8 +1291,8 @@
 					<!-- Model Timeout -->
 					<div class="grid grid-cols-[200px_1fr_auto] items-center gap-4">
 						<div>
-							<label for="model-timeout" class="text-laya-base text-surface-300">Model Timeout</label>
-							<p class="text-laya-micro text-surface-500">Max seconds to wait for an LLM response. Increase for slow local models.</p>
+							<label for="model-timeout" class="text-laya-base text-surface-300">{$t('settingsModels.model_timeout', 'Model Timeout')}</label>
+							<p class="text-laya-micro text-surface-500">{$t('settingsModels.model_timeout_desc', 'Max seconds to wait for an LLM response. Increase for slow local models.')}</p>
 						</div>
 						<input
 							id="model-timeout"
@@ -1295,15 +1313,15 @@
 								oninput={debounceSavePipeline}
 								class="w-16 rounded-md border border-surface-600 bg-surface-700 px-2 py-1 text-center text-laya-base text-surface-200"
 							/>
-							<span class="text-laya-secondary text-surface-500">sec</span>
+							<span class="text-laya-secondary text-surface-500">{$t('settingsModels.unit_sec', 'sec')}</span>
 						</div>
 					</div>
 
 					<!-- LLM Retries (per call) -->
 					<div class="grid grid-cols-[200px_1fr_auto] items-center gap-4">
 						<div>
-							<label for="llm-retries" class="text-laya-base text-surface-300">LLM Retries</label>
-							<p class="text-laya-micro text-surface-500">Retries per LLM call on timeout or transient error (fast, seconds apart).</p>
+							<label for="llm-retries" class="text-laya-base text-surface-300">{$t('settingsModels.llm_retries', 'LLM Retries')}</label>
+							<p class="text-laya-micro text-surface-500">{$t('settingsModels.llm_retries_desc', 'Retries per LLM call on timeout or transient error (fast, seconds apart).')}</p>
 						</div>
 						<input
 							id="llm-retries"
@@ -1324,15 +1342,15 @@
 								oninput={debounceSavePipeline}
 								class="w-16 rounded-md border border-surface-600 bg-surface-700 px-2 py-1 text-center text-laya-base text-surface-200"
 							/>
-							<span class="text-laya-secondary text-surface-500">tries</span>
+							<span class="text-laya-secondary text-surface-500">{$t('settingsModels.unit_tries', 'tries')}</span>
 						</div>
 					</div>
 
 					<!-- Event Queue Retries -->
 					<div class="grid grid-cols-[200px_1fr_auto] items-center gap-4">
 						<div>
-							<label for="max-retries" class="text-laya-base text-surface-300">Event Queue Retries</label>
-							<p class="text-laya-micro text-surface-500">Times a failed event is re-queued with exponential backoff (slow, minutes apart).</p>
+							<label for="max-retries" class="text-laya-base text-surface-300">{$t('settingsModels.queue_retries', 'Event Queue Retries')}</label>
+							<p class="text-laya-micro text-surface-500">{$t('settingsModels.queue_retries_desc', 'Times a failed event is re-queued with exponential backoff (slow, minutes apart).')}</p>
 						</div>
 						<input
 							id="max-retries"
@@ -1353,15 +1371,15 @@
 								oninput={debounceSavePipeline}
 								class="w-16 rounded-md border border-surface-600 bg-surface-700 px-2 py-1 text-center text-laya-base text-surface-200"
 							/>
-							<span class="text-laya-secondary text-surface-500">tries</span>
+							<span class="text-laya-secondary text-surface-500">{$t('settingsModels.unit_tries', 'tries')}</span>
 						</div>
 					</div>
 
 					<!-- Request Concurrency -->
 					<div class="grid grid-cols-[200px_1fr_auto] items-center gap-4">
 						<div>
-							<label for="max-concurrent" class="text-laya-base text-surface-300">Request Concurrency</label>
-							<p class="text-laya-micro text-surface-500">Max events processed in parallel. Lower for local GPU models.</p>
+							<label for="max-concurrent" class="text-laya-base text-surface-300">{$t('settingsModels.concurrency', 'Request Concurrency')}</label>
+							<p class="text-laya-micro text-surface-500">{$t('settingsModels.concurrency_desc', 'Max events processed in parallel. Lower for local GPU models.')}</p>
 						</div>
 						<input
 							id="max-concurrent"
@@ -1382,7 +1400,7 @@
 								oninput={debounceSavePipeline}
 								class="w-16 rounded-md border border-surface-600 bg-surface-700 px-2 py-1 text-center text-laya-base text-surface-200"
 							/>
-							<span class="text-laya-secondary text-surface-500">events</span>
+							<span class="text-laya-secondary text-surface-500">{$t('settingsModels.unit_events', 'events')}</span>
 						</div>
 					</div>
 

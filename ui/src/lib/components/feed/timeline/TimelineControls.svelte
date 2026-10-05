@@ -11,6 +11,7 @@
 	import { timelineView, zoomLabel } from '$lib/stores/timelineView';
 	import { platformDotColor, platformLabel } from '$lib/utils/cardVisuals';
 	import { formatMinutes } from '$lib/timeline/scale';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		sourcePlatforms = [],
@@ -60,7 +61,7 @@
 	class="tl-glass-surface flex h-[41px] flex-none items-center gap-1.5 overflow-hidden border-t px-3.5"
 	style="border-color: var(--tl-divider); background: var(--tl-controls-bg);"
 >
-	<span class="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em]" style="color: var(--tl-quiet-label)">Sources</span>
+	<span class="shrink-0 font-mono text-[9px] uppercase tracking-[0.12em]" style="color: var(--tl-quiet-label)">{$t('feedGroups.sources', 'Sources')}</span>
 
 	<div class="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto no-scrollbar">
 		{#each sourcePlatforms as source (source.key)}
@@ -71,15 +72,17 @@
 					? 'background: color-mix(in oklch, var(--color-laya-orange) 16%, transparent); border-color: color-mix(in oklch, var(--color-laya-orange) 35%, transparent); color: var(--color-laya-orange);'
 					: 'background: var(--tl-chip-inactive); border-color: var(--tl-chip-inactive-border); color: var(--color-surface-400);'}
 				onclick={() => toggle(source.key)}
-				title="{active ? 'Hide' : 'Show'} {platformLabel(source.key)}"
+				title={active
+					? $t('feedGroups.hide_platform', 'Hide {platform}', { platform: platformLabel(source.key) })
+					: $t('feedGroups.show_platform', 'Show {platform}', { platform: platformLabel(source.key) })}
 			>
 				<span class="h-1.5 w-1.5 shrink-0 rounded-full" style="background-color: {platformDotColor(source.key)}; opacity: {active ? 1 : 0.5}"></span>
 				{platformLabel(source.key)}
-				<span class="font-mono opacity-65">{source.count.toLocaleString()}</span>
+				<span class="font-mono opacity-65">{source.count.toLocaleString($locale)}</span>
 			</button>
 		{/each}
 		{#if sourcePlatforms.length === 0}
-			<span class="text-[10px] text-surface-500">No events on this day</span>
+			<span class="text-[10px] text-surface-500">{$t('feedGroups.no_events_day', 'No events on this day')}</span>
 		{/if}
 	</div>
 
@@ -89,14 +92,16 @@
 			style="border-color: var(--tl-control-border); background: var(--tl-control-bg); color: var(--color-surface-300);"
 			onclick={() => onloadmore?.()}
 			disabled={loadingMore}
-			title="Only the first page of threads is loaded"
+			title={$t('feedGroups.first_page_only', 'Only the first page of threads is loaded')}
 		>
-			{loadingMore ? 'Loading…' : `+${remaining.toLocaleString()} more threads`}
+			{loadingMore
+				? $t('common.loading', 'Loading…')
+				: $t('feedGroups.more_threads', '+{count} more threads', { count: remaining.toLocaleString($locale) })}
 		</button>
 	{/if}
 
 	<!-- Zoom -->
-	<span class="ml-2 shrink-0 font-mono text-[9px] uppercase tracking-[0.12em]" style="color: var(--tl-quiet-label)">Zoom</span>
+	<span class="ml-2 shrink-0 font-mono text-[9px] uppercase tracking-[0.12em]" style="color: var(--tl-quiet-label)">{$t('feedGroups.zoom', 'Zoom')}</span>
 	<div
 		class="flex shrink-0 items-center overflow-hidden rounded-[7px] border"
 		style="border-color: var(--tl-control-border); background: var(--tl-control-bg);"
@@ -105,7 +110,7 @@
 			class="px-2 py-0.5 text-surface-400 transition-colors hover:text-surface-100 disabled:opacity-40"
 			onclick={() => timelineView.zoomBy(-1)}
 			disabled={$timelineView.hourPx === 15}
-			aria-label="Zoom out"
+			aria-label={$t('feedGroups.zoom_out', 'Zoom out')}
 		>−</button>
 		<span class="w-9 border-x py-0.5 text-center font-mono text-[10px] text-surface-200" style="border-color: var(--tl-chip-inactive-border)">
 			{zoomLabel($timelineView.hourPx)}
@@ -114,7 +119,7 @@
 			class="px-2 py-0.5 text-surface-400 transition-colors hover:text-surface-100 disabled:opacity-40"
 			onclick={() => timelineView.zoomBy(1)}
 			disabled={$timelineView.hourPx === 120}
-			aria-label="Zoom in"
+			aria-label={$t('feedGroups.zoom_in', 'Zoom in')}
 		>+</button>
 	</div>
 
@@ -125,10 +130,12 @@
 		style="border-color: color-mix(in oklch, var(--color-laya-orange) 40%, transparent); background: color-mix(in oklch, var(--color-laya-orange) 14%, transparent); color: var(--color-laya-orange);"
 		onclick={onjumptonow}
 		disabled={!isToday}
-		title={isToday ? 'Scroll the day to the current time' : 'Only available on today'}
+		title={isToday
+			? $t('feedGroups.scroll_to_now', 'Scroll the day to the current time')
+			: $t('feedGroups.only_today', 'Only available on today')}
 	>
 		<span class="h-1.5 w-1.5 rounded-full" style="background: var(--tl-now)"></span>
-		Jump to now
+		{$t('feedGroups.jump_to_now', 'Jump to now')}
 		{#if isToday}
 			<span class="font-mono">· {formatMinutes(nowMinute)}</span>
 		{/if}

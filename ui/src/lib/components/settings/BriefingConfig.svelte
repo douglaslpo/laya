@@ -5,6 +5,15 @@
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { portal } from '$lib/actions/portal';
 	import Dropdown from '$lib/components/Dropdown.svelte';
+	import { t, locale } from '$lib/i18n';
+
+	/** Splits a translated string into plain and [[highlighted]] segments. */
+	function rich(text: string): { text: string; hl: boolean }[] {
+		return text
+			.split(/\[\[(.*?)\]\]/)
+			.map((s, i) => ({ text: s, hl: i % 2 === 1 }))
+			.filter((s) => s.text);
+	}
 
 	let strictnessTooltip = $state<{ text: string; top: number; left: number } | null>(null);
 
@@ -13,13 +22,13 @@
 		const rect = el.getBoundingClientRect();
 		let text = '';
 		if (contextStrictness === 'strict') {
-			text = 'Links the exact same issue across different platforms. Requires shared identifiers (ticket numbers, service names). Same-platform matches are excluded.';
+			text = $t('settingsData.strict_tooltip', 'Links the exact same issue across different platforms. Requires shared identifiers (ticket numbers, service names). Same-platform matches are excluded.');
 		} else if (contextStrictness === 'balanced') {
-			text = 'Links notifications about the same broader context or topic. Works across and within platforms.';
+			text = $t('settingsData.balanced_tooltip', 'Links notifications about the same broader context or topic. Works across and within platforms.');
 		} else if (contextStrictness === 'lenient') {
-			text = 'Links notifications that could provide useful context for each other. Broader matching for discovery.';
+			text = $t('settingsData.lenient_tooltip', 'Links notifications that could provide useful context for each other. Broader matching for discovery.');
 		} else {
-			text = 'Custom configuration. Advanced settings below control matching behavior.';
+			text = $t('settingsData.custom_tooltip', 'Custom configuration. Advanced settings below control matching behavior.');
 		}
 		strictnessTooltip = { text, top: rect.bottom + 6, left: rect.left };
 	}
@@ -182,7 +191,7 @@
 			saved = true;
 			setTimeout(() => (saved = false), 2000);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Save failed';
+			error = e instanceof Error ? e.message : $t('settingsData.save_failed', 'Save failed');
 		} finally {
 			saving = false;
 		}
@@ -211,7 +220,7 @@
 			omniSaved = true;
 			setTimeout(() => (omniSaved = false), 2000);
 		} catch (e) {
-			omniError = e instanceof Error ? e.message : 'Save failed';
+			omniError = e instanceof Error ? e.message : $t('settingsData.save_failed', 'Save failed');
 		} finally {
 			omniSaving = false;
 		}
@@ -220,7 +229,7 @@
 	function formatTzLabel(tz: string): string {
 		try {
 			const now = new Date();
-			const formatter = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'shortOffset' });
+			const formatter = new Intl.DateTimeFormat($locale, { timeZone: tz, timeZoneName: 'shortOffset' });
 			const parts = formatter.formatToParts(now);
 			const offset = parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
 			return `${tz.replace(/_/g, ' ')} (${offset})`;
@@ -234,7 +243,7 @@
 			const [h, m] = time.split(':').map(Number);
 			const d = new Date();
 			d.setHours(h, m, 0, 0);
-			return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+			return d.toLocaleTimeString($locale, { hour: 'numeric', minute: '2-digit' });
 		} catch {
 			return time;
 		}
@@ -245,17 +254,34 @@
 			const [h, m] = omniResynthesisTime.split(':').map(Number);
 			const d = new Date();
 			d.setHours(h, m, 0, 0);
-			return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+			return d.toLocaleTimeString($locale, { hour: 'numeric', minute: '2-digit' });
 		} catch {
 			return omniResynthesisTime;
 		}
 	});
 
-	const densityDescriptions: Record<string, string> = {
-		compact: 'Fits on one screen. Ultra-concise, only the most important information.',
-		standard: 'Balanced detail. Covers key events with enough context to act on.',
-		detailed: 'Comprehensive view. Includes secondary events and fuller context.'
-	};
+	const densityDescriptions: Record<string, string> = $derived({
+		compact: $t('settingsData.density_compact_desc', 'Fits on one screen. Ultra-concise, only the most important information.'),
+		standard: $t('settingsData.density_standard_desc', 'Balanced detail. Covers key events with enough context to act on.'),
+		detailed: $t('settingsData.density_detailed_desc', 'Comprehensive view. Includes secondary events and fuller context.')
+	});
+
+	// "daily at X, every Nh, or after N new events" — joined with the locale's own "or".
+	const omniTriggers = $derived.by(() => {
+		const items = [$t('settingsData.trigger_daily', 'daily at [[{time}]]', { time: omniPreviewTime })];
+		if (omniRollingHours > 0) {
+			items.push($t('settingsData.trigger_rolling', 'every {hours}h', { hours: omniRollingHours }));
+		}
+		if (omniEventThreshold > 0) {
+			items.push(
+				omniEventThreshold === 1
+					? $t('settingsData.trigger_events_one', 'after {count} new event', { count: omniEventThreshold })
+					: $t('settingsData.trigger_events_other', 'after {count} new events', { count: omniEventThreshold })
+			);
+		}
+		const list = new Intl.ListFormat($locale, { style: 'long', type: 'disjunction' }).format(items);
+		return $t('settingsData.triggers', 'Resynthesis triggers: {triggers} — whichever comes first.', { triggers: list });
+	});
 
 	function handleBriefingToggle() {
 		enabled = !enabled;
@@ -321,7 +347,7 @@
 			contextSaved = true;
 			setTimeout(() => (contextSaved = false), 2000);
 		} catch (e) {
-			contextError = e instanceof Error ? e.message : 'Save failed';
+			contextError = e instanceof Error ? e.message : $t('settingsData.save_failed', 'Save failed');
 		} finally {
 			contextSaving = false;
 		}
@@ -338,7 +364,7 @@
 			groupSumSaved = true;
 			setTimeout(() => (groupSumSaved = false), 2000);
 		} catch (e) {
-			groupSumError = e instanceof Error ? e.message : 'Save failed';
+			groupSumError = e instanceof Error ? e.message : $t('settingsData.save_failed', 'Save failed');
 			groupSummariesEnabled = !groupSummariesEnabled;
 		} finally {
 			groupSumSaving = false;
@@ -349,34 +375,33 @@
 <div class="space-y-6">
 	<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-5">
 		<div class="mb-1 flex items-center justify-between">
-			<h3 class="text-laya-heading font-medium">Daily Briefing</h3>
+			<h3 class="text-laya-heading font-medium">{$t('settingsData.briefing_title', 'Daily Briefing')}</h3>
 			{#if saving}
-				<span class="text-laya-micro text-laya-orange">Saving…</span>
+				<span class="text-laya-micro text-laya-orange">{$t('settingsData.saving', 'Saving…')}</span>
 			{:else if saved}
-				<span class="text-laya-micro text-green-400">Saved</span>
+				<span class="text-laya-micro text-green-400">{$t('settingsData.saved', 'Saved')}</span>
 			{/if}
 		</div>
 		<p class="mb-4 text-laya-base text-surface-400">
-			Laya generates a daily briefing card summarising overnight activity, pending cards, and your
-			calendar. Configure when this briefing runs.
+			{$t('settingsData.briefing_desc', 'Laya generates a daily briefing card summarising overnight activity, pending cards, and your calendar. Configure when this briefing runs.')}
 		</p>
 
 		{#if loading}
-			<p class="text-laya-base text-surface-500">Loading…</p>
+			<p class="text-laya-base text-surface-500">{$t('common.loading', 'Loading...')}</p>
 		{:else}
 			<div class="space-y-4">
 				<!-- Enabled toggle -->
 				<div class="flex items-center justify-between rounded-md border {$glassTheme ? 'border-white/[0.08] bg-white/[0.04]' : 'border-surface-600 bg-surface-700/40'} px-4 py-3">
 					<div>
-						<span class="text-laya-base font-medium text-surface-100">Enable daily briefing</span>
-						<p class="text-laya-secondary text-surface-400">Generate a briefing card each day at the scheduled time</p>
+						<span class="text-laya-base font-medium text-surface-100">{$t('settingsData.briefing_enable', 'Enable daily briefing')}</span>
+						<p class="text-laya-secondary text-surface-400">{$t('settingsData.briefing_enable_desc', 'Generate a briefing card each day at the scheduled time')}</p>
 					</div>
 					<button
 						class="relative h-6 w-11 rounded-full transition-colors {enabled ? 'bg-laya-orange' : 'bg-surface-600'}"
 						onclick={handleBriefingToggle}
 						role="switch"
 						aria-checked={enabled}
-						aria-label="Toggle daily briefing"
+						aria-label={$t('settingsData.briefing_toggle', 'Toggle daily briefing')}
 					>
 						<span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform {enabled ? 'translate-x-5' : ''}"></span>
 					</button>
@@ -386,7 +411,7 @@
 				<div class="grid grid-cols-[auto_1fr] items-end gap-3" class:opacity-40={!enabled}>
 					<div class="flex flex-col gap-1">
 						<label class="text-laya-secondary font-medium text-surface-300" for="briefing-time">
-							Time
+							{$t('settingsData.time', 'Time')}
 						</label>
 						<input
 							id="briefing-time"
@@ -400,7 +425,7 @@
 
 					<div class="flex flex-col gap-1">
 						<label class="text-laya-secondary font-medium text-surface-300" for="briefing-tz">
-							Timezone
+							{$t('settingsData.timezone', 'Timezone')}
 						</label>
 						<select
 							id="briefing-tz"
@@ -420,8 +445,8 @@
 				{#if spaceCount > 1}
 					<div class="flex items-center justify-between rounded-md border {$glassTheme ? 'border-white/[0.08] bg-white/[0.04]' : 'border-surface-600 bg-surface-700/40'} px-4 py-3" class:opacity-40={!enabled}>
 						<div>
-							<span class="text-laya-base font-medium text-surface-100">Per-space briefings</span>
-							<p class="text-laya-secondary text-surface-400">Generate a separate briefing for each space instead of one combined briefing</p>
+							<span class="text-laya-base font-medium text-surface-100">{$t('settingsData.per_space', 'Per-space briefings')}</span>
+							<p class="text-laya-secondary text-surface-400">{$t('settingsData.per_space_desc', 'Generate a separate briefing for each space instead of one combined briefing')}</p>
 						</div>
 						<button
 							class="relative h-6 w-11 shrink-0 rounded-full transition-colors {perSpace ? 'bg-laya-orange' : 'bg-surface-600'}"
@@ -429,7 +454,7 @@
 							disabled={!enabled}
 							role="switch"
 							aria-checked={perSpace}
-							aria-label="Toggle per-space briefings"
+							aria-label={$t('settingsData.per_space_toggle', 'Toggle per-space briefings')}
 						>
 							<span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform {perSpace ? 'translate-x-5' : ''}"></span>
 						</button>
@@ -441,15 +466,11 @@
 				{/if}
 
 				{#if enabled}
+					{@const previewParams = { time: previewTime, timezone: timezone.replace(/_/g, ' ') }}
 					<p class="text-laya-secondary text-surface-500">
-						{#if perSpace && spaceCount > 1}
-							Each space will receive its own briefing daily at
-						{:else}
-							Briefing will run daily at
-						{/if}
-						<span class="text-surface-300">{previewTime}</span>
-						in
-						<span class="text-surface-300">{timezone.replace(/_/g, ' ')}</span>.
+						{#each rich(perSpace && spaceCount > 1
+							? $t('settingsData.briefing_preview_per_space', 'Each space will receive its own briefing daily at [[{time}]] in [[{timezone}]].', previewParams)
+							: $t('settingsData.briefing_preview', 'Briefing will run daily at [[{time}]] in [[{timezone}]].', previewParams)) as seg}{#if seg.hl}<span class="text-surface-300">{seg.text}</span>{:else}{seg.text}{/if}{/each}
 					</p>
 				{/if}
 			</div>
@@ -460,19 +481,17 @@
 	<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-5">
 		<div class="mb-1 flex items-center justify-between">
 			<div class="flex items-center gap-2">
-				<h3 class="text-laya-heading font-medium">Context Association</h3>
+				<h3 class="text-laya-heading font-medium">{$t('settingsData.context_title', 'Context Association')}</h3>
 				<span class="rounded-full border border-laya-orange/30 bg-laya-orange/10 px-2 py-0.5 text-laya-micro font-semibold uppercase tracking-wider text-laya-orange">Beta</span>
 			</div>
 			{#if contextSaving}
-				<span class="text-laya-micro text-laya-orange">Saving…</span>
+				<span class="text-laya-micro text-laya-orange">{$t('settingsData.saving', 'Saving…')}</span>
 			{:else if contextSaved}
-				<span class="text-laya-micro text-green-400">Saved</span>
+				<span class="text-laya-micro text-green-400">{$t('settingsData.saved', 'Saved')}</span>
 			{/if}
 		</div>
 		<p class="mb-4 text-laya-base text-surface-400">
-			Automatically detect when different notifications are about the same real-world context.
-			For example, a bill notification and its payment receipt will be linked together.
-			Works across different senders, threads, and platforms.
+			{$t('settingsData.context_desc', 'Automatically detect when different notifications are about the same real-world context. For example, a bill notification and its payment receipt will be linked together. Works across different senders, threads, and platforms.')}
 		</p>
 
 		{#if !loading}
@@ -481,15 +500,15 @@
 				<div class="rounded-md border {$glassTheme ? 'border-white/[0.08] bg-white/[0.04]' : 'border-surface-600 bg-surface-700/40'}">
 					<div class="flex items-center justify-between px-4 py-3">
 						<div>
-							<span class="text-laya-base font-medium text-surface-100">Enable context association</span>
-							<p class="text-laya-secondary text-surface-400">Compute semantic links between related cards during event processing</p>
+							<span class="text-laya-base font-medium text-surface-100">{$t('settingsData.context_enable', 'Enable context association')}</span>
+							<p class="text-laya-secondary text-surface-400">{$t('settingsData.context_enable_desc', 'Compute semantic links between related cards during event processing')}</p>
 						</div>
 						<button
 							class="relative h-6 w-11 shrink-0 rounded-full transition-colors {contextAssociationEnabled ? 'bg-laya-orange' : 'bg-surface-600'}"
 							onclick={handleContextAssociationToggle}
 							role="switch"
 							aria-checked={contextAssociationEnabled}
-							aria-label="Toggle context association"
+							aria-label={$t('settingsData.context_toggle', 'Toggle context association')}
 						>
 							<span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform {contextAssociationEnabled ? 'translate-x-5' : ''}"></span>
 						</button>
@@ -499,7 +518,7 @@
 					{#if !contextAssociationEnabled}
 						<div class="border-t border-surface-600/50 px-4 py-2">
 							<p class="text-laya-secondary text-surface-500 flex items-center gap-1.5">
-								Related cards detection is disabled.
+								{$t('settingsData.context_disabled', 'Related cards detection is disabled.')}
 							</p>
 						</div>
 					{:else}
@@ -507,15 +526,15 @@
 						<div class="border-t {$glassTheme ? 'border-white/[0.06]' : 'border-surface-600/50'}">
 							<div class="flex items-center justify-between px-4 py-2.5 pl-8">
 								<div>
-									<span class="text-laya-secondary font-medium text-surface-200">Show context groups in feed</span>
-									<p class="text-laya-micro text-surface-500">Group related cards from different platforms together in the feed view</p>
+									<span class="text-laya-secondary font-medium text-surface-200">{$t('settingsData.context_groups', 'Show context groups in feed')}</span>
+									<p class="text-laya-micro text-surface-500">{$t('settingsData.context_groups_desc', 'Group related cards from different platforms together in the feed view')}</p>
 								</div>
 								<button
 									class="relative h-5 w-9 shrink-0 rounded-full transition-colors {smartDisplayEnabled ? 'bg-laya-orange' : 'bg-surface-600'}"
 									onclick={handleSmartDisplayToggle}
 									role="switch"
 									aria-checked={smartDisplayEnabled}
-									aria-label="Toggle context groups in feed"
+									aria-label={$t('settingsData.context_groups_toggle', 'Toggle context groups in feed')}
 								>
 									<span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform {smartDisplayEnabled ? 'translate-x-4' : ''}"></span>
 								</button>
@@ -528,7 +547,7 @@
 				{#if contextAssociationEnabled}
 					<div class="rounded-md border {$glassTheme ? 'border-white/[0.08] bg-white/[0.04]' : 'border-surface-600 bg-surface-700/40'} px-4 py-3">
 						<div class="flex items-center gap-2 mb-2">
-							<span class="text-laya-base font-medium text-surface-100">Matching strictness</span>
+							<span class="text-laya-base font-medium text-surface-100">{$t('settingsData.strictness', 'Matching strictness')}</span>
 						</div>
 
 						<!-- Preset buttons -->
@@ -538,7 +557,7 @@
 									class="flex-1 rounded-md px-3 py-1.5 text-laya-secondary font-medium transition-colors {contextStrictness === preset ? 'bg-laya-orange/15 text-laya-orange' : $glassTheme ? 'text-surface-400 hover:text-surface-200 hover:bg-white/[0.08]' : 'text-surface-400 hover:text-surface-200 hover:bg-surface-700/50'}"
 									onclick={() => selectContextPreset(preset as 'strict' | 'balanced' | 'lenient')}
 								>
-									{preset.charAt(0).toUpperCase() + preset.slice(1)}
+									{$t(`settingsData.preset_${preset}`, preset.charAt(0).toUpperCase() + preset.slice(1))}
 								</button>
 							{/each}
 							{#if contextStrictness === 'custom'}
@@ -546,7 +565,7 @@
 									class="flex-1 rounded-md px-3 py-1.5 text-laya-secondary font-medium bg-laya-orange/15 text-laya-orange"
 									disabled
 								>
-									Custom
+									{$t('settingsData.preset_custom', 'Custom')}
 								</button>
 							{/if}
 						</div>
@@ -557,7 +576,7 @@
 								class="h-3.5 w-3.5 shrink-0 text-surface-600 transition-colors hover:text-laya-orange cursor-help"
 								fill="none" stroke="currentColor" viewBox="0 0 24 24"
 								role="img"
-								aria-label="Strictness info"
+								aria-label={$t('settingsData.strictness_info', 'Strictness info')}
 								onmouseenter={showStrictnessTooltip}
 								onmouseleave={hideStrictnessTooltip}
 							>
@@ -566,13 +585,13 @@
 							</svg>
 							<p class="text-laya-micro text-surface-500">
 								{#if contextStrictness === 'strict'}
-									Same issue, different platforms — requires shared identifiers
+									{$t('settingsData.strict_summary', 'Same issue, different platforms — requires shared identifiers')}
 								{:else if contextStrictness === 'balanced'}
-									Same context or topic — works across and within platforms
+									{$t('settingsData.balanced_summary', 'Same context or topic — works across and within platforms')}
 								{:else if contextStrictness === 'lenient'}
-									Related notifications — broad matching for discovery
+									{$t('settingsData.lenient_summary', 'Related notifications — broad matching for discovery')}
 								{:else}
-									Custom configuration active
+									{$t('settingsData.custom_summary', 'Custom configuration active')}
 								{/if}
 							</p>
 						</div>
@@ -584,7 +603,7 @@
 							class="flex w-full items-center justify-between px-4 py-3"
 							onclick={() => contextShowAdvanced = !contextShowAdvanced}
 						>
-							<span class="text-laya-secondary font-medium text-surface-300">Advanced settings</span>
+							<span class="text-laya-secondary font-medium text-surface-300">{$t('settingsData.advanced', 'Advanced settings')}</span>
 							<svg class="h-4 w-4 text-surface-500 transition-transform {contextShowAdvanced ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 							</svg>
@@ -597,13 +616,13 @@
 									<svg class="h-4 w-4 shrink-0 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
 									</svg>
-									<p class="text-laya-micro text-surface-500">Changing these values overrides the preset above. Proceed with care — incorrect thresholds may produce too many or too few associations.</p>
+									<p class="text-laya-micro text-surface-500">{$t('settingsData.advanced_warning', 'Changing these values overrides the preset above. Proceed with care — incorrect thresholds may produce too many or too few associations.')}</p>
 								</div>
 
 								<!-- Confidence threshold -->
 								<div>
-									<label for="ctx-confidence" class="text-laya-secondary text-surface-300">Confidence threshold</label>
-									<p class="text-laya-micro text-surface-500 mb-1">Maximum cosine distance for candidates (lower = stricter)</p>
+									<label for="ctx-confidence" class="text-laya-secondary text-surface-300">{$t('settingsData.confidence', 'Confidence threshold')}</label>
+									<p class="text-laya-micro text-surface-500 mb-1">{$t('settingsData.confidence_desc', 'Maximum cosine distance for candidates (lower = stricter)')}</p>
 									<input
 										id="ctx-confidence"
 										type="number"
@@ -618,8 +637,8 @@
 
 								<!-- Auto-confirm threshold -->
 								<div>
-									<label for="ctx-autoconfirm" class="text-laya-secondary text-surface-300">Auto-confirm threshold</label>
-									<p class="text-laya-micro text-surface-500 mb-1">Distance below which cards are linked without LLM review (leave empty to always require LLM)</p>
+									<label for="ctx-autoconfirm" class="text-laya-secondary text-surface-300">{$t('settingsData.auto_confirm', 'Auto-confirm threshold')}</label>
+									<p class="text-laya-micro text-surface-500 mb-1">{$t('settingsData.auto_confirm_desc', 'Distance below which cards are linked without LLM review (leave empty to always require LLM)')}</p>
 									<input
 										id="ctx-autoconfirm"
 										type="number"
@@ -629,14 +648,14 @@
 										value={contextAutoConfirm ?? ''}
 										onchange={(e) => { const v = (e.target as HTMLInputElement).value; contextAutoConfirm = v ? parseFloat(v) : null; handleAdvancedChange(); }}
 										class="w-24 rounded-md border border-surface-600 bg-surface-800 px-2 py-1 text-laya-secondary text-surface-200"
-										placeholder="None"
+										placeholder={$t('settingsData.none', 'None')}
 									/>
 								</div>
 
 								<!-- Centroid threshold -->
 								<div>
-									<label for="ctx-centroid" class="text-laya-secondary text-surface-300">Centroid threshold</label>
-									<p class="text-laya-micro text-surface-500 mb-1">Maximum distance from group center for new members</p>
+									<label for="ctx-centroid" class="text-laya-secondary text-surface-300">{$t('settingsData.centroid', 'Centroid threshold')}</label>
+									<p class="text-laya-micro text-surface-500 mb-1">{$t('settingsData.centroid_desc', 'Maximum distance from group center for new members')}</p>
 									<input
 										id="ctx-centroid"
 										type="number"
@@ -652,15 +671,15 @@
 								<!-- Cross-platform required -->
 								<div class="flex items-center justify-between">
 									<div>
-										<span class="text-laya-secondary text-surface-300">Cross-platform required</span>
-										<p class="text-laya-micro text-surface-500">Only link cards from different platforms</p>
+										<span class="text-laya-secondary text-surface-300">{$t('settingsData.cross_platform', 'Cross-platform required')}</span>
+										<p class="text-laya-micro text-surface-500">{$t('settingsData.cross_platform_desc', 'Only link cards from different platforms')}</p>
 									</div>
 									<button
 										class="relative h-5 w-9 shrink-0 rounded-full transition-colors {contextCrossPlatformRequired ? 'bg-laya-orange' : 'bg-surface-600'}"
 										onclick={() => { contextCrossPlatformRequired = !contextCrossPlatformRequired; handleAdvancedChange(); }}
 										role="switch"
 										aria-checked={contextCrossPlatformRequired}
-										aria-label="Cross-platform required"
+										aria-label={$t('settingsData.cross_platform', 'Cross-platform required')}
 									>
 										<span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform {contextCrossPlatformRequired ? 'translate-x-4' : ''}"></span>
 									</button>
@@ -668,15 +687,15 @@
 
 								<!-- Entity ref overlap -->
 								<div>
-									<label for="ctx-overlap" class="text-laya-secondary text-surface-300">Entity ref overlap</label>
-									<p class="text-laya-micro text-surface-500 mb-1">Whether shared identifiers are required for linking</p>
+									<label for="ctx-overlap" class="text-laya-secondary text-surface-300">{$t('settingsData.entity_overlap', 'Entity ref overlap')}</label>
+									<p class="text-laya-micro text-surface-500 mb-1">{$t('settingsData.entity_overlap_desc', 'Whether shared identifiers are required for linking')}</p>
 									<Dropdown
 										id="ctx-overlap"
 										bind:value={contextEntityRefOverlap}
 										options={[
-											{ value: 'hard_gate', label: 'Required (hard gate)' },
-											{ value: 'soft_boost', label: 'Bonus (soft boost)' },
-											{ value: 'disabled', label: 'Disabled' }
+											{ value: 'hard_gate', label: $t('settingsData.overlap_hard', 'Required (hard gate)') },
+											{ value: 'soft_boost', label: $t('settingsData.overlap_soft', 'Bonus (soft boost)') },
+											{ value: 'disabled', label: $t('settingsData.overlap_disabled', 'Disabled') }
 										]}
 										onchange={() => handleAdvancedChange()}
 										size="sm"
@@ -688,15 +707,15 @@
 								<!-- Always LLM -->
 								<div class="flex items-center justify-between">
 									<div>
-										<span class="text-laya-secondary text-surface-300">Always use LLM</span>
-										<p class="text-laya-micro text-surface-500">Require LLM confirmation for every match</p>
+										<span class="text-laya-secondary text-surface-300">{$t('settingsData.always_llm', 'Always use LLM')}</span>
+										<p class="text-laya-micro text-surface-500">{$t('settingsData.always_llm_desc', 'Require LLM confirmation for every match')}</p>
 									</div>
 									<button
 										class="relative h-5 w-9 shrink-0 rounded-full transition-colors {contextAlwaysLlm ? 'bg-laya-orange' : 'bg-surface-600'}"
 										onclick={() => { contextAlwaysLlm = !contextAlwaysLlm; handleAdvancedChange(); }}
 										role="switch"
 										aria-checked={contextAlwaysLlm}
-										aria-label="Always use LLM"
+										aria-label={$t('settingsData.always_llm', 'Always use LLM')}
 									>
 										<span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform {contextAlwaysLlm ? 'translate-x-4' : ''}"></span>
 									</button>
@@ -716,31 +735,30 @@
 	<!-- Group Summaries -->
 	<div class="{$glassTheme ? 'glass-section' : 'rounded-lg border border-surface-700 bg-surface-800'} p-5">
 		<div class="mb-1 flex items-center justify-between">
-			<h3 class="text-laya-heading font-medium">Group Summaries</h3>
+			<h3 class="text-laya-heading font-medium">{$t('settingsData.group_summaries_title', 'Group Summaries')}</h3>
 			{#if groupSumSaving}
-				<span class="text-laya-micro text-laya-orange">Saving…</span>
+				<span class="text-laya-micro text-laya-orange">{$t('settingsData.saving', 'Saving…')}</span>
 			{:else if groupSumSaved}
-				<span class="text-laya-micro text-green-400">Saved</span>
+				<span class="text-laya-micro text-green-400">{$t('settingsData.saved', 'Saved')}</span>
 			{/if}
 		</div>
 		<p class="mb-4 text-laya-base text-surface-400">
-			Generate rolling AI summaries for card groups. When multiple cards share the same entity,
-			Laya synthesizes them into an executive snapshot that updates as new events arrive.
+			{$t('settingsData.group_summaries_desc', 'Generate rolling AI summaries for card groups. When multiple cards share the same entity, Laya synthesizes them into an executive snapshot that updates as new events arrive.')}
 		</p>
 
 		{#if !loading}
 			<div class="space-y-4">
 				<div class="flex items-center justify-between rounded-md border {$glassTheme ? 'border-white/[0.08] bg-white/[0.04]' : 'border-surface-600 bg-surface-700/40'} px-4 py-3">
 					<div>
-						<span class="text-laya-base font-medium text-surface-100">Enable group summaries</span>
-						<p class="text-laya-secondary text-surface-400">Automatically summarize multi-card entity groups</p>
+						<span class="text-laya-base font-medium text-surface-100">{$t('settingsData.group_summaries_enable', 'Enable group summaries')}</span>
+						<p class="text-laya-secondary text-surface-400">{$t('settingsData.group_summaries_enable_desc', 'Automatically summarize multi-card entity groups')}</p>
 					</div>
 					<button
 						class="relative h-6 w-11 shrink-0 rounded-full transition-colors {groupSummariesEnabled ? 'bg-laya-orange' : 'bg-surface-600'}"
 						onclick={handleGroupSummariesToggle}
 						role="switch"
 						aria-checked={groupSummariesEnabled}
-						aria-label="Toggle group summaries"
+						aria-label={$t('settingsData.group_summaries_toggle', 'Toggle group summaries')}
 					>
 						<span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform {groupSummariesEnabled ? 'translate-x-5' : ''}"></span>
 					</button>
@@ -758,14 +776,13 @@
 		<div class="mb-1 flex items-center justify-between">
 			<h3 class="text-laya-heading font-medium">Omni</h3>
 			{#if omniSaving}
-				<span class="text-laya-micro text-laya-orange">Saving…</span>
+				<span class="text-laya-micro text-laya-orange">{$t('settingsData.saving', 'Saving…')}</span>
 			{:else if omniSaved}
-				<span class="text-laya-micro text-green-400">Saved</span>
+				<span class="text-laya-micro text-green-400">{$t('settingsData.saved', 'Saved')}</span>
 			{/if}
 		</div>
 		<p class="mb-4 text-laya-base text-surface-400">
-			Omni maintains a rolling cross-platform summary of your professional activity.
-			Configure when resynthesis runs and how detailed the summary should be.
+			{$t('settingsData.omni_desc', 'Omni maintains a rolling cross-platform summary of your professional activity. Configure when resynthesis runs and how detailed the summary should be.')}
 		</p>
 
 		{#if !loading}
@@ -773,15 +790,15 @@
 				<!-- Enabled toggle -->
 				<div class="flex items-center justify-between rounded-md border {$glassTheme ? 'border-white/[0.08] bg-white/[0.04]' : 'border-surface-600 bg-surface-700/40'} px-4 py-3">
 					<div>
-						<span class="text-laya-base font-medium text-surface-100">Enable Omni</span>
-						<p class="text-laya-secondary text-surface-400">Track and summarise activity across all platforms</p>
+						<span class="text-laya-base font-medium text-surface-100">{$t('settingsData.omni_enable', 'Enable Omni')}</span>
+						<p class="text-laya-secondary text-surface-400">{$t('settingsData.omni_enable_desc', 'Track and summarise activity across all platforms')}</p>
 					</div>
 					<button
 						class="relative h-6 w-11 rounded-full transition-colors {omniEnabled ? 'bg-laya-orange' : 'bg-surface-600'}"
 						onclick={handleOmniToggle}
 						role="switch"
 						aria-checked={omniEnabled}
-						aria-label="Toggle Omni"
+						aria-label={$t('settingsData.omni_toggle', 'Toggle Omni')}
 					>
 						<span class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform {omniEnabled ? 'translate-x-5' : ''}"></span>
 					</button>
@@ -790,7 +807,7 @@
 				<div class="space-y-4" class:opacity-40={!omniEnabled}>
 					<!-- Density -->
 					<div class="flex flex-col gap-1.5">
-						<span class="text-laya-secondary font-medium text-surface-300">Summary density</span>
+						<span class="text-laya-secondary font-medium text-surface-300">{$t('settingsData.density', 'Summary density')}</span>
 						<div class="flex rounded-lg border border-surface-600 overflow-hidden w-fit">
 							{#each ['compact', 'standard', 'detailed'] as opt}
 								<button
@@ -801,7 +818,7 @@
 									onclick={() => { omniDensity = opt; debouncedSaveOmni(); }}
 									disabled={!omniEnabled}
 								>
-									{opt.charAt(0).toUpperCase() + opt.slice(1)}
+									{$t(`settingsData.density_${opt}`, opt.charAt(0).toUpperCase() + opt.slice(1))}
 								</button>
 							{/each}
 						</div>
@@ -812,7 +829,7 @@
 					<div class="grid grid-cols-[auto_1fr] items-end gap-3">
 						<div class="flex flex-col gap-1">
 							<label class="text-laya-secondary font-medium text-surface-300" for="omni-time">
-								Resynthesis time
+								{$t('settingsData.resynthesis_time', 'Resynthesis time')}
 							</label>
 							<input
 								id="omni-time"
@@ -826,7 +843,7 @@
 
 						<div class="flex flex-col gap-1">
 							<label class="text-laya-secondary font-medium text-surface-300" for="omni-tz">
-								Timezone
+								{$t('settingsData.timezone', 'Timezone')}
 							</label>
 							<select
 								id="omni-tz"
@@ -846,7 +863,7 @@
 					<div class="grid grid-cols-[auto_auto] items-end gap-3">
 						<div class="flex flex-col gap-1">
 							<label class="text-laya-secondary font-medium text-surface-300" for="omni-rolling">
-								Rolling interval
+								{$t('settingsData.rolling_interval', 'Rolling interval')}
 							</label>
 							<select
 								id="omni-rolling"
@@ -855,18 +872,16 @@
 								disabled={!omniEnabled}
 								class="h-9 w-36 rounded-md border border-surface-600 bg-surface-700 px-3 text-laya-base text-surface-50 focus:border-laya-orange/50 focus:outline-none disabled:cursor-not-allowed"
 							>
-								<option value={0}>Off</option>
-								<option value={1}>Every 1h</option>
-								<option value={2}>Every 2h</option>
-								<option value={4}>Every 4h</option>
-								<option value={6}>Every 6h</option>
-								<option value={8}>Every 8h</option>
+								<option value={0}>{$t('settingsData.rolling_off', 'Off')}</option>
+								{#each [1, 2, 4, 6, 8] as hours}
+									<option value={hours}>{$t('settingsData.rolling_every', 'Every {hours}h', { hours })}</option>
+								{/each}
 							</select>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-laya-secondary font-medium text-surface-300" for="omni-threshold">
-								Event threshold
+								{$t('settingsData.event_threshold', 'Event threshold')}
 							</label>
 							<input
 								id="omni-threshold"
@@ -884,14 +899,14 @@
 								}}
 								disabled={!omniEnabled}
 								class="h-9 w-36 rounded-md border border-surface-600 bg-surface-700 px-3 text-laya-base text-surface-50 focus:border-laya-orange/50 focus:outline-none disabled:cursor-not-allowed"
-								placeholder="0 = off"
+								placeholder={$t('settingsData.event_threshold_placeholder', '0 = off')}
 							/>
 						</div>
 					</div>
 
 					<p class="text-laya-secondary text-surface-500">
-						Resynthesis triggers: daily at <span class="text-surface-300">{omniPreviewTime}</span>{omniRollingHours > 0 ? `, every ${omniRollingHours}h` : ''}{omniEventThreshold > 0 ? `, or after ${omniEventThreshold} new events` : ''} — whichever comes first.
-						Synthesis is skipped automatically if no new cards have arrived since the last run.
+						{#each rich(omniTriggers) as seg}{#if seg.hl}<span class="text-surface-300">{seg.text}</span>{:else}{seg.text}{/if}{/each}
+						{$t('settingsData.synthesis_skipped', 'Synthesis is skipped automatically if no new cards have arrived since the last run.')}
 					</p>
 
 					{#if omniError}

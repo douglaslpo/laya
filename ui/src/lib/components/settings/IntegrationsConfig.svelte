@@ -7,6 +7,7 @@
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { reducedMotion } from '$lib/stores/reducedMotion';
 	import { setIntegrationErrorsFromConnections } from '$lib/stores/integrationErrors';
+	import { t } from '$lib/i18n';
 	import PlatformCard from './PlatformCard.svelte';
 	import ConnectModal from './ConnectModal.svelte';
 	import N8nAdvancedSection from './N8nAdvancedSection.svelte';
@@ -63,7 +64,7 @@
 			// (connect / test / disconnect all funnel through loadData).
 			setIntegrationErrorsFromConnections(connections);
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load integrations';
+			error = e instanceof Error ? e.message : $t('settingsModels.load_integrations_failed', 'Failed to load integrations');
 		} finally {
 			loading = false;
 		}
@@ -95,7 +96,7 @@
 				items.push({
 					key: 'smtp',
 					config: {
-						label: 'Email (SMTP)',
+						label: $t('settingsModels.smtp_label', 'Email (SMTP)'),
 						category: 'email',
 						icon: 'smtp',
 						n8n_type: '',
@@ -108,7 +109,7 @@
 			}
 
 			if (items.length > 0) {
-				groups.push({ category: cat, label: CATEGORY_LABELS[cat] || cat, items });
+				groups.push({ category: cat, label: $t(`settingsModels.category_${cat}`, CATEGORY_LABELS[cat] || cat), items });
 			}
 		}
 
@@ -123,7 +124,7 @@
 	function openConnectModal(platformKey: string) {
 		if (platformKey === 'smtp') {
 			connectingPlatform = 'smtp';
-			connectingLabel = 'Email (SMTP)';
+			connectingLabel = $t('settingsModels.smtp_label', 'Email (SMTP)');
 			connectingIsOAuth = false;
 			connectingFields = [];
 			return;
@@ -150,7 +151,7 @@
 
 {#if loading}
 	<div class="flex items-center justify-center py-12 text-surface-400">
-		Loading integrations...
+		{$t('settingsModels.loading_integrations', 'Loading integrations...')}
 	</div>
 {:else}
 	<div class="space-y-8">
@@ -164,10 +165,14 @@
 		<div class="flex items-center gap-3 text-laya-secondary text-surface-400">
 			<span class="flex items-center gap-1.5">
 				<span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-				{connectionStats.connected} connected
+				{connectionStats.connected === 1
+					? $t('settingsModels.connected_count_one', '{count} connected', { count: connectionStats.connected })
+					: $t('settingsModels.connected_count_other', '{count} connected', { count: connectionStats.connected })}
 			</span>
 			<span class="text-surface-600">·</span>
-			<span>{connectionStats.total} platforms available</span>
+			<span>{connectionStats.total === 1
+				? $t('settingsModels.platforms_available_one', '{count} platform available', { count: connectionStats.total })
+				: $t('settingsModels.platforms_available_other', '{count} platforms available', { count: connectionStats.total })}</span>
 		</div>
 
 		<!-- Platform grid by category -->
@@ -202,8 +207,8 @@
 				class="flex w-full items-center justify-between p-4 text-left transition-colors {$glassTheme ? 'hover:bg-white/[0.04]' : 'hover:bg-surface-700/50'}"
 			>
 				<div>
-					<span class="text-laya-base font-medium text-surface-300">Advanced: n8n Workflow Engine</span>
-					<span class="ml-2 text-laya-secondary text-surface-500">Manage workflows, webhooks, and n8n configuration</span>
+					<span class="text-laya-base font-medium text-surface-300">{$t('settingsModels.n8n_advanced_title', 'Advanced: n8n Workflow Engine')}</span>
+					<span class="ml-2 text-laya-secondary text-surface-500">{$t('settingsModels.n8n_advanced_desc', 'Manage workflows, webhooks, and n8n configuration')}</span>
 				</div>
 				<svg
 					class="h-4 w-4 text-surface-400 transition-transform {showN8nAdvanced ? 'rotate-180' : ''}"

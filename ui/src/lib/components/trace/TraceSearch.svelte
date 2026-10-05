@@ -4,6 +4,7 @@
 	import { searchFocusSignal } from '$lib/stores/searchFocus';
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { portal } from '$lib/actions/portal';
+	import { t } from '$lib/i18n';
 
 	let {
 		onsubmit,
@@ -113,7 +114,7 @@
 			type="text"
 			bind:value={query}
 			onkeydown={handleKeydown}
-			placeholder="Trace an entity across your tools — tickets, PRs, threads, deploys..."
+			placeholder={$t('omniTrace.search_placeholder', 'Trace an entity across your tools — tickets, PRs, threads, deploys...')}
 			disabled={loading}
 			class="w-full pl-12 pr-28 py-4 rounded-xl
 			       {$glassTheme ? 'bg-white/[0.04] border border-white/[0.08]' : 'bg-surface-800 border border-surface-700'}
@@ -126,9 +127,9 @@
 			<button
 				type="button"
 				onclick={() => (showAdvanced = !showAdvanced)}
-				onmouseenter={(e) => showTooltip(e, 'Search settings')}
+				onmouseenter={(e) => showTooltip(e, $t('omniTrace.search_settings', 'Search settings'))}
 				onmouseleave={hideTooltip}
-				aria-label="Search settings"
+				aria-label={$t('omniTrace.search_settings', 'Search settings')}
 				class="p-1.5 rounded-lg transition-colors
 				       {showAdvanced || hasCustomSettings
 					? 'bg-laya-orange/20 text-laya-orange border border-laya-orange/40'
@@ -148,7 +149,7 @@
 				       hover:bg-laya-orange/90 disabled:opacity-40 disabled:cursor-not-allowed
 				       transition-colors"
 			>
-				Search
+				{$t('omniTrace.search', 'Search')}
 			</button>
 		</div>
 	</div>
@@ -157,14 +158,14 @@
 	{#if showAdvanced}
 		<div class="mt-2 rounded-xl p-4 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800/80'}">
 			<div class="flex items-center justify-between mb-3">
-				<h4 class="text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">Search Settings</h4>
+				<h4 class="text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{$t('omniTrace.search_settings_title', 'Search Settings')}</h4>
 				{#if hasCustomSettings}
 					<button
 						type="button"
 						onclick={resetAdvanced}
 						class="text-laya-micro text-surface-500 hover:text-surface-300 transition-colors"
 					>
-						Reset to defaults
+						{$t('omniTrace.reset_defaults', 'Reset to defaults')}
 					</button>
 				{/if}
 			</div>
@@ -176,15 +177,15 @@
 						type="button"
 						role="switch"
 						aria-checked={enableSemantic}
-						aria-label="Toggle semantic search"
+						aria-label={$t('omniTrace.toggle_semantic', 'Toggle semantic search')}
 						onclick={() => (enableSemantic = !enableSemantic)}
 						class="relative w-8 h-[18px] rounded-full transition-colors {enableSemantic ? 'bg-laya-orange/60' : 'bg-surface-700'}"
 					>
 						<span class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full transition-all {enableSemantic ? 'translate-x-[14px] bg-white' : 'bg-surface-400'}"></span>
 					</button>
 					<div class="flex-1">
-						<span class="text-laya-secondary font-medium text-surface-200 group-hover:text-surface-50 transition-colors">Semantic search</span>
-						<p class="text-laya-micro text-surface-500 leading-tight">Vector similarity via embeddings — finds conceptually related items</p>
+						<span class="text-laya-secondary font-medium text-surface-200 group-hover:text-surface-50 transition-colors">{$t('omniTrace.semantic_search', 'Semantic search')}</span>
+						<p class="text-laya-micro text-surface-500 leading-tight">{$t('omniTrace.semantic_search_desc', 'Vector similarity via embeddings — finds conceptually related items')}</p>
 					</div>
 				</label>
 
@@ -194,15 +195,15 @@
 						type="button"
 						role="switch"
 						aria-checked={enableText}
-						aria-label="Toggle text search"
+						aria-label={$t('omniTrace.toggle_text', 'Toggle text search')}
 						onclick={() => (enableText = !enableText)}
 						class="relative w-8 h-[18px] rounded-full transition-colors {enableText ? 'bg-laya-orange/60' : 'bg-surface-700'}"
 					>
 						<span class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full transition-all {enableText ? 'translate-x-[14px] bg-white' : 'bg-surface-400'}"></span>
 					</button>
 					<div class="flex-1">
-						<span class="text-laya-secondary font-medium text-surface-200 group-hover:text-surface-50 transition-colors">Text search</span>
-						<p class="text-laya-micro text-surface-500 leading-tight">Exact phrase match on titles, descriptions, and event content</p>
+						<span class="text-laya-secondary font-medium text-surface-200 group-hover:text-surface-50 transition-colors">{$t('omniTrace.text_search', 'Text search')}</span>
+						<p class="text-laya-micro text-surface-500 leading-tight">{$t('omniTrace.text_search_desc', 'Exact phrase match on titles, descriptions, and event content')}</p>
 					</div>
 				</label>
 
@@ -212,15 +213,15 @@
 						type="button"
 						role="switch"
 						aria-checked={enableFuzzy}
-						aria-label="Toggle fuzzy search"
+						aria-label={$t('omniTrace.toggle_fuzzy', 'Toggle fuzzy search')}
 						onclick={() => (enableFuzzy = !enableFuzzy)}
 						class="relative w-8 h-[18px] rounded-full transition-colors {enableFuzzy ? 'bg-laya-orange/60' : 'bg-surface-700'}"
 					>
 						<span class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full transition-all {enableFuzzy ? 'translate-x-[14px] bg-white' : 'bg-surface-400'}"></span>
 					</button>
 					<div class="flex-1">
-						<span class="text-laya-secondary font-medium text-surface-200 group-hover:text-surface-50 transition-colors">Fuzzy search</span>
-						<p class="text-laya-micro text-surface-500 leading-tight">Broad keyword matching — each word matched independently (noisier results)</p>
+						<span class="text-laya-secondary font-medium text-surface-200 group-hover:text-surface-50 transition-colors">{$t('omniTrace.fuzzy_search', 'Fuzzy search')}</span>
+						<p class="text-laya-micro text-surface-500 leading-tight">{$t('omniTrace.fuzzy_search_desc', 'Broad keyword matching — each word matched independently (noisier results)')}</p>
 					</div>
 				</label>
 
@@ -230,15 +231,15 @@
 						type="button"
 						role="switch"
 						aria-checked={enableLlmFilter}
-						aria-label="Toggle AI relevance filter"
+						aria-label={$t('omniTrace.toggle_llm_filter', 'Toggle AI relevance filter')}
 						onclick={() => (enableLlmFilter = !enableLlmFilter)}
 						class="relative w-8 h-[18px] rounded-full transition-colors {enableLlmFilter ? 'bg-laya-orange/60' : 'bg-surface-700'}"
 					>
 						<span class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full transition-all {enableLlmFilter ? 'translate-x-[14px] bg-white' : 'bg-surface-400'}"></span>
 					</button>
 					<div class="flex-1">
-						<span class="text-laya-secondary font-medium text-surface-200 group-hover:text-surface-50 transition-colors">AI relevance filter</span>
-						<p class="text-laya-micro text-surface-500 leading-tight">Uses a model to remove false positives — adds latency but improves precision</p>
+						<span class="text-laya-secondary font-medium text-surface-200 group-hover:text-surface-50 transition-colors">{$t('omniTrace.llm_filter', 'AI relevance filter')}</span>
+						<p class="text-laya-micro text-surface-500 leading-tight">{$t('omniTrace.llm_filter_desc', 'Uses a model to remove false positives — adds latency but improves precision')}</p>
 					</div>
 				</label>
 			</div>

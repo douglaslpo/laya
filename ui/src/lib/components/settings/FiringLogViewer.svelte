@@ -8,6 +8,7 @@
 	import Dropdown from '$lib/components/Dropdown.svelte';
 	import type { ProcessingRule, ProcessingRuleFiringEntry } from '$lib/api/types';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	// Rules are already loaded by the parent (ProcessingRulesEditor); passed in
 	// so the rule filter dropdown needs no extra fetch.
@@ -26,7 +27,7 @@
 	let offset = $state(0);
 
 	const ruleOptions = $derived([
-		{ value: '', label: 'All rules' },
+		{ value: '', label: $t('settingsRules.all_rules', 'All rules') },
 		...rules.map((r) => ({ value: String(r.id), label: r.name }))
 	]);
 
@@ -42,7 +43,7 @@
 			entries = resp.entries;
 			total = resp.total;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load firing log';
+			error = e instanceof Error ? e.message : $t('settingsRules.err_load_firings', 'Failed to load firing log');
 		} finally {
 			loading = false;
 		}
@@ -81,7 +82,7 @@
 	const hasFilters = $derived(filterRuleId !== '' || filterOutcome !== '' || searchQuery.trim() !== '');
 
 	function formatTime(ts: string): string {
-		return parseBackendDate(ts)?.toLocaleString([], {
+		return parseBackendDate(ts)?.toLocaleString($locale, {
 			month: 'short',
 			day: 'numeric',
 			hour: '2-digit',
@@ -91,7 +92,7 @@
 	}
 
 	function humanizeAction(type: string): string {
-		return type.replace(/_/g, ' ');
+		return $t(`settingsRules.action_${type}`, type.replace(/_/g, ' '));
 	}
 
 	// ── Portal tooltip (mirrors AuditLogViewer) ──
@@ -113,7 +114,7 @@
 	function errorText(entry: ProcessingRuleFiringEntry): string {
 		if (entry.error) return entry.error;
 		const failed = entry.results.find((r) => r.success === false);
-		return failed?.error ?? 'Action failed';
+		return failed?.error ?? $t('settingsRules.action_failed', 'Action failed');
 	}
 </script>
 
@@ -121,7 +122,7 @@
 	<!-- Filters -->
 	<div class="flex flex-wrap items-end gap-3">
 		<div class="w-48">
-			<span class="mb-1 block text-laya-secondary text-surface-400">Rule</span>
+			<span class="mb-1 block text-laya-secondary text-surface-400">{$t('settingsRules.col_rule', 'Rule')}</span>
 			<Dropdown
 				bind:value={filterRuleId}
 				options={ruleOptions}
@@ -129,14 +130,14 @@
 			/>
 		</div>
 		<div class="w-32">
-			<span class="mb-1 block text-laya-secondary text-surface-400">Outcome</span>
+			<span class="mb-1 block text-laya-secondary text-surface-400">{$t('settingsRules.col_outcome', 'Outcome')}</span>
 			<Dropdown
 				bind:value={filterOutcome}
 				options={[
-					{ value: '', label: 'All' },
-					{ value: 'success', label: 'Success' },
-					{ value: 'error', label: 'Error' },
-					{ value: 'skipped', label: 'Skipped' }
+					{ value: '', label: $t('common.all', 'All') },
+					{ value: 'success', label: $t('settingsRules.outcome_success', 'Success') },
+					{ value: 'error', label: $t('common.error', 'Error') },
+					{ value: 'skipped', label: $t('settingsRules.outcome_skipped', 'Skipped') }
 				]}
 				onchange={(v) => { filterOutcome = v as typeof filterOutcome; }}
 			/>
@@ -145,14 +146,14 @@
 			onclick={applyFilter}
 			class="h-[38px] rounded-lg px-4 text-laya-base font-medium text-surface-200 transition-colors {$glassTheme ? 'bg-white/[0.08] hover:bg-white/[0.14]' : 'bg-surface-700 hover:bg-surface-600'}"
 		>
-			Apply
+			{$t('settingsRules.apply', 'Apply')}
 		</button>
 		{#if hasFilters}
 			<button
 				onclick={clearFilters}
 				class="h-[38px] rounded-lg px-3 text-laya-base text-surface-400 transition-colors hover:text-surface-200"
 			>
-				Clear
+				{$t('common.clear', 'Clear')}
 			</button>
 		{/if}
 
@@ -164,7 +165,7 @@
 			<input
 				type="text"
 				bind:value={searchQuery}
-				placeholder="Search firings…"
+				placeholder={$t('settingsRules.search_firings', 'Search firings…')}
 				onkeydown={(e) => { if (e.key === 'Enter') applyFilter(); }}
 				class="h-[38px] w-full rounded-md border pl-8 pr-3 text-laya-secondary text-surface-200 placeholder-surface-500 focus:outline-none
 					{$glassTheme ? 'glass-input focus:border-laya-orange/50' : 'border-surface-600 bg-surface-900 focus:border-laya-orange/50'}"
@@ -179,18 +180,18 @@
 	{:else if error}
 		<div class="rounded-lg border border-red-800 bg-red-900/20 p-3 text-laya-base text-red-300">{error}</div>
 	{:else if entries.length === 0}
-		<p class="py-8 text-center text-laya-base text-surface-500">No rule firings found.</p>
+		<p class="py-8 text-center text-laya-base text-surface-500">{$t('settingsRules.no_firings', 'No rule firings found.')}</p>
 	{:else}
 		<!-- Pagination -->
 		<div class="flex items-center justify-between text-laya-secondary text-surface-400">
-			<span>{total} firing{total !== 1 ? 's' : ''}</span>
+			<span>{total === 1 ? $t('settingsRules.firings_count_one', '{count} firing', { count: total }) : $t('settingsRules.firings_count_other', '{count} firings', { count: total })}</span>
 			<div class="flex items-center gap-2">
 				<button
 					onclick={prevPage}
 					disabled={offset === 0}
 					class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30"
 				>
-					Prev
+					{$t('settingsRules.prev', 'Prev')}
 				</button>
 				<span>{page} / {totalPages}</span>
 				<button
@@ -198,7 +199,7 @@
 					disabled={offset + limit >= total}
 					class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30"
 				>
-					Next
+					{$t('settingsRules.next', 'Next')}
 				</button>
 			</div>
 		</div>
@@ -207,11 +208,11 @@
 			<table class="w-full text-left text-laya-secondary">
 				<thead class="border-b {$glassTheme ? 'border-white/[0.06] bg-white/[0.03]' : 'border-surface-700 bg-surface-800'} text-surface-400">
 					<tr>
-						<th class="px-3 py-2">Time</th>
-						<th class="px-3 py-2">Rule</th>
-						<th class="px-3 py-2">Card</th>
-						<th class="px-3 py-2">Actions</th>
-						<th class="px-3 py-2">Outcome</th>
+						<th class="px-3 py-2">{$t('settingsRules.col_time', 'Time')}</th>
+						<th class="px-3 py-2">{$t('settingsRules.col_rule', 'Rule')}</th>
+						<th class="px-3 py-2">{$t('settingsRules.col_card', 'Card')}</th>
+						<th class="px-3 py-2">{$t('settingsRules.col_actions', 'Actions')}</th>
+						<th class="px-3 py-2">{$t('settingsRules.col_outcome', 'Outcome')}</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y {$glassTheme ? 'divide-white/[0.04]' : 'divide-surface-700/50'}">
@@ -231,21 +232,21 @@
 							</td>
 							<td class="px-3 py-2">
 								{#if entry.outcome === 'success'}
-									<span class="rounded-full bg-green-900/30 px-2 py-0.5 text-green-400">OK</span>
+									<span class="rounded-full bg-green-900/30 px-2 py-0.5 text-green-400">{$t('settingsRules.badge_ok', 'OK')}</span>
 								{:else if entry.outcome === 'skipped'}
 									<span
 										class="rounded-full bg-laya-gold/25 px-2 py-0.5 text-laya-amber {entry.skip_reason ? 'cursor-help' : ''}"
 										role="note"
 										onmouseenter={(e) => entry.skip_reason && showTooltip(e.currentTarget, entry.skip_reason, { maxWidth: 360 })}
 										onmouseleave={hideTooltip}
-									>SKIP</span>
+									>{$t('settingsRules.badge_skip', 'SKIP')}</span>
 								{:else}
 									<span
 										class="cursor-help rounded-full bg-red-900/30 px-2 py-0.5 text-red-400"
 										role="note"
 										onmouseenter={(e) => showTooltip(e.currentTarget, errorText(entry), { maxWidth: 400, color: 'text-red-400' })}
 										onmouseleave={hideTooltip}
-									>ERR</span>
+									>{$t('settingsRules.badge_err', 'ERR')}</span>
 								{/if}
 							</td>
 						</tr>

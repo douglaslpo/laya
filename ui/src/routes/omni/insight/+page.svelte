@@ -38,6 +38,7 @@
 	import ClaimBreakdown from '$lib/components/omni/item/ClaimBreakdown.svelte';
 	import EvidenceList from '$lib/components/omni/item/EvidenceList.svelte';
 	import ItemContextRail from '$lib/components/omni/item/ItemContextRail.svelte';
+	import { t, tr, locale } from '$lib/i18n';
 
 	// --- Navigation contract (B.7) ---
 	// New links carry the item's identity: ?v=&section=&item=&space_id=
@@ -78,6 +79,11 @@
 	const _polishSeededIds = new Set<string>();
 
 	let evidenceList = $state<ReturnType<typeof EvidenceList> | null>(null);
+
+	const sectionLabel = $derived.by(() => {
+		void $locale;
+		return layerLabel(section);
+	});
 
 	const filtered = $derived(
 		$omniItemFilter ? cards.filter((c) => cardBucket(c) === $omniItemFilter) : cards
@@ -122,11 +128,11 @@
 			} else if (legacyCardIds.length > 0) {
 				await loadLegacy();
 			} else {
-				error = 'This link carries no Omni item.';
+				error = tr('omniTrace.link_no_item', 'This link carries no Omni item.');
 			}
 			autoExpandFirst();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load this Omni item';
+			error = e instanceof Error ? e.message : tr('omniTrace.failed_load_item', 'Failed to load this Omni item');
 		} finally {
 			loading = false;
 		}
@@ -155,7 +161,9 @@
 		cards = loaded;
 		missingCardIds = missing;
 		sourceCardCount = legacyCardIds.length;
-		if (loaded.length === 0) error = 'None of the referenced cards could be found';
+		if (loaded.length === 0) {
+			error = tr('omniTrace.no_referenced_cards', 'None of the referenced cards could be found');
+		}
 	}
 
 	/** The first row of the active filter opens by default. */
@@ -255,7 +263,7 @@
 			editingActionId = null;
 			editedPayload = {};
 		} catch (err) {
-			executeError = err instanceof Error ? err.message : 'Failed to save draft';
+			executeError = err instanceof Error ? err.message : tr('omniTrace.failed_save_draft', 'Failed to save draft');
 		} finally {
 			savingPayload = false;
 		}
@@ -276,7 +284,7 @@
 			polishingActionIds = next;
 			polishErrors = {
 				...polishErrors,
-				[action.action_id]: err instanceof Error ? err.message : 'Polish failed'
+				[action.action_id]: err instanceof Error ? err.message : tr('omniTrace.polish_failed', 'Polish failed')
 			};
 		}
 	}
@@ -295,7 +303,7 @@
 			editingActionId = null;
 			editedPayload = {};
 		} catch (err) {
-			executeError = err instanceof Error ? err.message : 'Execution failed';
+			executeError = err instanceof Error ? err.message : tr('omniTrace.execution_failed', 'Execution failed');
 		} finally {
 			executingActionId = null;
 		}
@@ -388,7 +396,7 @@
 </script>
 
 <svelte:head>
-	<title>{item?.text?.slice(0, 60) ?? 'Omni item'} - Laya</title>
+	<title>{item?.text?.slice(0, 60) ?? $t('omniTrace.omni_item', 'Omni item')} - Laya</title>
 </svelte:head>
 
 <div
@@ -420,16 +428,20 @@
 			<span
 				class="om-badge-lg rounded px-1.5 py-0.5"
 				style="background: var(--om-warn-bg); color: var(--om-warn-fg);"
-			>{layerLabel(section)}</span>
+			>{sectionLabel}</span>
 		{/if}
 		{#if isHistorical && foundVersion}
 			<span
 				class="om-badge-lg rounded px-1.5 py-0.5"
 				style="background: var(--om-neutral-bg); color: var(--om-neutral-fg);"
-				title="This line is no longer in v{version} — it resolved or was compressed away. Showing its last recorded state, from v{foundVersion}."
-			>last state · v{foundVersion}</span>
+				title={$t(
+					'omniTrace.historical_title',
+					'This line is no longer in v{version} — it resolved or was compressed away. Showing its last recorded state, from v{found}.',
+					{ version: version ?? '', found: foundVersion }
+				)}
+			>{$t('omniTrace.last_state', 'last state · v{version}', { version: foundVersion })}</span>
 		{/if}
-		<span class="om-row-t" style="color: var(--om-text-dim);">Omni item</span>
+		<span class="om-row-t" style="color: var(--om-text-dim);">{$t('omniTrace.omni_item', 'Omni item')}</span>
 
 		<div class="flex-1"></div>
 
@@ -447,7 +459,9 @@
 					d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.9 9.9 0 01-4-.8L3 20l1.3-3.2A7.6 7.6 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
 				/>
 			</svg>
-			Chat about {cards.length === 1 ? 'this card' : `these ${cards.length} cards`}
+			{cards.length === 1
+				? $t('omniTrace.chat_about_one', 'Chat about this card')
+				: $t('omniTrace.chat_about_other', 'Chat about these {count} cards', { count: cards.length })}
 		</button>
 	</div>
 
@@ -459,7 +473,7 @@
 				class="om-row-t rounded-lg px-4 py-2"
 				style="background: var(--om-chip); color: var(--om-text-body);"
 				onclick={load}
-			>Retry</button>
+			>{$t('common.retry', 'Retry')}</button>
 		</div>
 	{:else}
 		<div class="flex min-h-0 flex-1" style="border-top: 1px solid var(--om-border);">
@@ -511,7 +525,7 @@
 			style="box-shadow: var(--om-popover-shadow); color: var(--om-text-body);"
 			role="status"
 		>
-			<div class="om-micro mb-1.5">Dropped source cards</div>
+			<div class="om-micro mb-1.5">{$t('omniTrace.dropped_source_cards', 'Dropped source cards')}</div>
 			<ul class="om-mono flex flex-col gap-0.5 text-[calc(10px*var(--om-scale))]">
 				{#each missingCardIds as id}
 					<li>{id}</li>
@@ -522,7 +536,7 @@
 				class="mt-2"
 				style="color: var(--om-comp-label);"
 				onclick={() => (showMissing = false)}
-			>Close</button>
+			>{$t('common.close', 'Close')}</button>
 		</div>
 	{/if}
 </div>

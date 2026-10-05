@@ -10,6 +10,7 @@
 	import { engineApi } from '$lib/api/engine';
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { portal } from '$lib/actions/portal';
+	import { t, locale } from '$lib/i18n';
 
 	let { message, streaming = false }: { message: ChatMessage; streaming?: boolean } = $props();
 
@@ -28,10 +29,10 @@
 		if (!content) return;
 		navigator.clipboard.writeText(content).then(() => {
 			copied = true;
-			if (fixedTooltip) fixedTooltip = { ...fixedTooltip, text: 'Copied!' };
+			if (fixedTooltip) fixedTooltip = { ...fixedTooltip, text: $t('common.copied', 'Copied!') };
 			setTimeout(() => {
 				copied = false;
-				if (fixedTooltip) fixedTooltip = { ...fixedTooltip, text: 'Copy response' };
+				if (fixedTooltip) fixedTooltip = { ...fixedTooltip, text: $t('shell.copy_response', 'Copy response') };
 			}, 2000);
 		});
 	}
@@ -40,14 +41,14 @@
 	const time = $derived.by(() => {
 		const d = parseBackendDate(message.timestamp);
 		if (!d) return '';
-		const hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+		const hm = d.toLocaleTimeString($locale, { hour: '2-digit', minute: '2-digit' });
 		const now = new Date();
 		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 		const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
 		const diff = today.getTime() - msgDay.getTime();
 		if (diff === 0) return hm;
-		if (diff === 86400000) return `Yesterday ${hm}`;
-		return `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })} ${hm}`;
+		if (diff === 86400000) return $t('shell.yesterday_at', 'Yesterday {time}', { time: hm });
+		return `${d.toLocaleDateString($locale, { day: 'numeric', month: 'short' })} ${hm}`;
 	});
 
 	// Parse <think>...</think> blocks from assistant content
@@ -88,7 +89,7 @@
 		'<svg class="inline-block h-3.5 w-3.5 align-text-bottom" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
 
 	function cardButton(id: string): string {
-		return `<button data-card-link="${id}" aria-label="Open card ${id}" class="inline-flex items-center align-text-bottom text-laya-orange hover:text-laya-peach cursor-pointer">${CARD_ICON}</button>`;
+		return `<button data-card-link="${id}" aria-label="${$t('shell.open_card', 'Open card {id}', { id })}" class="inline-flex items-center align-text-bottom text-laya-orange hover:text-laya-peach cursor-pointer">${CARD_ICON}</button>`;
 	}
 
 	// Linkify card references. We match two forms in a single pass: the explicit
@@ -136,7 +137,7 @@
 			// Look-alike / stale id — surface it instead of navigating to a dead view.
 			flashUntil = Date.now() + 2000;
 			hoverCardId = null;
-			showTooltip(target, 'Card not found');
+			showTooltip(target, $t('shell.card_not_found', 'Card not found'));
 			setTimeout(() => {
 				if (Date.now() >= flashUntil) hideTooltip();
 			}, 2000);
@@ -191,7 +192,7 @@
 							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 						</svg>
-						Thinking...
+						{$t('shell.thinking', 'Thinking...')}
 					</div>
 					{#if parsed.thinking}
 						<div class="mt-1.5 border-l-2 border-surface-600 pl-2.5 text-laya-micro leading-relaxed text-surface-500 whitespace-pre-wrap">
@@ -202,7 +203,7 @@
 			{:else if parsed.thinking}
 				<details class="chat-thinking mb-2">
 					<summary class="cursor-pointer text-laya-micro font-medium text-surface-500 hover:text-surface-300 select-none">
-						Thought process
+						{$t('shell.thought_process', 'Thought process')}
 					</summary>
 					<div class="mt-1.5 border-l-2 border-surface-600 pl-2.5 text-laya-micro leading-relaxed text-surface-500 whitespace-pre-wrap">
 						{parsed.thinking}
@@ -229,7 +230,12 @@
 				{#if !isUser && parsed.response}
 					<button
 						onclick={copyResponse}
-						onmouseenter={(e) => showTooltip(e.currentTarget, copied ? 'Copied!' : 'Copy response')}
+						onmouseenter={(e) =>
+							showTooltip(
+								e.currentTarget,
+								copied ? $t('common.copied', 'Copied!') : $t('shell.copy_response', 'Copy response')
+							)}
+						aria-label={$t('shell.copy_response', 'Copy response')}
 						onmouseleave={hideTooltip}
 						class="opacity-0 group-hover:opacity-100 transition-opacity text-surface-500 hover:text-surface-300"
 					>

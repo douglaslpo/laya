@@ -3,6 +3,7 @@
 <script lang="ts">
 	import type { OmniVolumeResponse } from '$lib/api/types';
 	import { num } from '$lib/omni/layers';
+	import { t, locale } from '$lib/i18n';
 
 	let { volume }: { volume: OmniVolumeResponse | null } = $props();
 
@@ -11,10 +12,10 @@
 	// 1 keeps the division safe when every day is empty.
 	const peak = $derived(Math.max(1, ...series.map((d) => d.count)));
 
-	function label(date: string): string {
+	function label(date: string, loc: string = $locale): string {
 		const d = new Date(date + 'T00:00:00');
 		return d
-			.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+			.toLocaleDateString(loc, { day: 'numeric', month: 'short' })
 			.toUpperCase();
 	}
 
@@ -22,7 +23,8 @@
 	const axis = $derived.by(() => {
 		if (series.length === 0) return [];
 		const mid = Math.floor(series.length / 2);
-		return [series[0], series[mid], series[series.length - 1]].map((d) => label(d.date));
+		const loc = $locale;
+		return [series[0], series[mid], series[series.length - 1]].map((d) => label(d.date, loc));
 	});
 </script>
 
@@ -31,13 +33,13 @@
 	style="padding-block: calc(8px * var(--om-density));"
 >
 	<div class="flex items-center gap-2">
-		<span class="om-micro whitespace-nowrap">Event volume · {volume?.days ?? 14} days</span>
+		<span class="om-micro whitespace-nowrap">{$t('omni.event_volume')} · {volume?.days ?? 14} {$t('omni.days')}</span>
 		<span class="flex-1"></span>
 		<span class="om-mono text-[calc(11px*var(--om-scale))]" style="color: var(--om-text-strong);">
-			{num(volume?.total)}
+			{num(volume?.total, $locale)}
 		</span>
 		<span class="text-[calc(9.5px*var(--om-scale))]" style="color: var(--om-text-meta);">
-			today {num(volume?.today)}
+			{$t('omniTrace.volume_today', 'today {count}', { count: num(volume?.today, $locale) })}
 		</span>
 	</div>
 
@@ -49,7 +51,7 @@
 					class="flex-1 rounded-t-[2px]"
 					style="height: {Math.max(day.count > 0 ? 6 : 2, (day.count / peak) * 100)}%;
 						background: {isToday ? 'var(--om-volume-today)' : 'var(--om-volume-bar)'};"
-					title="{label(day.date)} — {num(day.count)} events"
+					title={$t('omniTrace.day_events_title', '{date} — {count} events', { date: label(day.date, $locale), count: num(day.count, $locale) })}
 				></div>
 			{/each}
 		</div>

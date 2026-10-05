@@ -9,6 +9,7 @@
 	import { reducedMotion } from '$lib/stores/reducedMotion';
 	import { portal } from '$lib/actions/portal';
 	import TraceTimeline from './TraceTimeline.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		cluster,
@@ -95,11 +96,15 @@
 		calendar: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/25'
 	};
 
-	function formatDate(iso: string): string {
+	const DATE_OPTS: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+
+	// Ordinal suffixes ("24th Mar 2026") only exist in English; other locales use Intl.
+	function formatDate(iso: string, loc: string): string {
 		if (!iso) return '';
 		const d = new Date(iso + 'T00:00:00');
+		if (loc !== 'en') return d.toLocaleDateString(loc, DATE_OPTS);
 		const day = d.getDate();
-		const month = d.toLocaleString(undefined, { month: 'short' });
+		const month = d.toLocaleString(loc, { month: 'short' });
 		const year = d.getFullYear();
 		const suffix = [11, 12, 13].includes(day % 100)
 			? 'th'
@@ -111,18 +116,20 @@
 		const from = cluster.status_summary.date_range.from;
 		const to = cluster.status_summary.date_range.to;
 		if (!from) return '';
-		const f = formatDate(from);
+		const loc = $locale;
+		const f = formatDate(from, loc);
 		if (!to || to === from) return f;
 		// If same year + month, abbreviate: "24th — 30th Mar 2026"
 		const fd = new Date(from + 'T00:00:00');
 		const td = new Date(to + 'T00:00:00');
-		const t = formatDate(to);
+		if (loc !== 'en') return new Intl.DateTimeFormat(loc, DATE_OPTS).formatRange(fd, td);
+		const toText = formatDate(to, loc);
 		if (fd.getFullYear() === td.getFullYear() && fd.getMonth() === td.getMonth()) {
 			const fDay = fd.getDate();
 			const fSuffix = [11, 12, 13].includes(fDay % 100)
 				? 'th'
 				: ['th', 'st', 'nd', 'rd'][fDay % 10] ?? 'th';
-			return `${fDay}${fSuffix} — ${t}`;
+			return `${fDay}${fSuffix} — ${toText}`;
 		}
 		if (fd.getFullYear() === td.getFullYear()) {
 			// Same year: "24th Mar — 2nd Apr 2026"
@@ -130,10 +137,10 @@
 			const fSuffix = [11, 12, 13].includes(fDay % 100)
 				? 'th'
 				: ['th', 'st', 'nd', 'rd'][fDay % 10] ?? 'th';
-			const fMonth = fd.toLocaleString(undefined, { month: 'short' });
-			return `${fDay}${fSuffix} ${fMonth} — ${t}`;
+			const fMonth = fd.toLocaleString(loc, { month: 'short' });
+			return `${fDay}${fSuffix} ${fMonth} — ${toText}`;
 		}
-		return `${f} — ${t}`;
+		return `${f} — ${toText}`;
 	});
 </script>
 
@@ -215,7 +222,9 @@
 					class="inline-flex items-center justify-center min-w-[22px] h-[16px] px-1.5 rounded-full
 					       bg-surface-700/60 border border-surface-600/50
 					       text-laya-micro font-medium text-surface-300 tabular-nums leading-none"
-					aria-label="{cluster.status_summary.total_cards} cards"
+					aria-label={cluster.status_summary.total_cards === 1
+						? $t('omniTrace.cards_one', '{count} card', { count: cluster.status_summary.total_cards })
+						: $t('omniTrace.cards_other', '{count} cards', { count: cluster.status_summary.total_cards })}
 				>
 					{cluster.status_summary.total_cards}
 				</span>
@@ -234,15 +243,15 @@
 		             group-hover:opacity-100 group-hover:pointer-events-auto
 		             transition-opacity duration-150 z-10">
 			{#if hasNarrative}
-				<span class="text-laya-micro text-laya-orange" role="img" aria-label="Has narrative"
-					onmouseenter={(e) => showTooltip(e, 'Has narrative')}
+				<span class="text-laya-micro text-laya-orange" role="img" aria-label={$t('omniTrace.has_narrative', 'Has narrative')}
+					onmouseenter={(e) => showTooltip(e, $t('omniTrace.has_narrative', 'Has narrative'))}
 					onmouseleave={hideTooltip}
 				>✦</span>
 			{:else if ongenerate}
 				<button
-					aria-label="Generate narrative"
+					aria-label={$t('omniTrace.generate_narrative', 'Generate narrative')}
 					onclick={(e) => { e.stopPropagation(); ongenerate?.(); }}
-					onmouseenter={(e) => showTooltip(e, 'Generate narrative')}
+					onmouseenter={(e) => showTooltip(e, $t('omniTrace.generate_narrative', 'Generate narrative'))}
 					onmouseleave={hideTooltip}
 					class="p-1 rounded text-surface-500 hover:text-laya-orange hover:bg-surface-700/50 transition-colors cursor-pointer"
 				>
@@ -257,8 +266,8 @@
 					href={cluster.primary_entity.url}
 					target="_blank"
 					rel="noopener noreferrer"
-					aria-label="Open in platform"
-					onmouseenter={(e) => showTooltip(e, 'Open in platform')}
+					aria-label={$t('omniTrace.open_in_platform', 'Open in platform')}
+					onmouseenter={(e) => showTooltip(e, $t('omniTrace.open_in_platform', 'Open in platform'))}
 					onmouseleave={hideTooltip}
 					class="p-1 rounded text-surface-500 hover:text-laya-orange hover:bg-surface-700/50 transition-colors"
 				>
@@ -270,9 +279,9 @@
 
 			{#if latestCardId}
 				<button
-					aria-label="View in feed"
+					aria-label={$t('omniTrace.view_in_feed', 'View in feed')}
 					onclick={(e) => { e.stopPropagation(); viewInFeed(); }}
-					onmouseenter={(e) => showTooltip(e, 'View in feed')}
+					onmouseenter={(e) => showTooltip(e, $t('omniTrace.view_in_feed', 'View in feed'))}
 					onmouseleave={hideTooltip}
 					class="p-1 rounded text-surface-500 hover:text-laya-orange hover:bg-surface-700/50 transition-colors cursor-pointer"
 				>
@@ -284,9 +293,9 @@
 
 			{#if onremove}
 				<button
-					aria-label="Remove cluster"
+					aria-label={$t('omniTrace.remove_cluster', 'Remove cluster')}
 					onclick={(e) => { e.stopPropagation(); onremove?.(); }}
-					onmouseenter={(e) => showTooltip(e, 'Remove cluster')}
+					onmouseenter={(e) => showTooltip(e, $t('omniTrace.remove_cluster', 'Remove cluster'))}
 					onmouseleave={hideTooltip}
 					class="p-1 rounded text-surface-500 hover:text-red-400 hover:bg-surface-700/50 transition-colors cursor-pointer"
 				>
@@ -327,13 +336,13 @@
 										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 									</svg>
-									Generating narrative...
+									{$t('omniTrace.generating_narrative', 'Generating narrative...')}
 								</div>
 							</div>
 						{:else}
 							<div class="rounded-md bg-laya-orange/5 border border-laya-orange/15 px-3 py-2">
 								<div class="flex items-center gap-1.5 mb-1">
-									<span class="text-laya-micro font-medium uppercase tracking-wider text-laya-orange/70 inline-flex items-center gap-1"><span class="text-laya-micro leading-none -translate-y-px">✦</span> narrative</span>
+									<span class="text-laya-micro font-medium uppercase tracking-wider text-laya-orange/70 inline-flex items-center gap-1"><span class="text-laya-micro leading-none -translate-y-px">✦</span> {$t('omniTrace.narrative', 'narrative')}</span>
 									{#if isStreaming}
 										<svg class="h-2.5 w-2.5 animate-spin text-laya-orange/60 shrink-0" fill="none" viewBox="0 0 24 24">
 											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -347,7 +356,7 @@
 											<svg class="w-2.5 h-2.5 shrink-0 transition-transform [[open]>&]:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
 												<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
 											</svg>
-											thought process
+											{$t('omniTrace.thought_process', 'thought process')}
 										</summary>
 										<div class="ml-3.5 border-l border-laya-orange/10 pl-2 text-laya-micro leading-relaxed text-surface-500 whitespace-pre-wrap mb-1.5">
 											{parsed.thinking}
@@ -376,7 +385,7 @@
 							<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
 							</svg>
-							generate narrative
+							{$t('omniTrace.generate_narrative_lower', 'generate narrative')}
 						</button>
 					</div>
 				{/if}
@@ -390,7 +399,7 @@
 						<div class="absolute left-[10px] top-[10px] w-1.5 h-1.5 rounded-full bg-surface-600"></div>
 						<div class="absolute left-0 top-[13px] bottom-0 w-px bg-surface-700/40"></div>
 						<div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-laya-secondary">
-							<span class="text-surface-600">linked:</span>
+							<span class="text-surface-600">{$t('omniTrace.linked', 'linked:')}</span>
 							{#each cluster.linked_entities as entity}
 								{#if entity.url}
 									<a href={entity.url} target="_blank" rel="noopener noreferrer"
@@ -414,12 +423,12 @@
 								<button
 									onclick={() => { allCardsExpanded = false; cardsExpanded = false; }}
 									class="hover:text-laya-orange transition-colors cursor-pointer"
-								>collapse all</button>
+								>{$t('omniTrace.collapse_all_lower', 'collapse all')}</button>
 							{:else}
 								<button
 									onclick={() => { allCardsExpanded = true; cardsExpanded = true; }}
 									class="hover:text-laya-orange transition-colors cursor-pointer"
-								>expand all</button>
+								>{$t('omniTrace.expand_all_lower', 'expand all')}</button>
 							{/if}
 						</div>
 					</div>

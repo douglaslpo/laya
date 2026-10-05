@@ -4,6 +4,7 @@
 	import type { OmniChangeSummary, OmniItem, OmniSnapshot } from '$lib/api/types';
 	import { LAYERS, num } from '$lib/omni/layers';
 	import OmniTooltip, { anchorTooltip, type TooltipState } from '../OmniTooltip.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		snapshot,
@@ -22,6 +23,7 @@
 
 	const bands = $derived.by(() =>
 		LAYERS.map((layer) => {
+			void $locale;
 			const section = snapshot.sections.find((s) => s.type === layer.type);
 			const items = section?.items ?? [];
 			return {
@@ -31,6 +33,14 @@
 			};
 		})
 	);
+
+	function layerTitleKey(type: string): string {
+		if (type === 'attention') return 'omni.needs_attention';
+		if (type === 'recent') return 'omni.recent';
+		if (type === 'period') return 'omni.this_week';
+		if (type === 'milestone') return 'omni.milestones';
+		return 'omni.recent';
+	}
 
 	/**
 	 * The annotation that renders BELOW a band: what left this layer between the
@@ -54,20 +64,39 @@
 				byTarget.set(key, (byTarget.get(key) ?? 0) + 1);
 			}
 			for (const [target, count] of byTarget) {
-				const verb = target === 'milestone' ? 'promoted to' : 'folded into';
-				const noun = count === 1 ? 'item' : 'items';
 				const title = LAYERS.find((l) => l.type === target)?.title ?? target;
-				parts.push(`${count} ${noun} ${verb} ${title}`);
+				const params = { count, title };
+				if (target === 'milestone') {
+					parts.push(
+						count === 1
+							? $t('omniTrace.funnel_promoted_one', '{count} item promoted to {title}', params)
+							: $t('omniTrace.funnel_promoted_other', '{count} items promoted to {title}', params)
+					);
+				} else {
+					parts.push(
+						count === 1
+							? $t('omniTrace.funnel_folded_one', '{count} item folded into {title}', params)
+							: $t('omniTrace.funnel_folded_other', '{count} items folded into {title}', params)
+					);
+				}
 			}
 		}
 
 		const dropped = folded.filter((f) => !f.to_section);
 		if (dropped.length > 0) {
-			parts.push(`${dropped.length} ${dropped.length === 1 ? 'item' : 'items'} compressed away`);
+			const params = { count: dropped.length };
+			parts.push(
+				dropped.length === 1
+					? $t('omniTrace.funnel_compressed_one', '{count} item compressed away', params)
+					: $t('omniTrace.funnel_compressed_other', '{count} items compressed away', params)
+			);
 		}
 		if (resolved.length > 0) {
+			const params = { count: resolved.length, version };
 			parts.push(
-				`${resolved.length} ${resolved.length === 1 ? 'item' : 'items'} resolved and dropped at v${version}`
+				resolved.length === 1
+					? $t('omniTrace.funnel_resolved_one', '{count} item resolved and dropped at v{version}', params)
+					: $t('omniTrace.funnel_resolved_other', '{count} items resolved and dropped at v{version}', params)
 			);
 		}
 		return parts.length > 0 ? parts.join(' · ') : null;
@@ -79,13 +108,13 @@
      the board paying for it in unused margin on both sides. -->
 <div class="flex min-w-0 flex-1 flex-col items-stretch overflow-y-auto px-4 pt-3 pb-3.5">
 	<div class="mb-[9px] flex w-full items-center gap-[9px] self-stretch">
-		<span class="om-micro whitespace-nowrap">Compression funnel</span>
+		<span class="om-micro whitespace-nowrap">{$t('omni.compression_funnel')}</span>
 		<span
 			class="h-px flex-1"
 			style="background: linear-gradient(90deg, var(--om-border-card), transparent);"
 		></span>
 		<span class="om-hint whitespace-nowrap" style="color: var(--om-text-faint);">
-			recent → period → milestone → gone
+			{$t('omniTrace.funnel_chain', 'recent → period → milestone → gone')}
 		</span>
 	</div>
 
@@ -105,7 +134,7 @@
 					style="background: var(--om-layer-{band.layer.token});"
 				></span>
 				<span class="om-band-t" style="color: var(--om-layer-{band.layer.token}-fg);">
-					{band.layer.title}
+					{$t(layerTitleKey(band.layer.type), band.layer.title)}
 				</span>
 				<span class="om-mono text-[calc(9px*var(--om-scale))]" style="color: var(--om-text-faint);">
 					{band.layer.window}
@@ -115,16 +144,17 @@
 					class="om-mono text-[calc(9px*var(--om-scale))] whitespace-nowrap"
 					style="color: var(--om-text-meta);"
 				>
-					{band.items.length}
-					{band.items.length === 1 ? 'line' : 'lines'}{band.events
-						? ` · ${num(band.events)} events`
+					{band.items.length === 1
+						? $t('omniTrace.lines_one', '{count} line', { count: band.items.length })
+						: $t('omniTrace.lines_other', '{count} lines', { count: band.items.length })}{band.events
+						? ` · ${$t('omniTrace.events_count', '{count} events', { count: num(band.events, $locale) })}`
 						: ''}
 				</span>
 			</div>
 
 			{#if band.items.length === 0}
 				<p class="om-pill-t" style="color: var(--om-text-faint);">
-					{band.layer.type === 'attention' ? 'Clear.' : 'Nothing here yet.'}
+					{band.layer.type === 'attention' ? $t('omni.clear') : $t('omni.nothing_here_yet')}
 				</p>
 			{:else}
 				<div class="flex flex-col gap-1">

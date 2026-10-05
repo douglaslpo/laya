@@ -1,3 +1,5 @@
+import { tr } from '$lib/i18n';
+
 /**
  * Backend timestamp parsing.
  *
@@ -48,11 +50,11 @@ export function timeAgo(
 	if (!d) return opts?.nullLabel ?? '';
 	const diff = Date.now() - d.getTime();
 	const mins = Math.floor(diff / 60000);
-	if (mins < 1) return 'just now';
-	if (mins < 60) return `${mins}m ago`;
+	if (mins < 1) return tr('feedGroups.just_now', 'just now');
+	if (mins < 60) return tr('feedGroups.minutes_ago', '{count}m ago', { count: mins });
 	const hours = Math.floor(mins / 60);
-	if (hours < 24) return `${hours}h ago`;
+	if (hours < 24) return tr('feedGroups.hours_ago', '{count}h ago', { count: hours });
 	const days = Math.floor(hours / 24);
-	if (opts?.weeks && days >= 7) return `${Math.floor(days / 7)}w ago`;
-	return `${days}d ago`;
+	if (opts?.weeks && days >= 7) return tr('feedGroups.weeks_ago', '{count}w ago', { count: Math.floor(days / 7) });
+	return tr('feedGroups.days_ago', '{count}d ago', { count: days });
 }

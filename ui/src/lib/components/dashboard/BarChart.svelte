@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { portal } from '$lib/actions/portal';
+	import { t } from '$lib/i18n';
 	let { data, title }: { data: { label: string; value: number }[]; title?: string } = $props();
 
 	const maxValue = $derived(Math.max(...data.map((d) => d.value)) || 1);
@@ -35,7 +36,7 @@
 	{/if}
 
 	{#if data.length === 0}
-		<p class="text-sm text-surface-500">No data</p>
+		<p class="text-sm text-surface-500">{$t('shell.no_data', 'No data')}</p>
 	{:else}
 		<div class="space-y-2">
 			{#each data as item, i}
@@ -58,7 +59,7 @@
 				</div>
 			{/each}
 		</div>
-		<div class="mt-3 text-xs text-surface-500">Total: {total}</div>
+		<div class="mt-3 text-xs text-surface-500">{$t('shell.total', 'Total: {value}', { value: total })}</div>
 	{/if}
 </div>
 

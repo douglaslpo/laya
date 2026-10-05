@@ -5,6 +5,7 @@
 	import { LAYER_BY_TYPE, countdownTo, duration, num } from '$lib/omni/layers';
 	import { cardBucket } from '$lib/omni/buckets';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		lineage,
@@ -33,20 +34,25 @@
 
 	const steps = $derived.by((): Step[] => {
 		if (!lineage || lineage.section_history.length === 0) return [];
+		void $locale;
 		const history = lineage.section_history;
 		const firstStep = history[0];
 		const current = history[history.length - 1];
 		const out: Step[] = [];
+		const cardCount = (count: number) =>
+			count === 1
+				? $t('omniTrace.cards_one', '{count} card', { count })
+				: $t('omniTrace.cards_other', '{count} cards', { count });
 
 		const firstAt = parseBackendDate(firstStep.generated_at);
 		const firstAgo = firstAt ? duration(Date.now() - firstAt.getTime()) : '';
 		const firstLayer = LAYER_BY_TYPE[firstStep.section]?.title ?? firstStep.section;
 		out.push({
-			text: `First synthesized into ${firstLayer}`,
+			text: $t('omniTrace.step_first_synthesized', 'First synthesized into {layer}', { layer: firstLayer }),
 			meta: [
 				`v${firstStep.version}`,
-				firstAgo ? `${firstAgo} ago` : null,
-				`${firstStep.source_count} ${firstStep.source_count === 1 ? 'card' : 'cards'}`
+				firstAgo ? $t('omniTrace.time_ago', '{time} ago', { time: firstAgo }) : null,
+				cardCount(firstStep.source_count)
 			]
 				.filter(Boolean)
 				.join(' · '),
@@ -61,14 +67,18 @@
 			out.push({
 				text:
 					grew > 0
-						? `Grew as ${grew} more ${grew === 1 ? 'card' : 'cards'} landed`
-						: 'Carried forward unchanged',
+						? grew === 1
+							? $t('omniTrace.step_grew_one', 'Grew as {count} more card landed', { count: grew })
+							: $t('omniTrace.step_grew_other', 'Grew as {count} more cards landed', { count: grew })
+						: $t('omniTrace.step_carried_unchanged', 'Carried forward unchanged'),
 				meta: [
 					middleStart.version === middleEnd.version
 						? `v${middleStart.version}`
 						: `v${middleStart.version} → v${middleEnd.version}`,
 					lineage.rewrite_count > 0
-						? `counts rewritten ${lineage.rewrite_count}×`
+						? $t('omniTrace.counts_rewritten', 'counts rewritten {count}×', {
+								count: lineage.rewrite_count
+							})
 						: null
 				]
 					.filter(Boolean)
@@ -79,8 +89,8 @@
 
 		const currentLayer = LAYER_BY_TYPE[current.section]?.title ?? current.section;
 		out.push({
-			text: `Standing in ${currentLayer} now`,
-			meta: `v${current.version} · ${current.source_count} ${current.source_count === 1 ? 'card' : 'cards'} · you are here`,
+			text: $t('omniTrace.step_standing_in', 'Standing in {layer} now', { layer: currentLayer }),
+			meta: `v${current.version} · ${cardCount(current.source_count)} · ${$t('omniTrace.you_are_here', 'you are here')}`,
 			state: 'current'
 		});
 
@@ -88,8 +98,10 @@
 			const target = LAYER_BY_TYPE[lineage.next_fold.to_section]?.title ?? lineage.next_fold.to_section;
 			const eta = countdownTo(lineage.next_fold.expected_at);
 			out.push({
-				text: `Folds into ${target}`,
-				meta: eta ? `at the next synthesis, ${eta} away` : 'at the next synthesis',
+				text: $t('omniTrace.step_folds_into', 'Folds into {layer}', { layer: target }),
+				meta: eta
+					? $t('omniTrace.next_synthesis_eta', 'at the next synthesis, {eta} away', { eta })
+					: $t('omniTrace.next_synthesis_at', 'at the next synthesis'),
 				state: 'future'
 			});
 		}
@@ -109,9 +121,17 @@
 		const out: string[] = [];
 		const awaiting = cards.filter((c) => cardBucket(c) === 'awaiting_you');
 		if (awaiting.length > 1) {
-			out.push(`Which of these ${awaiting.length} items is actually blocking someone?`);
+			out.push(
+				$t('omniTrace.prompt_blocking', 'Which of these {count} items is actually blocking someone?', {
+					count: awaiting.length
+				})
+			);
 		} else if (awaiting.length === 1) {
-			out.push(`What do I need to do about ${awaiting[0].source_ref ?? awaiting[0].header}?`);
+			out.push(
+				$t('omniTrace.prompt_what_to_do', 'What do I need to do about {ref}?', {
+					ref: awaiting[0].source_ref ?? awaiting[0].header
+				})
+			);
 		}
 
 		const byPlatform = new Map<string, number>();
@@ -119,7 +139,13 @@
 			if (c.platform) byPlatform.set(c.platform, (byPlatform.get(c.platform) ?? 0) + 1);
 		}
 		const dominant = [...byPlatform.entries()].sort((a, b) => b[1] - a[1])[0];
-		if (dominant) out.push(`Summarise what changed on ${dominant[0]} in these cards.`);
+		if (dominant) {
+			out.push(
+				$t('omniTrace.prompt_summarise_platform', 'Summarise what changed on {platform} in these cards.', {
+					platform: dominant[0]
+				})
+			);
+		}
 
 		// Oldest still-open card — the one most likely to have gone stale.
 		const oldestOpen = cards
@@ -127,10 +153,21 @@
 			.map((c) => ({ c, t: parseBackendDate(c.created_at)?.getTime() ?? Infinity }))
 			.sort((a, b) => a.t - b.t)[0];
 		if (oldestOpen?.c.actor_name) {
-			out.push(`Draft a reply to ${oldestOpen.c.actor_name.split(' ')[0]} on ${oldestOpen.c.source_ref ?? 'this thread'}.`);
+			out.push(
+				oldestOpen.c.source_ref
+					? $t('omniTrace.prompt_draft_reply', 'Draft a reply to {name} on {ref}.', {
+							name: oldestOpen.c.actor_name.split(' ')[0],
+							ref: oldestOpen.c.source_ref
+						})
+					: $t('omniTrace.prompt_draft_reply_thread', 'Draft a reply to {name} on this thread.', {
+							name: oldestOpen.c.actor_name.split(' ')[0]
+						})
+			);
 		}
 
-		if (out.length === 0) out.push('What is the state of everything in this line?');
+		if (out.length === 0) {
+			out.push($t('omniTrace.prompt_state_of_line', 'What is the state of everything in this line?'));
+		}
 		return out.slice(0, 3);
 	});
 
@@ -148,7 +185,7 @@
 >
 	{#if steps.length > 0}
 		<div class="flex-none px-4 pt-3.5 pb-3" style="border-bottom: 1px solid var(--om-divider);">
-			<div class="om-micro mb-2.5">This line in Omni</div>
+			<div class="om-micro mb-2.5">{$t('omniTrace.this_line_in_omni', 'This line in Omni')}</div>
 			<div class="flex flex-col gap-2.5">
 				{#each steps as step (step.text)}
 					<div class="flex gap-2.5">
@@ -183,13 +220,16 @@
 			class="flex flex-none flex-col gap-2.5 px-4 py-[13px]"
 			style="border-bottom: 1px solid var(--om-divider);"
 		>
-			<div class="om-micro">Share of today</div>
+			<div class="om-micro">{$t('omniTrace.share_of_today', 'Share of today')}</div>
 			<div class="flex items-baseline gap-2">
 				<span class="om-num-md" style="color: var(--om-comp-num);">
 					{sharePct}<span class="text-[calc(15px*var(--om-scale))]">%</span>
 				</span>
 				<span class="om-pill-t leading-[1.35]" style="color: var(--om-text-meta);">
-					{num(shareOfDay.cards)} of {num(shareOfDay.day_events)} events<br />processed today
+					{$t('omniTrace.share_events_of', '{count} of {total} events', {
+						count: num(shareOfDay.cards, $locale),
+						total: num(shareOfDay.day_events, $locale)
+					})}<br />{$t('omniTrace.processed_today', 'processed today')}
 				</span>
 			</div>
 			<div class="h-1.5 overflow-hidden rounded-[3px]" style="background: var(--om-chip);">
@@ -215,27 +255,34 @@
 			>
 			<div class="om-entry-t leading-[1.5]" style="color: var(--om-text-body);">
 				<strong class="font-semibold" style="color: var(--om-alert-fg);">
-					{missingCardIds.length}
-					{missingCardIds.length === 1 ? 'source card' : 'source cards'} unavailable.
+					{missingCardIds.length === 1
+						? $t('omniTrace.missing_cards_one', '{count} source card unavailable.', {
+								count: missingCardIds.length
+							})
+						: $t('omniTrace.missing_cards_other', '{count} source cards unavailable.', {
+								count: missingCardIds.length
+							})}
 				</strong>
-				They were archived after this snapshot was written, so this aggregate's counts are ahead of
-				what you can open.
+				{$t(
+					'omniTrace.missing_cards_body',
+					"They were archived after this snapshot was written, so this aggregate's counts are ahead of what you can open."
+				)}
 				<button
 					type="button"
 					class="mt-1.5 block transition-colors"
 					style="color: var(--om-comp-label);"
 					onclick={onShowMissing}
-				>See what was dropped</button>
+				>{$t('omniTrace.see_what_dropped', 'See what was dropped')}</button>
 			</div>
 		</div>
 	{/if}
 
 	<div class="flex min-h-0 flex-1 flex-col" style="border-top: 1px solid var(--om-divider);">
 		<div class="flex flex-none items-center gap-2 px-4 pt-3 pb-2.5">
-			<span class="om-title-sm" style="color: var(--om-text);">Ask about this line</span>
+			<span class="om-title-sm" style="color: var(--om-text);">{$t('omniTrace.ask_about_line', 'Ask about this line')}</span>
 			<span class="flex-1"></span>
 			<span class="om-mono text-[calc(9px*var(--om-scale))]" style="color: var(--om-text-faint);">
-				{num(cards.length)} in context
+				{$t('omniTrace.in_context', '{count} in context', { count: num(cards.length, $locale) })}
 			</span>
 		</div>
 
@@ -259,7 +306,7 @@
 				type="text"
 				class="om-entry-t min-w-0 flex-1 bg-transparent outline-none"
 				style="color: var(--om-text-body);"
-				placeholder="Ask anything about these {cards.length} cards…"
+				placeholder={$t('omniTrace.ask_placeholder', 'Ask anything about these {count} cards…', { count: cards.length })}
 				bind:value={composerText}
 				onkeydown={(e) => {
 					if (e.key === 'Enter') {
@@ -272,7 +319,7 @@
 				type="button"
 				class="flex h-5 w-5 flex-none items-center justify-center rounded-md text-[calc(11px*var(--om-scale))] disabled:opacity-40"
 				style="background: var(--color-laya-orange); color: var(--om-bar);"
-				aria-label="Ask"
+				aria-label={$t('omniTrace.ask', 'Ask')}
 				disabled={!composerText.trim()}
 				onclick={send}
 			>↑</button>

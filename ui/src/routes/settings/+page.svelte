@@ -25,6 +25,8 @@
 	import { hasIntegrationErrors } from '$lib/stores/integrationErrors';
 	import { fade } from 'svelte/transition';
 
+	import { t } from '$lib/i18n';
+
 	type TabId = 'team' | 'rules' | 'models' | 'repos' | 'agent' | 'integrations' | 'spaces' | 'scheduling' | 'mcp' | 'audit' | 'appearance' | 'keybindings' | 'data' | 'about';
 	const validTabs = new Set<string>(['team', 'rules', 'models', 'repos', 'agent', 'integrations', 'spaces', 'scheduling', 'mcp', 'audit', 'appearance', 'keybindings', 'data', 'about']);
 	const SETTINGS_TAB_KEY = 'laya-settings-tab';
@@ -62,28 +64,29 @@
 		// Update URL without full navigation so back button works
 		goto(`/settings?tab=${tabId}`, { replaceState: true, noScroll: true });
 	}
-	const tabs = [
-		{ id: 'team',    label: 'Team' },
-		{ id: 'rules',   label: 'Rules' },
-		{ id: 'models',  label: 'Models' },
-		{ id: 'repos',   label: 'Repos' },
-		{ id: 'agent',   label: 'Agent' },
-		{ id: 'integrations', label: 'Integrations' },
-		{ id: 'spaces',       label: 'Spaces' },
-		{ id: 'scheduling',   label: 'Features' },
-		{ id: 'mcp',          label: 'MCP' },
-		{ id: 'audit',        label: 'Audit' },
-		{ id: 'appearance',   label: 'Appearance' },
-		{ id: 'keybindings',  label: 'Keys' },
-		{ id: 'data',         label: 'Data' },
-		{ id: 'about',        label: 'About' }
+	const rawTabs = [
+		{ id: 'team', key: 'settings.team', fallback: 'Team' },
+		{ id: 'rules', key: 'settings.rules', fallback: 'Rules' },
+		{ id: 'models', key: 'settings.models', fallback: 'Models' },
+		{ id: 'repos', key: 'settings.repos', fallback: 'Repos' },
+		{ id: 'agent', key: 'settings.agent', fallback: 'Agent' },
+		{ id: 'integrations', key: 'settings.integrations', fallback: 'Integrations' },
+		{ id: 'spaces', key: 'settings.spaces', fallback: 'Spaces' },
+		{ id: 'scheduling', key: 'settings.features', fallback: 'Features' },
+		{ id: 'mcp', key: 'settings.mcp', fallback: 'MCP' },
+		{ id: 'audit', key: 'settings.audit', fallback: 'Audit' },
+		{ id: 'appearance', key: 'settings.appearance', fallback: 'Appearance' },
+		{ id: 'keybindings', key: 'settings.keys', fallback: 'Keys' },
+		{ id: 'data', key: 'settings.data', fallback: 'Data' },
+		{ id: 'about', key: 'settings.about', fallback: 'About' }
 	];
+	const tabs = $derived(rawTabs.map(item => ({ id: item.id, label: $t(item.key, item.fallback) })));
 
 	// Responsive tab bar: keep as many tabs inline as fit, collapse the rest into an
 	// overflow "More" menu when the bar narrows (same principle as the feed toolbar).
 	let tabBarEl = $state<HTMLElement>();
 	let measureEl = $state<HTMLElement>();
-	let visibleCount = $state(tabs.length);
+	let visibleCount = $state(rawTabs.length);
 	let overflowMenuOpen = $state(false);
 	let moreBtnRef = $state<HTMLElement | null>(null);
 	let overflowPanelRef = $state<HTMLDivElement | null>(null);
@@ -164,8 +167,8 @@
 <div class="mx-auto max-w-5xl">
 	<div class="sticky -top-4 z-20 relative space-y-4 pb-4 pt-4 before:absolute before:inset-y-0 before:-left-[50vw] before:-right-[50vw] before:z-[-1] {$glassTheme ? 'before:backdrop-blur-xl' : 'before:bg-surface-900'}">
 		<div>
-			<h2 class="text-laya-heading font-semibold">Settings</h2>
-			<p class="text-laya-base text-surface-400">Manage your team, rules, models, repos, and coding agent</p>
+			<h2 class="text-laya-heading font-semibold">{$t('settings.title', 'Settings')}</h2>
+			<p class="text-laya-base text-surface-400">{$t('settings.subtitle', 'Manage your team, rules, models, repos, and coding agent')}</p>
 		</div>
 
 		<!-- Tab bar -->
@@ -184,7 +187,7 @@
 					<span class="relative">
 						{tab.label}
 						{#if (tab.id === 'audit' && $hasAuditFailures) || (tab.id === 'integrations' && $hasIntegrationErrors)}
-							<span class="absolute -right-2 -top-0.5 h-1.5 w-1.5 rounded-full bg-red-500" aria-label="Unresolved failures"></span>
+							<span class="absolute -right-2 -top-0.5 h-1.5 w-1.5 rounded-full bg-red-500" aria-label={$t('settingsData.unresolved_failures', 'Unresolved failures')}></span>
 						{/if}
 					</span>
 				</button>
@@ -199,9 +202,9 @@
 								? 'bg-laya-orange/15 text-laya-orange'
 								: 'text-surface-400 hover:text-surface-200'}"
 						onclick={() => { positionOverflow(); overflowMenuOpen = !overflowMenuOpen; }}
-						aria-label="More tabs"
+						aria-label={$t('settingsData.more_tabs', 'More tabs')}
 					>
-						More
+						{$t('common.more', 'More')}
 						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 						</svg>
@@ -228,7 +231,7 @@
 							<span class="relative">
 								{tab.label}
 								{#if (tab.id === 'audit' && $hasAuditFailures) || (tab.id === 'integrations' && $hasIntegrationErrors)}
-									<span class="absolute -right-2 -top-0.5 h-1.5 w-1.5 rounded-full bg-red-500" aria-label="Unresolved failures"></span>
+									<span class="absolute -right-2 -top-0.5 h-1.5 w-1.5 rounded-full bg-red-500" aria-label={$t('settingsData.unresolved_failures', 'Unresolved failures')}></span>
 								{/if}
 							</span>
 						</button>
@@ -283,13 +286,13 @@
 
 	<!-- Diagnostics footer -->
 	<div class="flex items-center justify-between border-t border-surface-700/50 pt-4 mt-2">
-		<span class="text-laya-secondary text-surface-500">Need help troubleshooting? Export diagnostics for support.</span>
+		<span class="text-laya-secondary text-surface-500">{$t('settings.need_help', 'Need help troubleshooting? Export diagnostics for support.')}</span>
 		<button
 			class="rounded-md border border-surface-600 px-3 py-1 text-laya-secondary text-surface-400 transition-colors hover:border-surface-500 hover:text-surface-200 disabled:opacity-50"
 			onclick={exportDiagnostics}
 			disabled={exporting}
 		>
-			{exporting ? 'Exporting...' : 'Export Diagnostics'}
+			{exporting ? $t('settings.exporting', 'Exporting...') : $t('settings.export_diagnostics', 'Export Diagnostics')}
 		</button>
 	</div>
 	</div>

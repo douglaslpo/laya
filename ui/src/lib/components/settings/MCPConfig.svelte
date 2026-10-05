@@ -5,6 +5,48 @@
 	import { engineApi } from '$lib/api/engine';
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import type { McpConfig, McpAuthMode, McpToolScopes } from '$lib/api/types';
+	import { t } from '$lib/i18n';
+
+	function splitAt(text: string, markers: string[]): string[] {
+		const parts: string[] = [];
+		let rest = text;
+		for (const marker of markers) {
+			const i = rest.indexOf(marker);
+			if (i < 0) {
+				parts.push(rest);
+				rest = '';
+				continue;
+			}
+			parts.push(rest.slice(0, i));
+			rest = rest.slice(i + marker.length);
+		}
+		parts.push(rest);
+		return parts;
+	}
+
+	const bearerDesc = $derived(
+		splitAt($t('settingsModels.bearer_desc', 'Clients must include {code} in every request. Recommended.'), ['{code}'])
+	);
+	const loopbackDesc = $derived(
+		splitAt($t('settingsModels.loopback_desc', 'Anything on this machine that can reach {address} can call MCP. No header required.'), ['{address}'])
+	);
+	const clientConfigDesc = $derived(
+		splitAt(
+			$t('settingsModels.client_config_desc', 'For Claude Desktop on macOS, paste into {path}. Requires {command} (installed automatically via npx).'),
+			['{path}', '{command}']
+		)
+	);
+	const spaceScopeDesc = $derived(
+		splitAt(
+			$t('settingsModels.space_scope_desc', 'To scope a client to one Laya space, append {param} to the URL. Register the same server multiple times under different names with different space IDs to give each client its own scoped view.'),
+			['{param}']
+		)
+	);
+	const scopes = $derived([
+		{ key: 'read' as const, label: $t('settingsModels.scope_read', 'Read'), desc: $t('settingsModels.scope_read_desc', 'Search and fetch cards, events, entities, semantic search, settings introspection.') },
+		{ key: 'write' as const, label: $t('settingsModels.scope_write', 'Write'), desc: $t('settingsModels.scope_write_desc', 'Card lifecycle changes (dismiss, archive, mark done, reopen) and settings updates.') },
+		{ key: 'egress' as const, label: $t('settingsModels.scope_egress', 'Egress'), desc: $t('settingsModels.scope_egress_desc', 'Send Slack messages, post PR comments, create Jira issues, and other outbound actions across connected platforms.') }
+	]);
 
 	let config = $state<McpConfig | null>(null);
 	let loading = $state(true);
@@ -162,21 +204,18 @@
 
 <div class="space-y-8">
 	{#if loading}
-		<div class="{sectionClass} p-6 text-laya-base text-surface-400">Loading MCP settings…</div>
+		<div class="{sectionClass} p-6 text-laya-base text-surface-400">{$t('settingsModels.loading_mcp', 'Loading MCP settings…')}</div>
 	{:else if !config}
 		<div class="{sectionClass} p-6 text-laya-base text-error-400">
-			Could not load MCP settings.
+			{$t('settingsModels.mcp_load_failed', 'Could not load MCP settings.')}
 			{#if saveError}<br />{saveError}{/if}
 		</div>
 	{:else}
 		<!-- Overview / connection URL -->
 		<div class="{sectionClass} p-6">
-			<h3 class="mb-1 text-laya-heading font-semibold text-surface-50">MCP Server</h3>
+			<h3 class="mb-1 text-laya-heading font-semibold text-surface-50">{$t('settingsModels.mcp_server_title', 'MCP Server')}</h3>
 			<p class="mb-5 text-laya-base text-surface-400">
-				Laya exposes its tools over the Model Context Protocol while the engine is running.
-				Wire any MCP-compatible client (Claude Desktop, Cursor, VS Code, custom agents) to the
-				URL below. In-app coding agents use the same endpoint and respect the same scope and
-				auth settings.
+				{$t('settingsModels.mcp_server_desc', 'Laya exposes its tools over the Model Context Protocol while the engine is running. Wire any MCP-compatible client (Claude Desktop, Cursor, VS Code, custom agents) to the URL below. In-app coding agents use the same endpoint and respect the same scope and auth settings.')}
 			</p>
 
 			<div class="rounded-lg border border-surface-700 bg-surface-900 p-4">
@@ -189,7 +228,7 @@
 							navigator.clipboard.writeText(config!.url);
 						}}
 					>
-						Copy
+						{$t('common.copy', 'Copy')}
 					</button>
 				</div>
 			</div>
@@ -197,17 +236,12 @@
 
 		<!-- Tool scopes -->
 		<div class="{sectionClass} p-6">
-			<h3 class="mb-1 text-laya-heading font-semibold text-surface-50">Tool Scopes</h3>
+			<h3 class="mb-1 text-laya-heading font-semibold text-surface-50">{$t('settingsModels.tool_scopes_title', 'Tool Scopes')}</h3>
 			<p class="mb-5 text-laya-base text-surface-400">
-				Pick which tool categories MCP clients are allowed to call. Changes take effect on the
-				next call &mdash; no restart needed.
+				{$t('settingsModels.tool_scopes_desc', 'Pick which tool categories MCP clients are allowed to call. Changes take effect on the next call — no restart needed.')}
 			</p>
 
-			{#each [
-				{ key: 'read' as const, label: 'Read', desc: 'Search and fetch cards, events, entities, semantic search, settings introspection.' },
-				{ key: 'write' as const, label: 'Write', desc: 'Card lifecycle changes (dismiss, archive, mark done, reopen) and settings updates.' },
-				{ key: 'egress' as const, label: 'Egress', desc: 'Send Slack messages, post PR comments, create Jira issues, and other outbound actions across connected platforms.' }
-			] as scope}
+			{#each scopes as scope}
 				<div class="mb-3 flex items-start justify-between gap-4 rounded-lg border border-surface-700 bg-surface-900 p-4 last:mb-0">
 					<div class="min-w-0 flex-1">
 						<div class="text-laya-base font-medium text-surface-100">{scope.label}</div>
@@ -218,7 +252,7 @@
 						onclick={() => toggleScope(scope.key)}
 						role="switch"
 						aria-checked={config.tool_scopes[scope.key]}
-						aria-label="{scope.label} scope"
+						aria-label={$t('settingsModels.scope_aria', '{scope} scope', { scope: scope.label })}
 					>
 						<span
 							class="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform {config.tool_scopes[scope.key] ? 'translate-x-5' : 'translate-x-0'}"
@@ -229,18 +263,16 @@
 
 			{#if readWarning}
 				<div class="mt-4 rounded-lg border border-amber-700/50 bg-amber-900/20 p-4 text-laya-secondary text-amber-200">
-					<strong>Read is off.</strong> In-app coding agents rely on Read to search cards and
-					fetch context. With Read disabled, agents will run with no Laya context.
+					<strong>{$t('settingsModels.read_off_title', 'Read is off.')}</strong> {$t('settingsModels.read_off_desc', 'In-app coding agents rely on Read to search cards and fetch context. With Read disabled, agents will run with no Laya context.')}
 				</div>
 			{/if}
 		</div>
 
 		<!-- Authentication -->
 		<div class="{sectionClass} p-6">
-			<h3 class="mb-1 text-laya-heading font-semibold text-surface-50">Authentication</h3>
+			<h3 class="mb-1 text-laya-heading font-semibold text-surface-50">{$t('settingsModels.auth_title', 'Authentication')}</h3>
 			<p class="mb-5 text-laya-base text-surface-400">
-				Bearer tokens are the safe default. Use loopback-only if you trust every process on this
-				machine and want zero-friction setup.
+				{$t('settingsModels.auth_desc', 'Bearer tokens are the safe default. Use loopback-only if you trust every process on this machine and want zero-friction setup.')}
 			</p>
 
 			<div class="space-y-3">
@@ -248,10 +280,9 @@
 					class="w-full rounded-lg border-2 p-4 text-left transition-colors {config.auth_mode === 'bearer' ? 'border-laya-orange bg-surface-700' : 'border-surface-600 bg-surface-900 hover:border-surface-500'}"
 					onclick={() => setAuthMode('bearer')}
 				>
-					<div class="text-laya-base font-medium text-surface-100">Bearer token</div>
+					<div class="text-laya-base font-medium text-surface-100">{$t('settingsModels.bearer_title', 'Bearer token')}</div>
 					<div class="mt-1 text-laya-secondary text-surface-400">
-						Clients must include <code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">Authorization: Bearer &lt;token&gt;</code>
-						in every request. Recommended.
+						{bearerDesc[0]}<code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">Authorization: Bearer &lt;token&gt;</code>{bearerDesc[1]}
 					</div>
 				</button>
 
@@ -259,10 +290,9 @@
 					class="w-full rounded-lg border-2 p-4 text-left transition-colors {config.auth_mode === 'none' ? 'border-laya-orange bg-surface-700' : 'border-surface-600 bg-surface-900 hover:border-surface-500'}"
 					onclick={() => setAuthMode('none')}
 				>
-					<div class="text-laya-base font-medium text-surface-100">Loopback only, no auth</div>
+					<div class="text-laya-base font-medium text-surface-100">{$t('settingsModels.loopback_title', 'Loopback only, no auth')}</div>
 					<div class="mt-1 text-laya-secondary text-surface-400">
-						Anything on this machine that can reach <code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">127.0.0.1:8420</code>
-						can call MCP. No header required.
+						{loopbackDesc[0]}<code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">127.0.0.1:8420</code>{loopbackDesc[1]}
 					</div>
 				</button>
 			</div>
@@ -283,13 +313,13 @@
 								class="rounded-md border border-surface-600 px-3 py-1.5 text-laya-secondary text-surface-200 transition-colors hover:border-laya-orange hover:text-laya-orange"
 								onclick={copyToken}
 							>
-								{copiedToken ? 'Copied' : 'Copy'}
+								{copiedToken ? $t('common.copied', 'Copied!') : $t('common.copy', 'Copy')}
 							</button>
 							<button
 								class="rounded-md border border-surface-600 px-3 py-1.5 text-laya-secondary text-surface-200 transition-colors hover:border-surface-500"
 								onclick={() => (revealedToken = null)}
 							>
-								Hide
+								{$t('settingsModels.hide', 'Hide')}
 							</button>
 						</div>
 					{:else}
@@ -305,15 +335,14 @@
 								onclick={reveal}
 								disabled={!config.has_token || revealing}
 							>
-								{revealing ? '…' : 'Show'}
+								{revealing ? '…' : $t('settingsModels.show', 'Show')}
 							</button>
 						</div>
 					{/if}
 
 					<div class="mt-4 flex items-center justify-between gap-3">
 						<div class="text-laya-secondary text-surface-400">
-							Rotating the token immediately invalidates the old one. Any client using the
-							old token will be disconnected on its next request.
+							{$t('settingsModels.rotate_desc', 'Rotating the token immediately invalidates the old one. Any client using the old token will be disconnected on its next request.')}
 						</div>
 						{#if showRotateConfirm}
 							<div class="flex shrink-0 gap-2">
@@ -322,13 +351,13 @@
 									onclick={rotate}
 									disabled={rotating}
 								>
-									{rotating ? 'Rotating…' : 'Confirm rotate'}
+									{rotating ? $t('settingsModels.rotating', 'Rotating…') : $t('settingsModels.confirm_rotate', 'Confirm rotate')}
 								</button>
 								<button
 									class="rounded-md border border-surface-600 px-3 py-1.5 text-laya-secondary text-surface-200 transition-colors hover:border-surface-500"
 									onclick={() => (showRotateConfirm = false)}
 								>
-									Cancel
+									{$t('common.cancel', 'Cancel')}
 								</button>
 							</div>
 						{:else}
@@ -336,7 +365,7 @@
 								class="shrink-0 rounded-md border border-surface-600 px-3 py-1.5 text-laya-secondary text-surface-200 transition-colors hover:border-laya-orange hover:text-laya-orange"
 								onclick={() => (showRotateConfirm = true)}
 							>
-								Rotate token
+								{$t('settingsModels.rotate_token', 'Rotate token')}
 							</button>
 						{/if}
 					</div>
@@ -346,11 +375,9 @@
 
 		<!-- Example client config -->
 		<div class="{sectionClass} p-6">
-			<h3 class="mb-1 text-laya-heading font-semibold text-surface-50">Client Configuration</h3>
+			<h3 class="mb-1 text-laya-heading font-semibold text-surface-50">{$t('settingsModels.client_config_title', 'Client Configuration')}</h3>
 			<p class="mb-5 text-laya-base text-surface-400">
-				For Claude Desktop on macOS, paste into
-				<code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">~/Library/Application Support/Claude/claude_desktop_config.json</code>.
-				Requires <code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">npx mcp-remote</code> (installed automatically via npx).
+				{clientConfigDesc[0]}<code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">~/Library/Application Support/Claude/claude_desktop_config.json</code>{clientConfigDesc[1]}<code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">npx mcp-remote</code>{clientConfigDesc[2]}
 			</p>
 
 			<div class="mb-3 flex gap-2">
@@ -364,7 +391,7 @@
 					class="rounded-md px-3 py-1.5 text-laya-secondary transition-colors {showDirectConfig ? 'bg-laya-orange/15 text-laya-orange border border-laya-orange/30' : 'border border-surface-600 text-surface-300 hover:border-surface-500'}"
 					onclick={() => (showDirectConfig = true)}
 				>
-					Claude Code / Cursor / Other
+					{$t('settingsModels.other_clients', 'Claude Code / Cursor / Other')}
 				</button>
 			</div>
 
@@ -375,16 +402,14 @@
 						class="rounded-md border border-surface-600 px-3 py-1.5 text-laya-secondary text-surface-200 transition-colors hover:border-laya-orange hover:text-laya-orange"
 						onclick={copyExampleConfig}
 					>
-						{copiedConfig ? 'Copied' : 'Copy'}
+						{copiedConfig ? $t('common.copied', 'Copied!') : $t('common.copy', 'Copy')}
 					</button>
 				</div>
 				<pre class="overflow-x-auto font-mono text-laya-secondary text-surface-200"><code>{showDirectConfig ? directConfig : desktopConfig}</code></pre>
 			</div>
 
 			<p class="mt-4 text-laya-secondary text-surface-400">
-				To scope a client to one Laya space, append <code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">?space_id=&lt;your-space&gt;</code>
-				to the URL. Register the same server multiple times under different names with
-				different space IDs to give each client its own scoped view.
+				{spaceScopeDesc[0]}<code class="rounded bg-surface-800 px-1.5 py-0.5 font-mono text-laya-micro text-laya-peach">?space_id=&lt;your-space&gt;</code>{spaceScopeDesc[1]}
 			</p>
 		</div>
 
