@@ -12,6 +12,13 @@
 	import ExportMenu from '$lib/components/settings/ExportMenu.svelte';
 	import type { AuditLogEntry, DeadEvent, IngestionError, FilteredEvent } from '$lib/api/types';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale, type TranslateParams } from '$lib/i18n';
+
+	function tp(n: number, key: string, one: string, other: string, params: TranslateParams = {}): string {
+		return n === 1
+			? $t(`${key}_one`, one, { count: n, ...params })
+			: $t(`${key}_other`, other, { count: n, ...params });
+	}
 
 	// Ordered list of processing_status values for stable display order.
 	// Mirrors values set in engine/laya/pipeline/queue.py and api/events.py.
@@ -128,10 +135,10 @@
 
 	let stepsLabel = $derived(
 		filterSteps.size === 0
-			? 'All steps'
+			? $t('settingsData.all_steps', 'All steps')
 			: filterSteps.size === 1
 				? [...filterSteps][0]
-				: `${filterSteps.size} steps`
+				: $t('settingsData.steps_count', '{count} steps', { count: filterSteps.size })
 	);
 
 	function positionStepsPanel() {
@@ -333,7 +340,7 @@
 			entries = resp.entries;
 			total = resp.total;
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Failed to load audit log';
+			error = e instanceof Error ? e.message : $t('settingsData.load_failed', 'Failed to load audit log');
 		} finally {
 			loading = false;
 		}
@@ -390,7 +397,7 @@
 	const totalPages = $derived(Math.ceil(total / limit) || 1);
 
 	function formatTime(ts: string): string {
-		return parseBackendDate(ts)?.toLocaleString([], {
+		return parseBackendDate(ts)?.toLocaleString($locale, {
 			month: 'short',
 			day: 'numeric',
 			hour: '2-digit',
@@ -431,16 +438,16 @@
 	<!-- Event Counts by processing_status (live, polled every 10s) -->
 	<div class="rounded-lg border {$glassTheme ? 'glass-section border-white/[0.06]' : 'border-surface-700 bg-surface-900/40'} px-3 py-2 text-laya-secondary">
 		<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-			<span class="font-medium text-surface-300">Events</span>
+			<span class="font-medium text-surface-300">{$t('settingsData.audit_events', 'Events')}</span>
 			<span class="text-surface-400">
-				<span class="font-medium text-surface-200">{eventCountsLoaded ? eventCountsTotal.toLocaleString() : '—'}</span>
-				total
+				<span class="font-medium text-surface-200">{eventCountsLoaded ? eventCountsTotal.toLocaleString($locale) : '—'}</span>
+				{$t('settingsData.audit_total', 'total')}
 			</span>
 			<span class="h-3 w-px bg-surface-700"></span>
 			{#each EVENT_STATUSES as status}
 				<span class="text-surface-400">
-					<span class="font-medium text-surface-200">{eventCountsLoaded ? (eventCounts[status] ?? 0).toLocaleString() : '—'}</span>
-					{status}
+					<span class="font-medium text-surface-200">{eventCountsLoaded ? (eventCounts[status] ?? 0).toLocaleString($locale) : '—'}</span>
+					{$t(`settingsData.event_status_${status}`, status)}
 				</span>
 			{/each}
 		</div>
@@ -455,7 +462,7 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
 					</svg>
 					<span class="text-laya-base font-medium text-amber-300">
-						{deadTotal} event{deadTotal !== 1 ? 's' : ''} failed permanently
+						{tp(deadTotal, 'settingsData.audit_dead', '{count} event failed permanently', '{count} events failed permanently')}
 					</span>
 				</div>
 				<div class="flex items-center gap-2">
@@ -463,7 +470,7 @@
 						onclick={() => { deadExpanded = !deadExpanded; retryAllConfirm = false; }}
 						class="rounded px-3 py-1 text-laya-secondary font-medium text-surface-300 transition-colors {$glassTheme ? 'hover:bg-white/[0.08]' : 'hover:bg-surface-700'}"
 					>
-						{deadExpanded ? 'Hide' : 'View'}
+						{deadExpanded ? $t('settingsData.hide', 'Hide') : $t('settingsData.view', 'View')}
 					</button>
 					<button
 						onclick={retryAll}
@@ -471,11 +478,11 @@
 						class="rounded bg-laya-orange/20 px-3 py-1 text-laya-secondary font-medium text-laya-orange transition-colors hover:bg-laya-orange/30 disabled:opacity-50"
 					>
 						{#if retryingAll}
-							Retrying...
+							{$t('settingsData.retrying', 'Retrying...')}
 						{:else if retryAllConfirm}
-							Confirm retry all?
+							{$t('settingsData.confirm_retry_all', 'Confirm retry all?')}
 						{:else}
-							Retry All
+							{$t('settingsData.retry_all', 'Retry All')}
 						{/if}
 					</button>
 				</div>
@@ -486,12 +493,12 @@
 					<table class="w-full table-fixed text-left text-laya-secondary">
 						<thead class="border-b {$glassTheme ? 'border-white/[0.06] bg-white/[0.03]' : 'border-surface-700 bg-surface-800'} text-surface-400">
 							<tr>
-								<th class="w-[18%] px-3 py-2">Time</th>
-								<th class="w-[10%] px-3 py-2">Platform</th>
-								<th class="w-[22%] px-3 py-2">Subject</th>
-								<th class="w-[24%] px-3 py-2">Error</th>
-								<th class="w-[16%] px-3 py-2">Attempts</th>
-								<th class="w-[10%] px-3 py-2">Action</th>
+								<th class="w-[18%] px-3 py-2">{$t('settingsData.col_time', 'Time')}</th>
+								<th class="w-[10%] px-3 py-2">{$t('settingsData.col_platform', 'Platform')}</th>
+								<th class="w-[22%] px-3 py-2">{$t('settingsData.col_subject', 'Subject')}</th>
+								<th class="w-[24%] px-3 py-2">{$t('common.error', 'Error')}</th>
+								<th class="w-[16%] px-3 py-2">{$t('settingsData.col_attempts', 'Attempts')}</th>
+								<th class="w-[10%] px-3 py-2">{$t('settingsData.col_action', 'Action')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y {$glassTheme ? 'divide-white/[0.04]' : 'divide-surface-700/50'}">
@@ -535,7 +542,7 @@
 										</span>
 									</td>
 									<td class="px-3 py-2 text-surface-400">
-										<span class="block truncate">{evt.processing_attempts} attempt{evt.processing_attempts !== 1 ? 's' : ''}{#if evt.manual_retries > 0}, retried {evt.manual_retries}x{/if}</span>
+										<span class="block truncate">{tp(evt.processing_attempts, 'settingsData.attempts', '{count} attempt', '{count} attempts')}{#if evt.manual_retries > 0}{$t('settingsData.retried', ', retried {count}x', { count: evt.manual_retries })}{/if}</span>
 									</td>
 									<td class="px-3 py-2">
 										<button
@@ -543,7 +550,7 @@
 											disabled={retrying.has(evt.event_id)}
 											class="rounded bg-laya-orange/20 px-2 py-0.5 text-laya-secondary font-medium text-laya-orange transition-colors hover:bg-laya-orange/30 disabled:opacity-50"
 										>
-											{retrying.has(evt.event_id) ? 'Retrying...' : 'Retry'}
+											{retrying.has(evt.event_id) ? $t('settingsData.retrying', 'Retrying...') : $t('common.retry', 'Retry')}
 										</button>
 									</td>
 								</tr>
@@ -564,7 +571,7 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 					</svg>
 					<span class="text-laya-base font-medium text-red-300">
-						{ingestionErrors.length} ingestion error{ingestionErrors.length !== 1 ? 's' : ''} detected
+						{tp(ingestionErrors.length, 'settingsData.ingestion_errors', '{count} ingestion error detected', '{count} ingestion errors detected')}
 					</span>
 				</div>
 				<div class="flex items-center gap-2">
@@ -572,7 +579,7 @@
 						onclick={() => { ingestionExpanded = !ingestionExpanded; clearAllIngestionConfirm = false; }}
 						class="rounded px-3 py-1 text-laya-secondary font-medium text-surface-300 transition-colors {$glassTheme ? 'hover:bg-white/[0.08]' : 'hover:bg-surface-700'}"
 					>
-						{ingestionExpanded ? 'Hide' : 'View'}
+						{ingestionExpanded ? $t('settingsData.hide', 'Hide') : $t('settingsData.view', 'View')}
 					</button>
 					<button
 						onclick={clearAllIngestion}
@@ -580,11 +587,11 @@
 						class="rounded bg-red-500/20 px-3 py-1 text-laya-secondary font-medium text-red-300 transition-colors hover:bg-red-500/30 disabled:opacity-50"
 					>
 						{#if clearingAllIngestion}
-							Clearing...
+							{$t('settingsData.clearing', 'Clearing...')}
 						{:else if clearAllIngestionConfirm}
-							Confirm clear all?
+							{$t('settingsData.confirm_clear_all', 'Confirm clear all?')}
 						{:else}
-							Clear All
+							{$t('settingsData.clear_all', 'Clear All')}
 						{/if}
 					</button>
 				</div>
@@ -595,13 +602,13 @@
 					<table class="w-full table-fixed text-left text-laya-secondary">
 						<thead class="border-b {$glassTheme ? 'border-white/[0.06] bg-white/[0.03]' : 'border-surface-700 bg-surface-800'} text-surface-400">
 							<tr>
-								<th class="w-[15%] px-3 py-2">Time</th>
-								<th class="w-[9%] px-3 py-2">Platform</th>
-								<th class="w-[15%] px-3 py-2">Workflow</th>
-								<th class="w-[13%] px-3 py-2">Node</th>
-								<th class="w-[28%] px-3 py-2">Error</th>
-								<th class="w-[8%] px-3 py-2">Count</th>
-								<th class="w-[12%] px-3 py-2">Action</th>
+								<th class="w-[15%] px-3 py-2">{$t('settingsData.col_time', 'Time')}</th>
+								<th class="w-[9%] px-3 py-2">{$t('settingsData.col_platform', 'Platform')}</th>
+								<th class="w-[15%] px-3 py-2">{$t('settingsData.col_workflow', 'Workflow')}</th>
+								<th class="w-[13%] px-3 py-2">{$t('settingsData.col_node', 'Node')}</th>
+								<th class="w-[28%] px-3 py-2">{$t('common.error', 'Error')}</th>
+								<th class="w-[8%] px-3 py-2">{$t('settingsData.col_count', 'Count')}</th>
+								<th class="w-[12%] px-3 py-2">{$t('settingsData.col_action', 'Action')}</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y {$glassTheme ? 'divide-white/[0.04]' : 'divide-surface-700/50'}">
@@ -656,7 +663,7 @@
 											disabled={clearingIngestion.has(err.error_id)}
 											class="rounded bg-red-500/20 px-2 py-0.5 text-laya-secondary font-medium text-red-300 transition-colors hover:bg-red-500/30 disabled:opacity-50"
 										>
-											{clearingIngestion.has(err.error_id) ? 'Clearing...' : 'Clear'}
+											{clearingIngestion.has(err.error_id) ? $t('settingsData.clearing', 'Clearing...') : $t('common.clear', 'Clear')}
 										</button>
 									</td>
 								</tr>
@@ -677,7 +684,7 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z" />
 					</svg>
 					<span class="text-laya-base font-medium text-blue-300">
-						{filteredTotal.toLocaleString()} event{filteredTotal !== 1 ? 's' : ''} filtered
+						{tp(filteredTotal, 'settingsData.filtered_banner', '{count} event filtered', '{count} events filtered', { count: filteredTotal.toLocaleString($locale) })}
 					</span>
 				</div>
 				<div class="flex items-center gap-2">
@@ -685,7 +692,7 @@
 						onclick={() => { filteredExpanded = !filteredExpanded; }}
 						class="rounded px-3 py-1 text-laya-secondary font-medium text-surface-300 transition-colors {$glassTheme ? 'hover:bg-white/[0.08]' : 'hover:bg-surface-700'}"
 					>
-						{filteredExpanded ? 'Hide' : 'View'}
+						{filteredExpanded ? $t('settingsData.hide', 'Hide') : $t('settingsData.view', 'View')}
 					</button>
 					<!-- showIcon={false}: keeps this button as wide as Retry/Clear above so the "View"
 					     to its left aligns with the "View" in the failed/ingestion banners. -->
@@ -699,11 +706,11 @@
 						<table class="w-full table-fixed text-left text-laya-secondary">
 							<thead class="border-b {$glassTheme ? 'border-white/[0.06] bg-white/[0.03]' : 'border-surface-700 bg-surface-800'} text-surface-400">
 								<tr>
-									<th class="w-[20%] px-3 py-2">Time</th>
-									<th class="w-[12%] px-3 py-2">Platform</th>
-									<th class="w-[33%] px-3 py-2">Subject</th>
-									<th class="w-[15%] px-3 py-2">Actor</th>
-									<th class="w-[20%] px-3 py-2">Rule</th>
+									<th class="w-[20%] px-3 py-2">{$t('settingsData.col_time', 'Time')}</th>
+									<th class="w-[12%] px-3 py-2">{$t('settingsData.col_platform', 'Platform')}</th>
+									<th class="w-[33%] px-3 py-2">{$t('settingsData.col_subject', 'Subject')}</th>
+									<th class="w-[15%] px-3 py-2">{$t('settingsData.col_actor', 'Actor')}</th>
+									<th class="w-[20%] px-3 py-2">{$t('settingsData.col_rule', 'Rule')}</th>
 								</tr>
 							</thead>
 							<tbody class="divide-y {$glassTheme ? 'divide-white/[0.04]' : 'divide-surface-700/50'}">
@@ -730,10 +737,10 @@
 											<span class="block truncate">
 												{#if evt.subject_url}
 													<a href={evt.subject_url} target="_blank" rel="noopener" class="hover:text-laya-orange hover:underline">
-														{evt.subject_title ?? '(untitled)'}
+														{evt.subject_title ?? $t('settingsData.untitled', '(untitled)')}
 													</a>
 												{:else}
-													{evt.subject_title ?? '(untitled)'}
+													{evt.subject_title ?? $t('settingsData.untitled', '(untitled)')}
 												{/if}
 											</span>
 										</td>
@@ -759,14 +766,14 @@
 
 					<!-- Filtered events pagination -->
 					<div class="mt-2 flex items-center justify-between text-laya-secondary text-surface-400">
-						<span>{filteredTotal.toLocaleString()} filtered</span>
+						<span>{tp(filteredTotal, 'settingsData.filtered_count', '{count} filtered', '{count} filtered', { count: filteredTotal.toLocaleString($locale) })}</span>
 						<div class="flex items-center gap-2">
 							<button
 								onclick={filteredPrevPage}
 								disabled={filteredOffset === 0}
 								class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30"
 							>
-								Prev
+								{$t('settingsData.prev', 'Prev')}
 							</button>
 							<span>{filteredPage} / {filteredTotalPages}</span>
 							<button
@@ -774,7 +781,7 @@
 								disabled={filteredOffset + FILTERED_LIMIT >= filteredTotal}
 								class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30"
 							>
-								Next
+								{$t('settingsData.next', 'Next')}
 							</button>
 						</div>
 					</div>
@@ -787,7 +794,7 @@
 	<div class="flex flex-wrap items-end gap-3">
 		<!-- Steps multiselect dropdown -->
 		<div class="relative">
-			<span class="mb-1 block text-laya-secondary text-surface-400">Steps</span>
+			<span class="mb-1 block text-laya-secondary text-surface-400">{$t('settingsData.steps', 'Steps')}</span>
 			<button
 				bind:this={stepsTriggerRef}
 				type="button"
@@ -864,13 +871,13 @@
 		</div>
 
 		<div class="w-28">
-			<span class="mb-1 block text-laya-secondary text-surface-400">Status</span>
+			<span class="mb-1 block text-laya-secondary text-surface-400">{$t('settingsData.col_status', 'Status')}</span>
 			<Dropdown
 				bind:value={filterSuccess}
 				options={[
-					{ value: '', label: 'All' },
-					{ value: 'true', label: 'Success' },
-					{ value: 'false', label: 'Failed' },
+					{ value: '', label: $t('common.all', 'All') },
+					{ value: 'true', label: $t('settingsData.filter_success', 'Success') },
+					{ value: 'false', label: $t('settingsData.filter_failed', 'Failed') },
 				]}
 				onchange={(v) => { filterSuccess = v as typeof filterSuccess; }}
 			/>
@@ -879,14 +886,14 @@
 			onclick={applyFilter}
 			class="h-[38px] rounded-lg px-4 text-laya-base font-medium text-surface-200 transition-colors {$glassTheme ? 'bg-white/[0.08] hover:bg-white/[0.14]' : 'bg-surface-700 hover:bg-surface-600'}"
 		>
-			Apply
+			{$t('settingsData.apply', 'Apply')}
 		</button>
 		{#if filterSteps.size > 0 || filterSuccess !== '' || searchQuery.trim()}
 			<button
 				onclick={() => { filterSteps = new Set(); filterSuccess = ''; searchQuery = ''; applyFilter(); }}
 				class="h-[38px] rounded-lg px-3 text-laya-base text-surface-400 transition-colors hover:text-surface-200"
 			>
-				Clear
+				{$t('common.clear', 'Clear')}
 			</button>
 		{/if}
 
@@ -898,7 +905,7 @@
 			<input
 				type="text"
 				bind:value={searchQuery}
-				placeholder="Search logs…"
+				placeholder={$t('settingsData.search_logs', 'Search logs…')}
 				onkeydown={(e) => { if (e.key === 'Enter') applyFilter(); }}
 				class="h-[38px] w-full rounded-md border pl-8 pr-3 text-laya-secondary text-surface-200 placeholder-surface-500 focus:outline-none
 					{$glassTheme ? 'glass-input focus:border-laya-orange/50' : 'border-surface-600 bg-surface-900 focus:border-laya-orange/50'}"
@@ -913,11 +920,11 @@
 	{:else if error}
 		<div class="rounded-lg border border-red-800 bg-red-900/20 p-3 text-laya-base text-red-300">{error}</div>
 	{:else if entries.length === 0}
-		<p class="py-8 text-center text-laya-base text-surface-500">No audit log entries found.</p>
+		<p class="py-8 text-center text-laya-base text-surface-500">{$t('settingsData.no_entries', 'No audit log entries found.')}</p>
 	{:else}
 		<!-- Pagination + export -->
 		<div class="flex items-center justify-between text-laya-secondary text-surface-400">
-			<span>{total} entries</span>
+			<span>{tp(total, 'settingsData.entries', '{count} entry', '{count} entries', { count: total.toLocaleString($locale) })}</span>
 			<div class="flex items-center gap-3">
 				<ExportMenu onexport={exportAudit} />
 				<div class="flex items-center gap-2">
@@ -926,7 +933,7 @@
 						disabled={offset === 0}
 						class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30"
 					>
-						Prev
+						{$t('settingsData.prev', 'Prev')}
 					</button>
 					<span>{page} / {totalPages}</span>
 					<button
@@ -934,7 +941,7 @@
 						disabled={offset + limit >= total}
 						class="rounded px-2 py-1 transition-colors hover:bg-surface-700 disabled:opacity-30"
 					>
-						Next
+						{$t('settingsData.next', 'Next')}
 					</button>
 				</div>
 			</div>
@@ -944,12 +951,12 @@
 			<table class="w-full text-left text-laya-secondary">
 				<thead class="border-b {$glassTheme ? 'border-white/[0.06] bg-white/[0.03]' : 'border-surface-700 bg-surface-800'} text-surface-400">
 					<tr>
-						<th class="px-3 py-2">Time</th>
-						<th class="px-3 py-2">Step</th>
-						<th class="px-3 py-2">Model</th>
-						<th class="px-3 py-2">Tokens</th>
-						<th class="px-3 py-2">Latency</th>
-						<th class="px-3 py-2">Status</th>
+						<th class="px-3 py-2">{$t('settingsData.col_time', 'Time')}</th>
+						<th class="px-3 py-2">{$t('settingsData.col_step', 'Step')}</th>
+						<th class="px-3 py-2">{$t('settingsData.col_model', 'Model')}</th>
+						<th class="px-3 py-2">{$t('settingsData.col_tokens', 'Tokens')}</th>
+						<th class="px-3 py-2">{$t('settingsData.col_latency', 'Latency')}</th>
+						<th class="px-3 py-2">{$t('settingsData.col_status', 'Status')}</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y {$glassTheme ? 'divide-white/[0.04]' : 'divide-surface-700/50'}">
@@ -966,7 +973,7 @@
 								{#if entry.success}
 									<span class="rounded-full bg-green-900/30 px-2 py-0.5 text-green-400">OK</span>
 								{:else}
-									<span class="cursor-help rounded-full bg-red-900/30 px-2 py-0.5 text-red-400" role="note" onmouseenter={(e) => entry.error && showTooltip(e.currentTarget, entry.error, { maxWidth: 400, color: 'text-red-400' })} onmouseleave={hideTooltip}>ERR</span>
+									<span class="cursor-help rounded-full bg-red-900/30 px-2 py-0.5 text-red-400" role="note" onmouseenter={(e) => entry.error && showTooltip(e.currentTarget, entry.error, { maxWidth: 400, color: 'text-red-400' })} onmouseleave={hideTooltip}>{$t('settingsData.badge_err', 'ERR')}</span>
 								{/if}
 							</td>
 						</tr>

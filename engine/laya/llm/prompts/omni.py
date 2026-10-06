@@ -216,6 +216,7 @@ def build_omni_resynthesis_messages(
     space_id: str = "default",
     item_states: list[dict[str, Any]] | None = None,
     resolved_cards: list[dict[str, Any]] | None = None,
+    language: str = "pt-BR",
 ) -> list[dict[str, str]]:
     """Build messages for a full Omni resynthesis.
 
@@ -224,7 +225,15 @@ def build_omni_resynthesis_messages(
         live_max_priority}.
     resolved_cards: subjects that reached a terminal state since the last synthesis.
         Each entry: {entity_id, header, status}.
+    language: Target locale for generated content ('pt-BR', 'en', 'es').
     """
+    lang_lower = (language or "pt-BR").lower()
+    if "pt" in lang_lower:
+        lang_instruction = "\n\n## LANGUAGE INSTRUCTION\nCRITICAL: You MUST write all summary items, texts, and descriptions in Portuguese (Português - pt-BR).\n"
+    elif "es" in lang_lower:
+        lang_instruction = "\n\n## LANGUAGE INSTRUCTION\nCRITICAL: You MUST write all summary items, texts, and descriptions in Spanish (Español).\n"
+    else:
+        lang_instruction = "\n\n## LANGUAGE INSTRUCTION\nWrite all summary items, texts, and descriptions in English.\n"
 
     # Current snapshot
     if current_snapshot:
@@ -308,7 +317,7 @@ def build_omni_resynthesis_messages(
     )
 
     return [
-        {"role": "system", "content": get_prompt("omni", OMNI_RESYNTHESIS_SYSTEM_PROMPT)},
+        {"role": "system", "content": get_prompt("omni", OMNI_RESYNTHESIS_SYSTEM_PROMPT + lang_instruction)},
         {"role": "user", "content": user_message},
     ]
 

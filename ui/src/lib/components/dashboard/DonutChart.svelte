@@ -2,6 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 	let {
 		data,
 		title,
@@ -34,7 +35,7 @@
 	{/if}
 
 	{#if data.length === 0 || total === 0}
-		<p class="text-sm text-surface-500">No data</p>
+		<p class="text-sm text-surface-500">{$t('shell.no_data', 'No data')}</p>
 	{:else}
 		<div class="flex items-center gap-6">
 			<svg width={size} height={size} viewBox="0 0 120 120" class="flex-shrink-0">

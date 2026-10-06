@@ -5,6 +5,7 @@
 	import { engineApi } from '$lib/api/engine';
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { CODING_AGENTS, DEFAULT_AGENT_PATHS, AGENT_BINARY_NAMES } from '$lib/config';
+	import { t } from '$lib/i18n';
 
 	let selected = $state('claude_code');
 	let agentPaths = $state<Record<string, string>>({ ...DEFAULT_AGENT_PATHS });
@@ -21,7 +22,7 @@
 			selected = settings.coding_agent || 'claude_code';
 			agentPaths = settings.agent_paths || { ...DEFAULT_AGENT_PATHS };
 		} catch {
-			error = 'Failed to load settings';
+			error = $t('settingsRules.err_load_settings', 'Failed to load settings');
 		} finally {
 			loading = false;
 		}
@@ -34,7 +35,7 @@
 		try {
 			await engineApi.updateSettings({ coding_agent: value });
 		} catch {
-			error = 'Failed to save coding agent preference';
+			error = $t('settingsRules.err_save_agent', 'Failed to save coding agent preference');
 		} finally {
 			saving = false;
 		}
@@ -48,7 +49,7 @@
 			agentPaths = result.agent_paths;
 			await engineApi.updateSettings({ agent_paths: result.agent_paths });
 		} catch {
-			error = 'Failed to detect agent paths';
+			error = $t('settingsRules.err_detect_paths', 'Failed to detect agent paths');
 		} finally {
 			detecting = false;
 		}
@@ -62,7 +63,7 @@
 			agentPaths = updated;
 			await engineApi.updateSettings({ agent_paths: updated });
 		} catch {
-			error = 'Failed to save agent path';
+			error = $t('settingsRules.err_save_agent_path', 'Failed to save agent path');
 		} finally {
 			saving = false;
 		}
@@ -70,7 +71,7 @@
 </script>
 
 {#if loading}
-	<div class="text-surface-400">Loading agent settings...</div>
+	<div class="text-surface-400">{$t('settingsRules.loading_agent', 'Loading agent settings...')}</div>
 {:else}
 	{#if error}
 		<div class="rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-laya-base text-red-300">{error}</div>
@@ -78,12 +79,12 @@
 
 	<div class="{$glassTheme ? 'glass-section' : 'rounded-xl border border-surface-700 bg-surface-800'} p-4">
 		<div class="mb-1 flex items-center justify-between">
-			<h3 class="text-laya-heading font-medium">Coding Agent</h3>
+			<h3 class="text-laya-heading font-medium">{$t('settingsRules.coding_agent_title', 'Coding Agent')}</h3>
 			{#if saving}
-				<span class="text-laya-micro text-laya-orange">Saving…</span>
+				<span class="text-laya-micro text-laya-orange">{$t('settingsRules.saving_short', 'Saving…')}</span>
 			{/if}
 		</div>
-		<p class="mb-4 text-laya-secondary text-surface-400">Select which CLI coding agent Laya uses for ENGINEER tasks</p>
+		<p class="mb-4 text-laya-secondary text-surface-400">{$t('settingsRules.coding_agent_desc', 'Select which CLI coding agent Laya uses for {persona} tasks', { persona: $t('shared.persona_ENGINEER', 'Engineer') })}</p>
 
 		<div class="space-y-2">
 			{#each CODING_AGENTS as agent}
@@ -102,13 +103,13 @@
 						{/if}
 					</div>
 					<div class="flex-1">
-						<div class="text-laya-base font-medium">{agent.label}</div>
-						<div class="text-laya-secondary text-surface-400">{agent.description}</div>
+						<div class="text-laya-base font-medium">{agent.value === 'none' ? $t('settingsRules.agent_label_none', agent.label) : agent.label}</div>
+						<div class="text-laya-secondary text-surface-400">{$t(`settingsRules.agent_desc_${agent.value}`, agent.description)}</div>
 					</div>
 					{#if agent.value !== 'none' && agentPaths[agent.value]}
-						<span class="text-laya-micro text-green-400/70" title={agentPaths[agent.value]}>detected</span>
+						<span class="text-laya-micro text-green-400/70" title={agentPaths[agent.value]}>{$t('settingsRules.agent_detected', 'detected')}</span>
 					{:else if agent.value !== 'none'}
-						<span class="text-laya-micro text-surface-500">not found</span>
+						<span class="text-laya-micro text-surface-500">{$t('settingsRules.agent_not_found', 'not found')}</span>
 					{/if}
 				</button>
 			{/each}
@@ -120,12 +121,12 @@
 	<div class="mt-4 {$glassTheme ? 'glass-section' : 'rounded-xl border border-surface-700 bg-surface-800'} p-4 {!hasAgent ? 'opacity-50' : ''}">
 		<div class="mb-3 flex items-center justify-between">
 			<div>
-				<h3 class="text-laya-base font-medium">Agent Binary Path</h3>
+				<h3 class="text-laya-base font-medium">{$t('settingsRules.binary_path_title', 'Agent Binary Path')}</h3>
 				<p class="text-laya-secondary text-surface-400">
 					{#if hasAgent}
-						Path to the agent CLI binary. Auto-detected on startup, or set manually.
+						{$t('settingsRules.binary_path_desc', 'Path to the agent CLI binary. Auto-detected on startup, or set manually.')}
 					{:else}
-						Enable a coding agent above to configure the binary path
+						{$t('settingsRules.binary_path_disabled', 'Enable a coding agent above to configure the binary path')}
 					{/if}
 				</p>
 			</div>
@@ -135,7 +136,7 @@
 					onclick={detectPaths}
 					disabled={detecting || !hasAgent}
 				>
-					{detecting ? 'Detecting...' : 'Auto-detect'}
+					{detecting ? $t('settingsRules.detecting', 'Detecting...') : $t('settingsRules.auto_detect', 'Auto-detect')}
 				</button>
 			{/if}
 		</div>
@@ -155,7 +156,7 @@
 				{#if agentPaths[selected]}
 					<p class="mt-1.5 text-laya-secondary text-green-400/70">{agentPaths[selected]}</p>
 				{:else}
-					<p class="mt-1.5 text-laya-secondary text-yellow-400/70">No path configured — agent may not be found in bundled app mode</p>
+					<p class="mt-1.5 text-laya-secondary text-yellow-400/70">{$t('settingsRules.no_path_configured', 'No path configured — agent may not be found in bundled app mode')}</p>
 				{/if}
 			{/key}
 		{/if}

@@ -4,6 +4,7 @@
 	import type { TimelineEntry } from '$lib/api/types';
 	import { portal } from '$lib/actions/portal';
 	import { clockTime } from '$lib/omni/layers';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		value,
@@ -28,16 +29,28 @@
 	// Snapshot-type badges. The distinction is the point: comparing against a
 	// SCHED base shows a full resynthesis diff, against an INCR base only what
 	// the queue appended since.
-	const TYPE_BADGE: Record<string, { label: string; bg: string; fg: string }> = {
-		incremental: { label: 'INCR', bg: 'var(--om-neutral-bg)', fg: 'var(--om-neutral-fg)' },
-		rolling: { label: 'ROLL', bg: 'var(--om-warn-bg)', fg: 'var(--om-warn-fg)' },
-		manual: { label: 'MAN', bg: 'var(--om-warn-bg)', fg: 'var(--om-warn-fg)' },
+	const TYPE_BADGE = $derived<Record<string, { label: string; bg: string; fg: string }>>({
+		incremental: {
+			label: $t('omniTrace.badge_incremental', 'INCR'),
+			bg: 'var(--om-neutral-bg)',
+			fg: 'var(--om-neutral-fg)'
+		},
+		rolling: {
+			label: $t('omniTrace.badge_rolling', 'ROLL'),
+			bg: 'var(--om-warn-bg)',
+			fg: 'var(--om-warn-fg)'
+		},
+		manual: {
+			label: $t('omniTrace.badge_manual', 'MAN'),
+			bg: 'var(--om-warn-bg)',
+			fg: 'var(--om-warn-fg)'
+		},
 		scheduled: {
-			label: 'SCHED',
+			label: $t('omniTrace.badge_scheduled', 'SCHED'),
 			bg: 'color-mix(in oklch, var(--om-layer-period) 20%, transparent)',
 			fg: 'var(--om-layer-period-fg)'
 		}
-	};
+	});
 
 	let open = $state(false);
 	let anchorEl = $state<HTMLButtonElement | null>(null);
@@ -116,7 +129,7 @@
 	{disabled}
 	aria-haspopup="listbox"
 	aria-expanded={open}
-	aria-label="{caption} (currently v{value})"
+	aria-label={$t('omniTrace.version_picker_aria', '{caption} (currently v{version})', { caption, version: value })}
 	onclick={toggle}
 >
 	v{value}
@@ -149,7 +162,7 @@
 
 		{#if visible.length === 0}
 			<div class="om-pill-t px-2.5 py-3" style="color: var(--om-text-meta);">
-				No other versions yet.
+				{$t('omniTrace.no_other_versions', 'No other versions yet.')}
 			</div>
 		{:else}
 			<div class={showAll ? 'max-h-64 overflow-y-auto' : ''}>
@@ -181,7 +194,7 @@
 						style="background: {badge.bg}; color: {badge.fg};">{badge.label}</span
 					>
 					<span class="flex-1"></span>
-					<span class="om-meta whitespace-nowrap">{clockTime(entry.generated_at)}</span>
+					<span class="om-meta whitespace-nowrap">{clockTime(entry.generated_at, $locale)}</span>
 					{#if selected}
 						<svg
 							class="h-2.5 w-2.5 shrink-0"
@@ -214,7 +227,8 @@
 					showAll = true;
 				}}
 			>
-				Older versions in <span style="color: var(--om-comp-num);">full history…</span>
+				{$t('omniTrace.older_versions_in', 'Older versions in')}
+				<span style="color: var(--om-comp-num);">{$t('omniTrace.full_history', 'full history…')}</span>
 			</button>
 		{/if}
 	</div>

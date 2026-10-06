@@ -12,6 +12,7 @@
 	import FiringLogViewer from '$lib/components/settings/FiringLogViewer.svelte';
 	import type { ProcessingRule, ProcessingRuleAction, ProcessingCondition, ProcessingRuleOperator, ProcessingSimpleCondition, ComposePlatform, Tag, EgressConnection } from '$lib/api/types';
 	import { timeAgo as _timeAgo } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let tooltip = $state<{ text: string; top: number; left: number } | null>(null);
 	function showTip(el: HTMLElement, text: string) {
@@ -67,10 +68,12 @@
 			// The card's own LLM-generated title/summary — what the user sees on
 			// the card. Listed first so it's the field users reach for, ahead of
 			// event.subject.title (the raw source subject, labeled "Source subject").
+			id: 'card',
 			label: 'Card',
 			fields: ['card.header', 'card.summary'],
 		},
 		{
+			id: 'event',
 			label: 'Event',
 			fields: [
 				'event.source.platform', 'event.source.raw_event_type', 'event.source.connection_id',
@@ -80,6 +83,7 @@
 			]
 		},
 		{
+			id: 'classification',
 			label: 'Classification',
 			fields: [
 				'classification.persona', 'classification.priority', 'classification.category',
@@ -87,6 +91,7 @@
 			]
 		},
 		{
+			id: 'context',
 			label: 'Context',
 			fields: [
 				'context.actor_relationship', 'context.entity_card_count',
@@ -123,7 +128,7 @@
 		if (metaKeys.length === 0) return staticFieldGroups;
 		return [
 			...staticFieldGroups,
-			{ label: 'Content Metadata', fields: metaKeys.map(k => `event.content.metadata.${k}`) },
+			{ id: 'content_metadata', label: 'Content Metadata', fields: metaKeys.map(k => `event.content.metadata.${k}`) },
 		];
 	});
 
@@ -146,6 +151,14 @@
 		exists: 'exists', not_exists: 'not exists',
 	};
 
+	// Symbolic operators (=, >, …) are language-neutral; only the word labels are translated.
+	const wordOperators = new Set(['contains', 'not_contains', 'starts_with', 'ends_with', 'in', 'not_in', 'matches', 'exists', 'not_exists']);
+
+	function operatorLabel(op: string): string {
+		const fallback = operatorLabels[op] ?? op;
+		return wordOperators.has(op) ? $t(`settingsRules.proc_op_${op}`, fallback) : fallback;
+	}
+
 	const actionTypes = [
 		{ value: 'set_status', label: 'Set Status' },
 		{ value: 'set_priority', label: 'Set Priority' },
@@ -155,6 +168,10 @@
 		{ value: 'execute_egress', label: 'Execute Egress Action' },
 		{ value: 'send_notification', label: 'Send Notification' },
 	];
+
+	function actionTypeLabel(type: string, fallback: string): string {
+		return $t(`settingsRules.action_${type}`, fallback);
+	}
 
 	const hasValidConditions = $derived(
 		formConditions.some(c =>
@@ -170,18 +187,27 @@
 			const result = await engineApi.updateProcessingRulesSettings({ auto_disable_threshold: autoDisableThreshold });
 			autoDisableThreshold = result.auto_disable_threshold;
 		} catch {
-			error = 'Failed to save auto-disable threshold';
+			error = $t('settingsRules.err_save_threshold', 'Failed to save auto-disable threshold');
 		}
 	}
 
 	// --- Field options for smart dropdowns ---
 	let fieldOptions = $state<Record<string, string[]>>({});
 
-	const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-	const hourLabels = Array.from({ length: 24 }, (_, i) => {
-		const h = i % 12 || 12;
-		const ampm = i < 12 ? 'AM' : 'PM';
-		return { value: String(i), label: `${h}:00 ${ampm}` };
+	// Index 0 = Monday (engine convention). 2024-01-01 was a Monday.
+	const dayNames = $derived.by(() => {
+		const fmt = new Intl.DateTimeFormat($locale, { weekday: 'long', timeZone: 'UTC' });
+		return Array.from({ length: 7 }, (_, i) => {
+			const name = fmt.format(new Date(Date.UTC(2024, 0, 1 + i)));
+			return name.charAt(0).toUpperCase() + name.slice(1);
+		});
+	});
+	const hourLabels = $derived.by(() => {
+		const fmt = new Intl.DateTimeFormat($locale, { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+		return Array.from({ length: 24 }, (_, i) => ({
+			value: String(i),
+			label: fmt.format(new Date(Date.UTC(2024, 0, 1, i)))
+		}));
 	});
 
 	function getFieldOptions(field: string): string[] | null {
@@ -226,7 +252,7 @@
 			const data = await engineApi.listProcessingRules();
 			rules = data.rules;
 		} catch {
-			error = 'Failed to load processing rules';
+			error = $t('settingsRules.err_load_processing', 'Failed to load processing rules');
 		} finally {
 			loading = false;
 		}
@@ -246,8 +272,8 @@
 			autoDisableThreshold = s.auto_disable_threshold;
 		} catch { /* settings unavailable, keep default */ }
 		try {
-			const t = await engineApi.listTags();
-			availableTags = t.tags;
+			const tagResp = await engineApi.listTags();
+			availableTags = tagResp.tags;
 		} catch { /* tags unavailable */ }
 	});
 
@@ -304,7 +330,7 @@
 								}
 							}
 						} catch {
-							error = 'Invalid JSON in egress payload';
+							error = $t('settingsRules.err_invalid_json', 'Invalid JSON in egress payload');
 							return { type: 'execute_egress' as const, platform: '', action_type: '', payload_template: {} };
 						}
 					}
@@ -381,7 +407,7 @@
 			}
 			resetForm();
 		} catch (e: any) {
-			error = e?.message || 'Failed to save rule';
+			error = e?.message || $t('settingsRules.err_save_rule', 'Failed to save rule');
 		} finally {
 			saving = false;
 		}
@@ -392,7 +418,7 @@
 			await engineApi.deleteProcessingRule(id);
 			rules = rules.filter(r => r.id !== id);
 		} catch {
-			error = 'Failed to delete rule';
+			error = $t('settingsRules.err_delete_rule', 'Failed to delete rule');
 		}
 	}
 
@@ -401,7 +427,7 @@
 			const result = await engineApi.toggleProcessingRule(id);
 			rules = rules.map(r => r.id === id ? { ...r, enabled: result.enabled, error_count: result.enabled ? 0 : r.error_count } : r);
 		} catch {
-			error = 'Failed to toggle rule';
+			error = $t('settingsRules.err_toggle_rule', 'Failed to toggle rule');
 		}
 	}
 
@@ -422,30 +448,30 @@
 		if ('field' in cond) {
 			const c = cond as ProcessingSimpleCondition;
 			const fieldShort = fieldLabel(c.field);
-			const op = operatorLabels[c.operator] || c.operator;
+			const op = operatorLabel(c.operator);
 			if (['exists', 'not_exists'].includes(c.operator)) return `${fieldShort} ${op}`;
 			return `${fieldShort} ${op} "${c.value}"`;
 		}
-		if ('all' in cond) return (cond.all as ProcessingCondition[]).map(conditionSummary).join(' AND ');
-		if ('any' in cond) return (cond.any as ProcessingCondition[]).map(conditionSummary).join(' OR ');
-		if ('not' in cond) return `NOT (${conditionSummary((cond as any).not)})`;
+		if ('all' in cond) return (cond.all as ProcessingCondition[]).map(conditionSummary).join(` ${$t('settingsRules.logic_and', 'AND')} `);
+		if ('any' in cond) return (cond.any as ProcessingCondition[]).map(conditionSummary).join(` ${$t('settingsRules.logic_or', 'OR')} `);
+		if ('not' in cond) return $t('settingsRules.logic_not', 'NOT ({condition})', { condition: conditionSummary((cond as any).not) });
 		return '?';
 	}
 
 	function actionSummary(a: ProcessingRuleAction): string {
 		switch (a.type) {
-			case 'set_status': return `Set ${a.status}`;
-			case 'set_priority': return `Priority → ${a.priority}`;
-			case 'bookmark': return 'Bookmark';
-			case 'run_entity_agent': return 'Run Agent';
+			case 'set_status': return $t('settingsRules.summary_set_status', 'Set {status}', { status: $t(`shared.status_${a.status}`, a.status) });
+			case 'set_priority': return $t('settingsRules.summary_set_priority', 'Priority → {priority}', { priority: $t(`shared.priority_${a.priority}`, a.priority) });
+			case 'bookmark': return $t('settingsRules.action_bookmark', 'Bookmark');
+			case 'run_entity_agent': return $t('settingsRules.action_run_entity_agent', 'Run Agent');
 			case 'execute_egress': return `${a.platform}/${a.action_type}`;
-			case 'send_notification': return 'Notify';
-			case 'add_tag': return `Tag: ${a.tag_name}`;
+			case 'send_notification': return $t('settingsRules.summary_notify', 'Notify');
+			case 'add_tag': return $t('settingsRules.summary_tag', 'Tag: {tag}', { tag: a.tag_name });
 			default: return String((a as any).type);
 		}
 	}
 
-	const timeAgo = (dateStr?: string | null) => _timeAgo(dateStr, { nullLabel: 'never' });
+	const timeAgo = (dateStr?: string | null) => _timeAgo(dateStr, { nullLabel: $t('settingsRules.never', 'never') });
 
 	// Friendly labels for fields whose bare last path-segment would be ambiguous.
 	// Notably event.subject.title reads as just "title" — indistinguishable from
@@ -457,17 +483,18 @@
 	};
 
 	function fieldLabel(field: string): string {
-		return FIELD_LABELS[field] || field.split('.').pop() || field;
+		if (FIELD_LABELS[field]) return $t(`settingsRules.field_${field.replace(/\./g, '_')}`, FIELD_LABELS[field]);
+		return field.split('.').pop() || field;
 	}
 </script>
 
 {#if loading}
-	<div class="text-surface-400">Loading processing rules...</div>
+	<div class="text-surface-400">{$t('settingsRules.loading_processing', 'Loading processing rules...')}</div>
 {:else}
 	{#if error}
 		<div class="flex items-start gap-2 rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-laya-base text-red-300">
 			<span class="flex-1">{error}</span>
-			<button class="shrink-0 text-red-400 hover:text-red-200" onclick={() => (error = null)} aria-label="Dismiss error">
+			<button class="shrink-0 text-red-400 hover:text-red-200" onclick={() => (error = null)} aria-label={$t('settingsRules.dismiss_error', 'Dismiss error')}>
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 			</button>
 		</div>
@@ -476,30 +503,30 @@
 	<div class="space-y-4">
 		<div class="flex items-start justify-between gap-3">
 			<div>
-				<h3 class="text-laya-heading font-semibold text-surface-50">Processing Rules</h3>
-				<p class="mt-1 text-laya-base text-surface-400">Automate actions when events match specific conditions</p>
+				<h3 class="text-laya-heading font-semibold text-surface-50">{$t('settingsRules.proc_title', 'Processing Rules')}</h3>
+				<p class="mt-1 text-laya-base text-surface-400">{$t('settingsRules.proc_desc', 'Automate actions when events match specific conditions')}</p>
 			</div>
 			<!-- Sub-view toggle: rule list vs. cross-rule firing log -->
 			<div class="inline-flex shrink-0 rounded-lg border p-0.5 {$glassTheme ? 'border-white/[0.08] bg-white/[0.03]' : 'border-surface-700 bg-surface-900'}">
 				<button
 					onclick={() => (view = 'rules')}
 					class="rounded-md px-3 py-1 text-laya-secondary font-medium transition-colors {view === 'rules' ? 'bg-laya-orange/10 text-laya-orange' : 'text-surface-400 hover:text-surface-200'}"
-				>Rules</button>
+				>{$t('settingsRules.view_rules', 'Rules')}</button>
 				<button
 					onclick={() => (view = 'activity')}
 					class="rounded-md px-3 py-1 text-laya-secondary font-medium transition-colors {view === 'activity' ? 'bg-laya-orange/10 text-laya-orange' : 'text-surface-400 hover:text-surface-200'}"
-				>Activity</button>
+				>{$t('settingsRules.view_activity', 'Activity')}</button>
 			</div>
 		</div>
 
 		{#if view === 'rules'}
 		<!-- Auto-disable threshold setting -->
 		<div class="flex items-center gap-3">
-			<label for="auto-disable-threshold" class="text-laya-secondary text-surface-400">Auto-disable rules after</label>
+			<label for="auto-disable-threshold" class="text-laya-secondary text-surface-400">{$t('settingsRules.auto_disable_before', 'Auto-disable rules after')}</label>
 			<input id="auto-disable-threshold" type="number" bind:value={autoDisableThreshold} min="1" max="100"
 				class="w-16 rounded-lg border border-surface-600 bg-surface-900 px-2 py-1 text-laya-base text-surface-50"
 				onchange={saveThreshold} />
-			<span class="text-laya-secondary text-surface-500">consecutive errors</span>
+			<span class="text-laya-secondary text-surface-500">{$t('settingsRules.auto_disable_after', 'consecutive errors')}</span>
 		</div>
 
 		<!-- Rule list -->
@@ -513,7 +540,7 @@
 							<button
 								class="relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors {rule.enabled ? 'bg-green-600' : 'bg-surface-600'}"
 								onclick={() => toggleRule(rule.id)}
-								aria-label="Toggle rule"
+								aria-label={$t('settingsRules.toggle_rule', 'Toggle rule')}
 							>
 								<span class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform {rule.enabled ? 'left-[1.125rem]' : 'left-0.5'}"></span>
 							</button>
@@ -521,19 +548,19 @@
 								<div class="flex items-center gap-2">
 									<span class="text-laya-base font-medium text-surface-100 truncate">{rule.name}</span>
 									{#if rule.error_count > 0}
-										<span class="rounded bg-red-900/50 px-1.5 py-0.5 text-laya-micro font-medium text-red-300">{rule.error_count} errors</span>
+										<span class="rounded bg-red-900/50 px-1.5 py-0.5 text-laya-micro font-medium text-red-300">{rule.error_count === 1 ? $t('settingsRules.errors_count_one', '{count} error', { count: rule.error_count }) : $t('settingsRules.errors_count_other', '{count} errors', { count: rule.error_count })}</span>
 									{/if}
 								</div>
 								<div class="mt-0.5 text-laya-secondary text-surface-500 truncate">
-									<span class="text-surface-400">WHEN</span> {conditionSummary(rule.condition)}
+									<span class="text-surface-400">{$t('settingsRules.summary_when', 'WHEN')}</span> {conditionSummary(rule.condition)}
 									<span class="mx-1 text-surface-600">→</span>
-									<span class="text-surface-400">THEN</span> {rule.actions.map(actionSummary).join(', ')}
+									<span class="text-surface-400">{$t('settingsRules.summary_then', 'THEN')}</span> {rule.actions.map(actionSummary).join(', ')}
 								</div>
 								<div class="mt-1 flex items-center gap-3 text-laya-micro text-surface-600">
-									<span>Fired {rule.fire_count}x</span>
-									<span>Last: {timeAgo(rule.last_fired_at)}</span>
+									<span>{$t('settingsRules.fired_count', 'Fired {count}x', { count: rule.fire_count })}</span>
+									<span>{$t('settingsRules.last_fired', 'Last: {time}', { time: timeAgo(rule.last_fired_at) })}</span>
 									{#if rule.last_error}
-										<span class="text-red-400 truncate max-w-[200px]" title={rule.last_error}>Error: {rule.last_error}</span>
+										<span class="text-red-400 truncate max-w-[200px]" title={rule.last_error}>{$t('settingsRules.last_error', 'Error: {error}', { error: rule.last_error })}</span>
 									{/if}
 								</div>
 							</div>
@@ -541,7 +568,7 @@
 								<button
 									class="rounded p-1 text-surface-500 transition-colors hover:text-surface-200"
 									onclick={() => { formMode = { edit: rule.id }; loadIntoForm(rule); }}
-									aria-label="Edit rule"
+									aria-label={$t('settingsRules.edit_rule', 'Edit rule')}
 								>
 									<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
 								</button>
@@ -549,16 +576,16 @@
 									<button
 										class="rounded px-2 py-0.5 text-laya-micro font-medium bg-red-900/50 text-red-300 transition-colors hover:bg-red-800/60"
 										onclick={() => { deleteRule(rule.id); confirmDeleteId = null; }}
-									>Delete</button>
+									>{$t('common.delete', 'Delete')}</button>
 									<button
 										class="rounded px-1.5 py-0.5 text-laya-micro text-surface-400 hover:text-surface-200"
 										onclick={() => (confirmDeleteId = null)}
-									>Cancel</button>
+									>{$t('common.cancel', 'Cancel')}</button>
 								{:else}
 									<button
 										class="rounded p-1 text-surface-500 transition-colors hover:text-red-400"
 										onclick={() => (confirmDeleteId = rule.id)}
-										aria-label="Delete rule"
+										aria-label={$t('settingsRules.delete_rule', 'Delete rule')}
 									>
 										<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 									</button>
@@ -580,7 +607,7 @@
 				class="mt-3 rounded-lg border border-dashed border-surface-600 px-4 py-2 text-laya-base text-surface-400 transition-colors hover:border-surface-400 hover:text-surface-200"
 				onclick={() => { resetForm(); formMode = 'add'; }}
 			>
-				+ Add Processing Rule
+				{$t('settingsRules.add_processing_rule', '+ Add Processing Rule')}
 			</button>
 		{/if}
 		{:else}
@@ -604,10 +631,10 @@
 		<!-- Name -->
 		<div>
 			<label class="mb-1 block text-laya-secondary font-medium text-surface-300">
-				Rule Name
+				{$t('settingsRules.rule_name_label', 'Rule Name')}
 				<input
 					bind:value={formName}
-					placeholder="e.g. Auto-dismiss low-priority calendar"
+					placeholder={$t('settingsRules.rule_name_example', 'e.g. Auto-dismiss low-priority calendar')}
 					class="mt-1 w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500 focus:border-laya-orange focus:outline-none"
 				/>
 			</label>
@@ -616,10 +643,10 @@
 		<!-- Description (optional) -->
 		<div>
 			<label class="mb-1 block text-laya-secondary font-medium text-surface-300">
-				Description <span class="text-surface-500">(optional)</span>
+				{$t('settingsRules.description_label', 'Description')} <span class="text-surface-500">{$t('settingsRules.optional', '(optional)')}</span>
 				<input
 					bind:value={formDescription}
-					placeholder="What does this rule do?"
+					placeholder={$t('settingsRules.description_placeholder', 'What does this rule do?')}
 					class="mt-1 w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500 focus:border-laya-orange/50 focus:outline-none"
 				/>
 			</label>
@@ -628,17 +655,17 @@
 		<!-- WHEN section -->
 		<div>
 			<div class="mb-2 flex items-center gap-2">
-				<span class="text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">When</span>
+				<span class="text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{$t('settingsRules.form_when', 'When')}</span>
 				{#if formConditions.length > 1}
 					<div class="inline-flex overflow-hidden rounded-lg border border-surface-600">
 						<button
 							class="px-2.5 py-1 text-laya-secondary font-medium transition-colors {formLogic === 'all' ? 'bg-blue-900/60 text-blue-300' : 'bg-surface-900 text-surface-400 hover:text-surface-200'}"
 							onclick={() => (formLogic = 'all')}
-						>ALL match</button>
+						>{$t('settingsRules.all_match', 'ALL match')}</button>
 						<button
 							class="px-2.5 py-1 text-laya-secondary font-medium transition-colors {formLogic === 'any' ? 'bg-blue-900/60 text-blue-300' : 'bg-surface-900 text-surface-400 hover:text-surface-200'}"
 							onclick={() => (formLogic = 'any')}
-						>ANY match</button>
+						>{$t('settingsRules.any_match', 'ANY match')}</button>
 					</div>
 				{/if}
 			</div>
@@ -649,15 +676,15 @@
 						<div class="grid flex-1 grid-cols-[2fr_1fr_2fr] gap-2">
 							<Dropdown
 								bind:value={cond.field}
-								options={fieldGroups.flatMap((g) => g.fields.map((f) => ({ value: f, label: fieldLabel(f), group: g.label })))}
+								options={fieldGroups.flatMap((g) => g.fields.map((f) => ({ value: f, label: fieldLabel(f), group: $t(`settingsRules.group_${g.id}`, g.label) })))}
 								onchange={(v) => { cond.field = v; }}
-								placeholder="Field…"
+								placeholder={$t('settingsRules.field_placeholder', 'Field…')}
 							/>
 							<Dropdown
 								bind:value={cond.operator}
-								options={operatorsForField(cond.field).map((op) => ({ value: op, label: operatorLabels[op] }))}
+								options={operatorsForField(cond.field).map((op) => ({ value: op, label: operatorLabel(op) }))}
 								onchange={(v) => { cond.operator = v as ProcessingRuleOperator; }}
-								placeholder="Operator…"
+								placeholder={$t('settingsRules.operator_placeholder', 'Operator…')}
 							/>
 							{#if ['exists', 'not_exists'].includes(cond.operator)}
 								<div></div>
@@ -666,14 +693,14 @@
 								{#if opts}
 									<Dropdown
 										bind:value={cond.value}
-										options={[{ value: '', label: 'Select...' }, ...opts.map((o) => ({ value: o, label: getOptionLabel(cond.field, o) }))]}
+										options={[{ value: '', label: $t('settingsRules.select_placeholder', 'Select...') }, ...opts.map((o) => ({ value: o, label: getOptionLabel(cond.field, o) }))]}
 										onchange={(v) => { cond.value = v; }}
-										placeholder="Select..."
+										placeholder={$t('settingsRules.select_placeholder', 'Select...')}
 									/>
 								{:else}
 									<input
 										bind:value={cond.value}
-										placeholder="Value"
+										placeholder={$t('settingsRules.value_placeholder', 'Value')}
 										class="h-[38px] rounded-lg border border-surface-600 bg-surface-900 px-3 text-laya-base text-surface-50 placeholder-surface-500"
 									/>
 								{/if}
@@ -683,7 +710,7 @@
 							<button
 								class="rounded p-1 text-surface-500 transition-colors hover:bg-surface-700 hover:text-red-400"
 								onclick={() => { formConditions = formConditions.filter((_, j) => j !== i); }}
-								aria-label="Remove condition"
+								aria-label={$t('settingsRules.remove_condition', 'Remove condition')}
 							>
 								<svg class="h-4 w-4" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
 							</button>
@@ -695,12 +722,12 @@
 			<button
 				class="mt-2 text-laya-secondary text-surface-400 hover:text-surface-200"
 				onclick={() => { formConditions = [...formConditions, { field: 'event.source.platform', operator: 'equals', value: '' }]; }}
-			>+ Add condition</button>
+			>{$t('settingsRules.add_condition', '+ Add condition')}</button>
 		</div>
 
 		<!-- THEN section -->
 		<div>
-			<span class="mb-2 block text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">Then</span>
+			<span class="mb-2 block text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{$t('settingsRules.form_then', 'Then')}</span>
 
 			<div class="space-y-3">
 				{#each formActions as action, i}
@@ -712,15 +739,15 @@
 						<div class="flex items-center gap-2">
 							<Dropdown
 								bind:value={action.type}
-								options={actionTypes.map((at) => ({ value: at.value, label: at.label }))}
+								options={actionTypes.map((at) => ({ value: at.value, label: actionTypeLabel(at.value, at.label) }))}
 								onchange={(v) => { action.type = v as typeof action.type; action.config = v === 'set_status' ? { status: 'dismissed' } : v === 'set_priority' ? { priority: 'HIGH' } : {}; }}
-								placeholder="Action type…"
+								placeholder={$t('settingsRules.action_type_placeholder', 'Action type…')}
 							/>
 							{#if formActions.length > 1}
 								<button
 									class="rounded p-1 text-surface-500 transition-colors hover:bg-surface-700 hover:text-red-400"
 									onclick={() => { formActions = formActions.filter((_, j) => j !== i); }}
-									aria-label="Remove action"
+									aria-label={$t('settingsRules.remove_action', 'Remove action')}
 								>
 									<svg class="h-4 w-4" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
 								</button>
@@ -733,37 +760,37 @@
 								<Dropdown
 									bind:value={action.config.status}
 									options={[
-										{ value: 'dismissed', label: 'Dismiss' },
-										{ value: 'archived', label: 'Archive' },
-										{ value: 'done', label: 'Mark Done' },
+										{ value: 'dismissed', label: $t('common.dismiss', 'Dismiss') },
+										{ value: 'archived', label: $t('settingsRules.status_archive', 'Archive') },
+										{ value: 'done', label: $t('settingsRules.status_mark_done', 'Mark Done') },
 									]}
 									onchange={(v) => { action.config.status = v; }}
-									placeholder="Status…"
+									placeholder={$t('settingsRules.status_placeholder', 'Status…')}
 								/>
-								<input bind:value={action.config.reason} placeholder="Reason (optional)" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+								<input bind:value={action.config.reason} placeholder={$t('settingsRules.reason_placeholder', 'Reason (optional)')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
 							</div>
 						{:else if action.type === 'set_priority'}
 							<div class="mt-3">
 								<Dropdown
 									bind:value={action.config.priority}
 									options={[
-										{ value: 'LOW', label: 'LOW' },
-										{ value: 'MEDIUM', label: 'MEDIUM' },
-										{ value: 'HIGH', label: 'HIGH' },
-										{ value: 'CRITICAL', label: 'CRITICAL' },
+										{ value: 'LOW', label: $t('shared.priority_LOW', 'LOW') },
+										{ value: 'MEDIUM', label: $t('shared.priority_MEDIUM', 'MEDIUM') },
+										{ value: 'HIGH', label: $t('shared.priority_HIGH', 'HIGH') },
+										{ value: 'CRITICAL', label: $t('shared.priority_CRITICAL', 'CRITICAL') },
 									]}
 									onchange={(v) => { action.config.priority = v; }}
-									placeholder="Priority…"
+									placeholder={$t('settingsRules.priority_placeholder', 'Priority…')}
 								/>
 							</div>
 						{:else if action.type === 'bookmark'}
-							<p class="mt-3 text-laya-base text-surface-500">Card will be bookmarked automatically.</p>
+							<p class="mt-3 text-laya-base text-surface-500">{$t('settingsRules.bookmark_desc', 'Card will be bookmarked automatically.')}</p>
 						{:else if action.type === 'add_tag'}
 							<div class="mt-3 space-y-2">
 								<div class="flex items-center gap-2">
 									<input
 										bind:value={action.config.tag_name}
-										placeholder="Tag name (e.g. billing, spam)"
+										placeholder={$t('settingsRules.tag_name_placeholder', 'Tag name (e.g. billing, spam)')}
 										list="tag-suggestions-{i}"
 										class="flex-1 rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500"
 									/>
@@ -780,13 +807,13 @@
 										onchange={(e) => { action.config.create_if_missing = String(e.currentTarget.checked); }}
 										class="rounded border-surface-600"
 									/>
-									Create tag if it doesn't exist
+									{$t('settingsRules.create_tag_if_missing', "Create tag if it doesn't exist")}
 								</label>
 							</div>
 						{:else if action.type === 'run_entity_agent'}
 							<textarea
 								bind:value={action.config.prompt_template}
-								placeholder="Agent prompt (optional). Use variables like: event.subject.title, classification.priority"
+								placeholder={$t('settingsRules.agent_prompt_placeholder', 'Agent prompt (optional). Use variables like: event.subject.title, classification.priority')}
 								rows="2"
 								class="mt-3 w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500"
 							></textarea>
@@ -794,23 +821,23 @@
 							<div class="mt-3 grid {action.config.platform ? 'grid-cols-3' : 'grid-cols-2'} gap-2">
 								<Dropdown
 									bind:value={action.config.platform}
-									options={[{ value: '', label: 'Select platform' }, ...composePlatforms.map((p) => ({ value: p.id, label: p.label }))]}
+									options={[{ value: '', label: $t('settingsRules.select_platform', 'Select platform') }, ...composePlatforms.map((p) => ({ value: p.id, label: p.label }))]}
 									onchange={(v) => { action.config.platform = v; action.config.action_type = ''; const conns = egressConnections.filter(c => c.platform === v && c.status === 'connected'); action.config.connection_id = conns.length === 1 ? conns[0].connection_id : ''; }}
-									placeholder="Select platform"
+									placeholder={$t('settingsRules.select_platform', 'Select platform')}
 								/>
 								{#if action.config.platform}
 									<Dropdown
 										bind:value={action.config.connection_id}
-										options={platformConnections.length > 1 ? [{ value: '', label: 'Any account' }, ...platformConnections.map((c) => ({ value: c.connection_id, label: c.name }))] : platformConnections.map((c) => ({ value: c.connection_id, label: c.name }))}
+										options={platformConnections.length > 1 ? [{ value: '', label: $t('settingsRules.any_account', 'Any account') }, ...platformConnections.map((c) => ({ value: c.connection_id, label: c.name }))] : platformConnections.map((c) => ({ value: c.connection_id, label: c.name }))}
 										onchange={(v) => { action.config.connection_id = v; }}
-										placeholder="Select account"
+										placeholder={$t('settingsRules.select_account', 'Select account')}
 									/>
 								{/if}
 								<Dropdown
 									bind:value={action.config.action_type}
-									options={[{ value: '', label: 'Select action' }, ...platformActions.map((pa) => ({ value: pa.action_type, label: pa.label }))]}
+									options={[{ value: '', label: $t('settingsRules.select_action', 'Select action') }, ...platformActions.map((pa) => ({ value: pa.action_type, label: pa.label }))]}
 									onchange={(v) => { action.config.action_type = v; }}
-									placeholder="Select action"
+									placeholder={$t('settingsRules.select_action', 'Select action')}
 									disabled={!action.config.platform}
 								/>
 							</div>
@@ -843,10 +870,10 @@
 							{/if}
 						{:else if action.type === 'send_notification'}
 							<div class="mt-3 space-y-2">
-								<input bind:value={action.config.title_template} placeholder="Notification title" class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+								<input bind:value={action.config.title_template} placeholder={$t('settingsRules.notification_title', 'Notification title')} class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
 								<textarea
 									bind:value={action.config.body_template}
-									placeholder="Notification body"
+									placeholder={$t('settingsRules.notification_body', 'Notification body')}
 									rows="2"
 									class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500"
 								></textarea>
@@ -859,7 +886,7 @@
 			<button
 				class="mt-2 text-laya-secondary text-surface-400 hover:text-surface-200"
 				onclick={() => { formActions = [...formActions, { type: 'set_status', config: { status: 'dismissed' } }]; }}
-			>+ Add action</button>
+			>{$t('settingsRules.add_action', '+ Add action')}</button>
 		</div>
 
 		<!-- Advanced (rate limiting) -->
@@ -868,42 +895,42 @@
 				class="text-laya-secondary text-surface-500 hover:text-surface-300"
 				onclick={() => (showAdvanced = !showAdvanced)}
 			>
-				{showAdvanced ? 'Hide' : 'Show'} advanced options
+				{showAdvanced ? $t('settingsRules.hide_advanced', 'Hide advanced options') : $t('settingsRules.show_advanced', 'Show advanced options')}
 			</button>
 			{#if showAdvanced}
 				<div transition:slide={{ duration: $reducedMotion ? 0 : 200 }} class="mt-2 grid grid-cols-3 gap-3">
 					<div>
 						<label for="rule-rate-limit" class="mb-1 flex items-center gap-1 text-laya-secondary text-surface-400">
-							Max per hour
+							{$t('settingsRules.max_per_hour', 'Max per hour')}
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<span class="cursor-help" onmouseenter={(e) => showTip(e.currentTarget as HTMLElement, 'Maximum times this rule can fire per hour globally')} onmouseleave={hideTip}>
+							<span class="cursor-help" onmouseenter={(e) => showTip(e.currentTarget as HTMLElement, $t('settingsRules.tip_max_per_hour', 'Maximum times this rule can fire per hour globally'))} onmouseleave={hideTip}>
 								<svg class="h-3 w-3 text-surface-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
 							</span>
 						</label>
 						<input id="rule-rate-limit" type="number" bind:value={formRateLimit} min="0" class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50" />
-						<p class="mt-1 text-laya-secondary text-surface-600">0 = unlimited</p>
+						<p class="mt-1 text-laya-secondary text-surface-600">{$t('settingsRules.zero_unlimited', '0 = unlimited')}</p>
 					</div>
 					<div>
 						<label for="rule-cooldown" class="mb-1 flex items-center gap-1 text-laya-secondary text-surface-400">
-							Entity cooldown
+							{$t('settingsRules.entity_cooldown', 'Entity cooldown')}
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<span class="cursor-help" onmouseenter={(e) => showTip(e.currentTarget as HTMLElement, 'Minimum seconds between firings for the same entity (e.g. same PR)')} onmouseleave={hideTip}>
+							<span class="cursor-help" onmouseenter={(e) => showTip(e.currentTarget as HTMLElement, $t('settingsRules.tip_cooldown', 'Minimum seconds between firings for the same entity (e.g. same PR)'))} onmouseleave={hideTip}>
 								<svg class="h-3 w-3 text-surface-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
 							</span>
 						</label>
 						<input id="rule-cooldown" type="number" bind:value={formCooldownSecs} min="0" class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50" />
-						<p class="mt-1 text-laya-secondary text-surface-600">In seconds, 0 = none</p>
+						<p class="mt-1 text-laya-secondary text-surface-600">{$t('settingsRules.cooldown_hint', 'In seconds, 0 = none')}</p>
 					</div>
 					<div>
 						<label for="rule-max-daily" class="mb-1 flex items-center gap-1 text-laya-secondary text-surface-400">
-							Max per day
+							{$t('settingsRules.max_per_day', 'Max per day')}
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<span class="cursor-help" onmouseenter={(e) => showTip(e.currentTarget as HTMLElement, 'Maximum total firings per calendar day. Prevents runaway rules.')} onmouseleave={hideTip}>
+							<span class="cursor-help" onmouseenter={(e) => showTip(e.currentTarget as HTMLElement, $t('settingsRules.tip_max_per_day', 'Maximum total firings per calendar day. Prevents runaway rules.'))} onmouseleave={hideTip}>
 								<svg class="h-3 w-3 text-surface-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
 							</span>
 						</label>
 						<input id="rule-max-daily" type="number" bind:value={formMaxDaily} min="0" class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50" />
-						<p class="mt-1 text-laya-secondary text-surface-600">0 = unlimited</p>
+						<p class="mt-1 text-laya-secondary text-surface-600">{$t('settingsRules.zero_unlimited', '0 = unlimited')}</p>
 					</div>
 				</div>
 			{/if}
@@ -911,15 +938,18 @@
 
 		<!-- Preview -->
 		{#if previewResult}
+			{@const matchedParts = (previewResult.match_count === 1
+				? $t('settingsRules.preview_matched_one', '{count} card matched in the last 7 days')
+				: $t('settingsRules.preview_matched_other', '{count} cards matched in the last 7 days')).split('{count}')}
 			<div class="rounded-md border border-surface-700 bg-surface-900/50 p-3">
 				<p class="text-laya-secondary text-surface-300">
-					<span class="font-medium text-laya-orange">{previewResult.match_count}</span> cards matched in the last 7 days
+					{matchedParts[0]}<span class="font-medium text-laya-orange">{previewResult.match_count}</span>{matchedParts.slice(1).join('')}
 				</p>
 				{#if previewResult.sample_cards.length > 0}
 					<div class="mt-1.5 space-y-1">
 						{#each previewResult.sample_cards as card}
 							<div class="flex items-center gap-2 text-laya-secondary text-surface-400">
-								<span class="rounded bg-surface-700 px-1 py-0.5 text-laya-micro">{card.priority}</span>
+								<span class="rounded bg-surface-700 px-1 py-0.5 text-laya-micro">{$t(`shared.priority_${card.priority}`, card.priority)}</span>
 								<span class="truncate">{card.header}</span>
 							</div>
 						{/each}
@@ -935,20 +965,20 @@
 				onclick={saveRule}
 				disabled={saving || !formName.trim()}
 			>
-				{saving ? 'Saving...' : editingId !== null ? 'Update Rule' : 'Create Rule'}
+				{saving ? $t('settingsRules.saving', 'Saving...') : editingId !== null ? $t('settingsRules.update_rule', 'Update Rule') : $t('settingsRules.create_rule', 'Create Rule')}
 			</button>
 			<button
 				class="rounded-md border border-surface-600 px-3 py-1.5 text-laya-secondary text-surface-400 transition-colors hover:text-surface-200 disabled:opacity-50"
 				onclick={testCondition}
 				disabled={previewing || !hasValidConditions}
 			>
-				{previewing ? 'Testing...' : 'Test Condition'}
+				{previewing ? $t('settingsRules.testing', 'Testing...') : $t('settingsRules.test_condition', 'Test Condition')}
 			</button>
 			<button
 				class="ml-auto text-laya-secondary text-surface-400 hover:text-surface-200"
 				onclick={() => { formMode = 'closed'; resetForm(); }}
 			>
-				Cancel
+				{$t('common.cancel', 'Cancel')}
 			</button>
 		</div>
 	</div>

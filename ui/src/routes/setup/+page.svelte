@@ -6,6 +6,7 @@
 	import { engineApi } from '$lib/api/engine';
 	import type { CustomProvider, DiscoveredModel } from '$lib/api/types';
 	import { CODING_AGENTS } from '$lib/config';
+	import { t } from '$lib/i18n';
 
 	interface RepoDetection {
 		path: string;
@@ -33,7 +34,8 @@
 	const providerLabels: Record<string, string> = {
 		anthropic: 'Anthropic (Claude)',
 		openai: 'OpenAI',
-		google: 'Google (Gemini)'
+		google: 'Google (Gemini)',
+		ollama: 'Ollama (Local Servidor)'
 	};
 
 	// Provider-to-model defaults: small model for router, large model for stager/chat/trace
@@ -68,13 +70,17 @@
 		{ id: 'openai_compatible', label: 'OpenAI Compatible', defaultUrl: 'http://localhost:8080' }
 	];
 
-	const roles = [
-		{ id: 'router', label: 'Router', hint: 'Classifies incoming events (use a fast/cheap model)' },
-		{ id: 'stager', label: 'Stager', hint: 'Synthesises action cards (use a capable model)' },
-		{ id: 'chat', label: 'Chat', hint: 'Conversational responses' },
-		{ id: 'trace', label: 'Coherence', hint: 'Generates trace narratives' },
-		{ id: 'omni', label: 'Omni', hint: 'Resynthesises rolling summaries' }
-	];
+	const roles = $derived([
+		{ id: 'router', label: $t('settingsModels.role_router', 'Router'), hint: $t('setupLegal.role_router_hint', 'Classifies incoming events (use a fast/cheap model)') },
+		{ id: 'stager', label: $t('settingsModels.role_stager', 'Stager'), hint: $t('setupLegal.role_stager_hint', 'Synthesises action cards (use a capable model)') },
+		{ id: 'chat', label: $t('common.chat', 'Chat'), hint: $t('setupLegal.role_chat_hint', 'Conversational responses') },
+		{ id: 'trace', label: $t('nav.coherence', 'Coherence'), hint: $t('setupLegal.role_trace_hint', 'Generates trace narratives') },
+		{ id: 'omni', label: 'Omni', hint: $t('setupLegal.role_omni_hint', 'Resynthesises rolling summaries') }
+	]);
+
+	function providerDisplayLabel(key: { provider: string; label: string }): string {
+		return key.provider === 'ollama' ? $t('setup.ollama_option', 'Ollama (Local Server)') : key.label;
+	}
 
 	// Derived: whether step 2 needs to show provider picker
 	const needsProviderChoice = $derived(
@@ -135,6 +141,17 @@
 	let muteRandom = $state(false);
 
 	async function saveApiKey() {
+		if (provider === 'ollama') {
+			useSelfHosted = true;
+			selfHostedProviderType = 'ollama';
+			selfHostedName = 'Ollama Local';
+			selfHostedUrl = 'http://localhost:11434';
+			await addSelfHostedProvider();
+			savedKeys = [...savedKeys.filter((k) => k.provider !== 'ollama'), { provider: 'ollama', label: 'Ollama (Local Servidor)' }];
+			keyStatus = 'saved';
+			return;
+		}
+
 		if (!apiKey.trim()) return;
 		try {
 			await engineApi.setApiKey(provider, apiKey.trim());
@@ -210,7 +227,7 @@
 			// Auto-test and discover models
 			await testAndDiscoverModels(resp.provider.id);
 		} catch (e: any) {
-			selfHostedError = e.message || 'Failed to add provider';
+			selfHostedError = e.message || $t('setupLegal.add_provider_failed', 'Failed to add provider');
 		} finally {
 			addingSelfHosted = false;
 		}
@@ -303,7 +320,7 @@
 			bootstrapMessage = result.message;
 			n8nStatus = result.has_api_key ? 'configured' : 'running';
 		} catch {
-			bootstrapMessage = 'Failed to auto-configure n8n';
+			bootstrapMessage = $t('setupLegal.n8n_bootstrap_failed', 'Failed to auto-configure n8n');
 		} finally {
 			bootstrapping = false;
 		}
@@ -443,9 +460,9 @@
 	<!-- Step 1: Welcome + API Key -->
 	{#if step === 1}
 		<div class="space-y-4">
-			<h2 class="text-xl font-semibold">Welcome to Laya</h2>
+			<h2 class="text-xl font-semibold">{$t('setup.welcome', 'Welcome to Laya')}</h2>
 			<p class="text-sm text-surface-400">
-				Let's get you set up. First, add an API key for your LLM provider.
+				{$t('setupLegal.intro', "Let's get you set up. First, add an API key for your LLM provider.")}
 			</p>
 
 			<!-- Saved keys -->
@@ -454,8 +471,8 @@
 					{#each savedKeys as key}
 						<div class="flex items-center gap-2 rounded-md border border-green-500/20 bg-green-500/5 px-3 py-2">
 							<span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-							<span class="text-sm text-surface-200">{key.label}</span>
-							<span class="text-xs text-green-400">saved</span>
+							<span class="text-sm text-surface-200">{providerDisplayLabel(key)}</span>
+							<span class="text-xs text-green-400">{$t('setupLegal.saved', 'saved')}</span>
 						</div>
 					{/each}
 				</div>
@@ -463,7 +480,7 @@
 
 			<div class="space-y-3">
 				<label class="block text-sm font-medium">
-					Provider
+					{$t('setup.provider', 'AI Provider')}
 					<select
 						class="mt-1 block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
 						bind:value={provider}
@@ -471,29 +488,55 @@
 						<option value="anthropic">Anthropic (Claude)</option>
 						<option value="openai">OpenAI</option>
 						<option value="google">Google (Gemini)</option>
+						<option value="ollama">{$t('setup.ollama_option', 'Ollama (Local Server)')}</option>
 					</select>
 				</label>
 
-				<label class="block text-sm font-medium">
-					API Key
-					<input
-						type="password"
-						class="mt-1 block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
-						placeholder="sk-..."
-						bind:value={apiKey}
-					/>
-				</label>
+				{#if provider === 'ollama'}
+					<div class="rounded-lg border border-laya-orange/30 bg-laya-orange/10 p-3 space-y-2 text-xs">
+						<div class="font-semibold text-laya-orange flex items-center gap-2">
+							<span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+							{$t('setupLegal.ollama_server_title', 'Ollama Local Server ({url})', { url: 'http://localhost:11434' })}
+						</div>
+						<div class="text-surface-300">
+							{$t('setupLegal.ollama_inline_desc', 'Connects directly to your local Ollama to list and select which installed model you want to use (e.g. llama3.2, deepseek-coder-v2). No paid API key is required.')}
+						</div>
+					</div>
 
-				<button
-					class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
-					onclick={saveApiKey}
-					disabled={!apiKey.trim()}
-				>
-					Save Key
-				</button>
+					<button
+						class="rounded-md bg-laya-orange px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-laya-orange/90 disabled:opacity-50 flex items-center gap-2"
+						onclick={saveApiKey}
+						disabled={addingSelfHosted}
+					>
+						{#if addingSelfHosted}
+							<span class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+							{$t('setupLegal.connecting_ollama', 'Connecting to Ollama...')}
+						{:else}
+							{$t('setup.connect_ollama', 'Connect Ollama & Discover Models')}
+						{/if}
+					</button>
+				{:else}
+					<label class="block text-sm font-medium">
+						{$t('setup.api_key', 'API Key')}
+						<input
+							type="password"
+							class="mt-1 block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
+							placeholder="sk-..."
+							bind:value={apiKey}
+						/>
+					</label>
+
+					<button
+						class="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
+						onclick={saveApiKey}
+						disabled={!apiKey.trim()}
+					>
+						{$t('setup.save_key', 'Save Key')}
+					</button>
+				{/if}
 
 				{#if keyStatus === 'error'}
-					<p class="text-sm text-red-400">Failed to save key</p>
+					<p class="text-sm text-red-400">{$t('setupLegal.key_error', 'Failed to save key / connect provider')}</p>
 				{/if}
 			</div>
 
@@ -505,8 +548,8 @@
 					: 'border-surface-600 bg-surface-800 hover:border-surface-500'}">
 					<input type="checkbox" class="accent-laya-orange" bind:checked={useSelfHosted} />
 					<div>
-						<div class="text-sm font-medium">I want to use a self-hosted model</div>
-						<div class="text-xs text-surface-400">Configure a local provider like Ollama, LM Studio, or any OpenAI-compatible server</div>
+						<div class="text-sm font-medium">{$t('setup.self_hosted_checkbox', 'I want to use a self-hosted model')}</div>
+						<div class="text-xs text-surface-400">{$t('setup.self_hosted_desc', 'Configure a local provider like Ollama, LM Studio, or any OpenAI-compatible server')}</div>
 					</div>
 				</label>
 			</div>
@@ -515,12 +558,12 @@
 	<!-- Step 2: Configure Default Models -->
 	{:else if step === 2}
 		<div class="space-y-4">
-			<h2 class="text-xl font-semibold">Configure Default Models</h2>
+			<h2 class="text-xl font-semibold">{$t('setupLegal.models_title', 'Configure Default Models')}</h2>
 
 			<!-- Provider choice (when multiple options exist) -->
 			{#if needsProviderChoice}
 				<p class="text-sm text-surface-400">
-					You have multiple providers available. Choose which one to use as the default for Laya's pipeline.
+					{$t('setupLegal.multiple_providers', "You have multiple providers available. Choose which one to use as the default for Laya's pipeline.")}
 				</p>
 
 				<div class="space-y-2">
@@ -533,10 +576,10 @@
 						>
 							<input type="radio" bind:group={defaultProvider} value={key.provider} class="accent-laya-orange" />
 							<div>
-								<div class="text-sm font-medium">{key.label}</div>
+								<div class="text-sm font-medium">{providerDisplayLabel(key)}</div>
 								<div class="text-xs text-surface-400">
 									{#if providerModelDefaults[key.provider]}
-										Router: {providerModelDefaults[key.provider].router} / Others: {providerModelDefaults[key.provider].stager}
+										{$t('setupLegal.provider_defaults', 'Router: {router} / Others: {others}', { router: providerModelDefaults[key.provider].router, others: providerModelDefaults[key.provider].stager })}
 									{/if}
 								</div>
 							</div>
@@ -552,15 +595,15 @@
 						>
 							<input type="radio" bind:group={defaultProvider} value="self-hosted" class="accent-laya-orange" />
 							<div>
-								<div class="text-sm font-medium">Self-hosted model</div>
-								<div class="text-xs text-surface-400">Use a locally running model server</div>
+								<div class="text-sm font-medium">{$t('setupLegal.self_hosted_model', 'Self-hosted model')}</div>
+								<div class="text-xs text-surface-400">{$t('setupLegal.self_hosted_model_desc', 'Use a locally running model server')}</div>
 							</div>
 						</label>
 					{/if}
 				</div>
 			{:else if selfHostedOnly}
 				<p class="text-sm text-surface-400">
-					Set up your self-hosted model provider and select models for each pipeline role.
+					{$t('setupLegal.self_hosted_only_intro', 'Set up your self-hosted model provider and select models for each pipeline role.')}
 				</p>
 			{/if}
 
@@ -569,35 +612,35 @@
 				<div class="space-y-4 rounded-lg border border-surface-600 bg-surface-900/50 p-4">
 					{#if !selfHostedProvider || selfHostedEditing}
 						<h3 class="text-sm font-semibold text-surface-200">
-							{selfHostedProvider ? 'Edit Local Provider' : 'Add Local Provider'}
+							{selfHostedProvider ? $t('setupLegal.edit_local_provider', 'Edit Local Provider') : $t('setupLegal.add_local_provider', 'Add Local Provider')}
 						</h3>
 
 						<div class="space-y-3">
 							<label class="block text-sm font-medium">
-								Provider Type
+								{$t('setupLegal.provider_type', 'Provider Type')}
 								<select
 									class="mt-1 block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
 									value={selfHostedProviderType}
 									onchange={(e) => handleSelfHostedTypeChange((e.target as HTMLSelectElement).value)}
 								>
 									{#each selfHostedProviderTypes as pt}
-										<option value={pt.id}>{pt.label}</option>
+										<option value={pt.id}>{pt.id === 'openai_compatible' ? $t('setupLegal.provider_type_openai_compatible', pt.label) : pt.label}</option>
 									{/each}
 								</select>
 							</label>
 
 							<label class="block text-sm font-medium">
-								Name
+								{$t('setupLegal.name', 'Name')}
 								<input
 									type="text"
 									class="mt-1 block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
-									placeholder="My Local Server"
+									placeholder={$t('setupLegal.name_placeholder', 'My Local Server')}
 									bind:value={selfHostedName}
 								/>
 							</label>
 
 							<label class="block text-sm font-medium">
-								Base URL
+								{$t('setupLegal.base_url', 'Base URL')}
 								<input
 									type="text"
 									class="mt-1 block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
@@ -606,11 +649,11 @@
 							</label>
 
 							<label class="block text-sm font-medium">
-								API Key <span class="text-xs text-surface-500">(optional)</span>
+								{$t('setup.api_key', 'API Key')} <span class="text-xs text-surface-500">{$t('setupLegal.optional', '(optional)')}</span>
 								<input
 									type="password"
 									class="mt-1 block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
-									placeholder="Leave blank if not required"
+									placeholder={$t('setupLegal.api_key_placeholder', 'Leave blank if not required')}
 									bind:value={selfHostedApiKey}
 								/>
 							</label>
@@ -622,9 +665,9 @@
 									disabled={!selfHostedName.trim() || !selfHostedUrl.trim() || addingSelfHosted}
 								>
 									{#if addingSelfHosted}
-										{selfHostedProvider ? 'Updating...' : 'Adding...'}
+										{selfHostedProvider ? $t('setupLegal.updating', 'Updating...') : $t('setupLegal.adding', 'Adding...')}
 									{:else}
-										{selfHostedProvider ? 'Update & Discover Models' : 'Add & Discover Models'}
+										{selfHostedProvider ? $t('setupLegal.update_discover', 'Update & Discover Models') : $t('setupLegal.add_discover', 'Add & Discover Models')}
 									{/if}
 								</button>
 								{#if selfHostedProvider}
@@ -632,7 +675,7 @@
 										class="text-xs text-surface-400 hover:text-surface-200"
 										onclick={cancelEditSelfHosted}
 									>
-										Cancel
+										{$t('common.cancel', 'Cancel')}
 									</button>
 								{/if}
 							</div>
@@ -650,7 +693,7 @@
 								<span class="ml-2 text-xs text-surface-400">{selfHostedProvider.base_url}</span>
 							</div>
 							{#if selfHostedTesting}
-								<span class="text-xs text-surface-400">Testing...</span>
+								<span class="text-xs text-surface-400">{$t('setupLegal.testing', 'Testing...')}</span>
 							{:else}
 								<div class="ml-auto flex items-center gap-3">
 									{#if selfHostedTestOk === false}
@@ -658,14 +701,14 @@
 											class="text-xs text-primary-400 hover:text-primary-300"
 											onclick={() => selfHostedProvider && testAndDiscoverModels(selfHostedProvider.id)}
 										>
-											Retry
+											{$t('common.retry', 'Retry')}
 										</button>
 									{/if}
 									<button
 										class="text-xs text-surface-400 hover:text-surface-200"
 										onclick={editSelfHostedProvider}
 									>
-										Change URL
+										{$t('setupLegal.change_url', 'Change URL')}
 									</button>
 								</div>
 							{/if}
@@ -673,15 +716,41 @@
 
 						{#if selfHostedTestOk === false}
 							<p class="text-sm text-red-400">
-								Could not connect to provider. Check the Base URL is correct and the server is
-								running, then use "Change URL" to fix it or "Retry".
+								{$t('setupLegal.connect_failed', 'Could not connect to provider. Check the Base URL is correct and the server is running, then use "{changeUrl}" to fix it or "{retry}".', { changeUrl: $t('setupLegal.change_url', 'Change URL'), retry: $t('common.retry', 'Retry') })}
 							</p>
 						{/if}
 
 						{#if selfHostedModelsLoading}
-							<p class="text-sm text-surface-400">Discovering models...</p>
+							<p class="text-sm text-surface-400">{$t('setupLegal.discovering_models', 'Discovering models from Ollama...')}</p>
 						{:else if selfHostedModels.length > 0}
-							<h3 class="text-sm font-semibold text-surface-200 pt-2">Select models for each pipeline role</h3>
+							<div class="pt-2 space-y-3">
+								<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-surface-950 p-3 rounded-lg border border-laya-orange/30">
+									<span class="text-xs font-semibold text-laya-orange">{$t('setup.quick_picker', 'Quick Model Picker (Apply model to all roles):')}</span>
+									<select
+										class="rounded-md border border-surface-600 bg-surface-800 px-2.5 py-1 text-xs text-surface-200"
+										onchange={(e) => {
+											const selected = (e.target as HTMLSelectElement).value;
+											if (selected) {
+												selfHostedModelSelections = {
+													router: selected,
+													stager: selected,
+													chat: selected,
+													trace: selected,
+													omni: selected
+												};
+											}
+										}}
+									>
+										<option value="">{$t('setupLegal.select_ollama_model', 'Select an Ollama model...')}</option>
+										{#each selfHostedModels as model}
+											<option value={model.id}>{model.name} {model.params ? `(${model.params})` : ''}</option>
+										{/each}
+									</select>
+								</div>
+
+								<h3 class="text-sm font-semibold text-surface-200 pt-1">{$t('setup.select_role_models', 'Select models for each pipeline role')}</h3>
+							</div>
+
 							<div class="space-y-3">
 								{#each roles as role}
 									<label class="block text-sm font-medium">
@@ -691,7 +760,7 @@
 											class="mt-1 block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
 											bind:value={selfHostedModelSelections[role.id]}
 										>
-											<option value="">Select a model...</option>
+											<option value="">{$t('setupLegal.select_model', 'Select a model...')}</option>
 											{#each selfHostedModels as model}
 												<option value={model.id}>{model.name}{model.params ? ` (${model.params})` : ''}{model.quantization ? ` [${model.quantization}]` : ''}</option>
 											{/each}
@@ -700,7 +769,7 @@
 								{/each}
 							</div>
 						{:else if selfHostedTestOk}
-							<p class="text-sm text-yellow-400">No LLM models found on this provider. Make sure you have models loaded.</p>
+							<p class="text-sm text-yellow-400">{$t('setupLegal.no_models', 'No LLM models found on this provider. Make sure you have models loaded.')}</p>
 						{/if}
 					{/if}
 				</div>
@@ -708,8 +777,9 @@
 
 			<!-- Single cloud provider confirmation -->
 			{#if !needsProviderChoice && !selfHostedOnly && savedKeys.length === 1}
+				{@const [beforeProvider, afterProvider = ''] = $t('setupLegal.setting_defaults', 'Setting up defaults for {provider}...').split('{provider}')}
 				<p class="text-sm text-surface-400">
-					Setting up defaults for <strong class="text-surface-200">{savedKeys[0].label}</strong>...
+					{beforeProvider}<strong class="text-surface-200">{providerDisplayLabel(savedKeys[0])}</strong>{afterProvider}
 				</p>
 			{/if}
 		</div>
@@ -717,10 +787,9 @@
 	<!-- Step 3: Connect Tools -->
 	{:else if step === 3}
 		<div class="space-y-4">
-			<h2 class="text-xl font-semibold">Connect Tools</h2>
+			<h2 class="text-xl font-semibold">{$t('setupLegal.tools_title', 'Connect Tools')}</h2>
 			<p class="text-sm text-surface-400">
-				Laya uses n8n to connect to your tools (Jira, Slack, GitHub, etc.). Let's make sure
-				it's ready.
+				{$t('setupLegal.tools_intro', "Laya uses n8n to connect to your tools (Jira, Slack, GitHub, etc.). Let's make sure it's ready.")}
 			</p>
 
 			<div class="rounded-md border border-surface-600 bg-surface-700 p-4">
@@ -737,13 +806,13 @@
 					></span>
 					<span class="text-sm font-medium">
 						{#if n8nStatus === 'configured'}
-							n8n is connected and ready
+							{$t('setupLegal.n8n_configured', 'n8n is connected and ready')}
 						{:else if n8nStatus === 'running'}
-							n8n is running
+							{$t('setupLegal.n8n_running', 'n8n is running')}
 						{:else if n8nStatus === 'not_running'}
-							n8n is not running
+							{$t('setupLegal.n8n_not_running', 'n8n is not running')}
 						{:else}
-							Checking n8n...
+							{$t('setupLegal.n8n_checking', 'Checking n8n...')}
 						{/if}
 					</span>
 				</div>
@@ -759,36 +828,36 @@
 
 				{#if n8nStatus === 'not_running'}
 					<p class="mt-3 text-sm text-surface-400">
-						n8n will start automatically when the app launches. Click retry to check again.
+						{$t('setupLegal.n8n_autostart', 'n8n will start automatically when the app launches. Click retry to check again.')}
 					</p>
 					<button
 						onclick={checkN8n}
 						class="mt-2 rounded-md bg-surface-600 px-4 py-2 text-sm font-medium transition-colors hover:bg-surface-500"
 					>
-						Retry
+						{$t('common.retry', 'Retry')}
 					</button>
 				{:else if n8nStatus === 'running' && !bootstrapping}
 					<button
 						onclick={doBootstrap}
 						class="mt-3 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
 					>
-						Auto-configure
+						{$t('setupLegal.auto_configure', 'Auto-configure')}
 					</button>
 				{:else if bootstrapping}
-					<p class="mt-3 text-sm text-surface-400">Setting up n8n...</p>
+					<p class="mt-3 text-sm text-surface-400">{$t('setupLegal.n8n_setting_up', 'Setting up n8n...')}</p>
 				{/if}
 			</div>
 
 			<p class="text-xs text-surface-500">
-				You can skip this and configure integrations later in Settings.
+				{$t('setupLegal.tools_skip', 'You can skip this and configure integrations later in Settings.')}
 			</p>
 		</div>
 
 	<!-- Step 4: Coding Agent + Repo -->
 	{:else if step === 4}
 		<div class="space-y-4">
-			<h2 class="text-xl font-semibold">Coding Agent (optional)</h2>
-			<p class="text-sm text-surface-400">Choose a coding agent for automated code tasks, or skip if you don't need one.</p>
+			<h2 class="text-xl font-semibold">{$t('setupLegal.agent_title', 'Coding Agent (optional)')}</h2>
+			<p class="text-sm text-surface-400">{$t('setupLegal.agent_intro', "Choose a coding agent for automated code tasks, or skip if you don't need one.")}</p>
 
 			<div class="space-y-2">
 				{#each CODING_AGENTS as option}
@@ -800,15 +869,15 @@
 					>
 						<input type="radio" bind:group={codingAgent} value={option.value} class="accent-laya-orange" />
 						<div>
-							<div class="text-sm font-medium">{option.label}</div>
-							<div class="text-xs text-surface-400">{option.description}</div>
+							<div class="text-sm font-medium">{option.value === 'none' ? $t('settingsRules.agent_label_none', option.label) : option.label}</div>
+							<div class="text-xs text-surface-400">{$t(`settingsRules.agent_desc_${option.value}`, option.description)}</div>
 						</div>
 					</label>
 				{/each}
 			</div>
 
 			<div class="space-y-3 pt-2">
-				<p class="text-sm font-medium">Repositories (optional)</p>
+				<p class="text-sm font-medium">{$t('setupLegal.repos_title', 'Repositories (optional)')}</p>
 
 				{#if savedRepos.length > 0}
 					<div class="max-h-32 space-y-1.5 overflow-y-auto pr-1">
@@ -821,7 +890,7 @@
 									class="shrink-0 text-xs text-red-400 hover:text-red-300"
 									onclick={() => removeRepo(i)}
 								>
-									Remove
+									{$t('setupLegal.remove', 'Remove')}
 								</button>
 							</div>
 						{/each}
@@ -834,7 +903,7 @@
 						onclick={browseRepo}
 						disabled={browsing}
 					>
-						{browsing ? 'Opening...' : 'Browse...'}
+						{browsing ? $t('setupLegal.opening', 'Opening...') : $t('setupLegal.browse', 'Browse...')}
 					</button>
 					{#if repoBrowseStatus && !repoBrowseStatus.ok}
 						<span class="text-sm text-red-400">{repoBrowseStatus.msg}</span>
@@ -844,7 +913,7 @@
 							class="text-xs text-surface-500 hover:text-surface-300"
 							onclick={() => showManualRepo = true}
 						>
-							or add manually
+							{$t('setupLegal.add_manually', 'or add manually')}
 						</button>
 					{/if}
 				</div>
@@ -854,13 +923,13 @@
 						<input
 							type="text"
 							class="block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
-							placeholder="Repository name"
+							placeholder={$t('setupLegal.repo_name_placeholder', 'Repository name')}
 							bind:value={repoName}
 						/>
 						<input
 							type="text"
 							class="block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm"
-							placeholder="/path/to/repo"
+							placeholder={$t('setupLegal.repo_path_placeholder', '/path/to/repo')}
 							bind:value={repoPath}
 						/>
 						<div class="flex items-center gap-2">
@@ -869,13 +938,13 @@
 								onclick={addRepo}
 								disabled={!repoName.trim() || !repoPath.trim()}
 							>
-								Add
+								{$t('setupLegal.add', 'Add')}
 							</button>
 							<button
 								class="text-xs text-surface-500 hover:text-surface-300"
 								onclick={() => { showManualRepo = false; repoName = ''; repoPath = ''; }}
 							>
-								Cancel
+								{$t('common.cancel', 'Cancel')}
 							</button>
 						</div>
 					</div>
@@ -886,8 +955,8 @@
 	<!-- Step 5: Team Members -->
 	{:else if step === 5}
 		<div class="space-y-4">
-			<h2 class="text-xl font-semibold">Team Members</h2>
-			<p class="text-sm text-surface-400">Add people Laya should recognize in events.</p>
+			<h2 class="text-xl font-semibold">{$t('setupLegal.team_title', 'Team Members')}</h2>
+			<p class="text-sm text-surface-400">{$t('setupLegal.team_intro', 'Add people Laya should recognize in events.')}</p>
 
 			<div class="space-y-3">
 				{#each members as member, i}
@@ -896,13 +965,13 @@
 							<input
 								type="text"
 								class="block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-1.5 text-sm"
-								placeholder="Name"
+								placeholder={$t('setupLegal.name', 'Name')}
 								bind:value={member.name}
 							/>
 							<input
 								type="email"
 								class="block w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-1.5 text-sm"
-								placeholder="Email"
+								placeholder={$t('setupLegal.email', 'Email')}
 								bind:value={member.email}
 							/>
 						</div>
@@ -910,15 +979,16 @@
 							class="rounded-md border border-surface-600 bg-surface-700 px-2 py-1.5 text-sm"
 							bind:value={member.role}
 						>
-							<option value="teammate">Teammate</option>
-							<option value="manager">Manager</option>
-							<option value="stakeholder">Stakeholder</option>
-							<option value="bot">Bot</option>
+							<option value="teammate">{$t('setupLegal.role_teammate', 'Teammate')}</option>
+							<option value="manager">{$t('setupLegal.role_manager', 'Manager')}</option>
+							<option value="stakeholder">{$t('setupLegal.role_stakeholder', 'Stakeholder')}</option>
+							<option value="bot">{$t('setupLegal.role_bot', 'Bot')}</option>
 						</select>
 						{#if members.length > 1}
 							<button
 								class="rounded-md px-2 py-1.5 text-sm text-red-400 hover:text-red-300"
 								onclick={() => removeMember(i)}
+								aria-label={$t('setupLegal.remove_member', 'Remove member')}
 							>
 								X
 							</button>
@@ -931,30 +1001,30 @@
 				class="text-sm text-primary-400 hover:text-primary-300"
 				onclick={addMember}
 			>
-				+ Add member
+				{$t('setupLegal.add_member', '+ Add member')}
 			</button>
 		</div>
 
 	<!-- Step 6: Filter Presets -->
 	{:else if step === 6}
 		<div class="space-y-4">
-			<h2 class="text-xl font-semibold">Filters</h2>
-			<p class="text-sm text-surface-400">Choose which events to filter out automatically.</p>
+			<h2 class="text-xl font-semibold">{$t('setupLegal.filters_title', 'Filters')}</h2>
+			<p class="text-sm text-surface-400">{$t('setupLegal.filters_intro', 'Choose which events to filter out automatically.')}</p>
 
 			<div class="space-y-3">
 				<label class="flex items-center gap-3 rounded-md border border-surface-600 p-3">
 					<input type="checkbox" class="accent-laya-orange" bind:checked={ignoreBots} />
 					<div>
-						<div class="text-sm font-medium">Ignore bot messages</div>
-						<div class="text-xs text-surface-400">Filter events from CI bots, webhooks, etc.</div>
+						<div class="text-sm font-medium">{$t('setupLegal.ignore_bots', 'Ignore bot messages')}</div>
+						<div class="text-xs text-surface-400">{$t('setupLegal.ignore_bots_desc', 'Filter events from CI bots, webhooks, etc.')}</div>
 					</div>
 				</label>
 
 				<label class="flex items-center gap-3 rounded-md border border-surface-600 p-3">
 					<input type="checkbox" class="accent-laya-orange" bind:checked={muteRandom} />
 					<div>
-						<div class="text-sm font-medium">Mute #random</div>
-						<div class="text-xs text-surface-400">Filter Slack messages from #random channel</div>
+						<div class="text-sm font-medium">{$t('setupLegal.mute_random', 'Mute #random')}</div>
+						<div class="text-xs text-surface-400">{$t('setupLegal.mute_random_desc', 'Filter Slack messages from #random channel')}</div>
 					</div>
 				</label>
 			</div>
@@ -968,7 +1038,7 @@
 				class="rounded-md bg-surface-600 px-4 py-2 text-sm font-medium text-surface-200 transition-colors hover:bg-surface-500"
 				onclick={() => (step -= 1)}
 			>
-				Back
+				{$t('common.back', 'Back')}
 			</button>
 		{:else}
 			<div></div>
@@ -981,11 +1051,11 @@
 				disabled={step === 2 && !step2CanProceed()}
 			>
 				{#if step === 1 && savedKeys.length === 0 && !useSelfHosted}
-					Skip
+					{$t('setupLegal.skip', 'Skip')}
 				{:else if step === 2 && settingDefaults}
-					Saving...
+					{$t('setupLegal.saving', 'Saving...')}
 				{:else}
-					Next
+					{$t('common.next', 'Next')}
 				{/if}
 			</button>
 		{:else}
@@ -993,7 +1063,7 @@
 				class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-500"
 				onclick={finish}
 			>
-				Finish Setup
+				{$t('setupLegal.finish', 'Finish Setup')}
 			</button>
 		{/if}
 	</div>

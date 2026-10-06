@@ -6,6 +6,7 @@
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		card,
@@ -64,7 +65,7 @@
 	);
 
 	let timeStr = $derived(
-		parseBackendDate(card.created_at)?.toLocaleString(undefined, {
+		parseBackendDate(card.created_at)?.toLocaleString($locale, {
 			month: 'short',
 			day: 'numeric',
 			hour: '2-digit',
@@ -73,11 +74,14 @@
 	);
 
 	let shortTime = $derived(
-		parseBackendDate(card.created_at)?.toLocaleString(undefined, {
+		parseBackendDate(card.created_at)?.toLocaleString($locale, {
 			month: 'short',
 			day: 'numeric'
 		}) ?? ''
 	);
+
+	let priorityLabel = $derived($t(`shared.priority_${card.priority}`, card.priority));
+	let sourceName = $derived(platform || $t('omniTrace.source_fallback', 'source'));
 </script>
 
 {#if compact}
@@ -106,7 +110,7 @@
 
 			<!-- Priority badge -->
 			<span class="px-1 py-0 rounded text-laya-micro font-medium shrink-0 ml-1.5 {priorityColors[card.priority] || ''}">
-				{card.priority[0]}
+				{priorityLabel[0]}
 			</span>
 
 			<!-- Time -->
@@ -163,7 +167,7 @@
 						class="inline-flex items-center gap-0.5 text-laya-micro text-laya-orange hover:text-laya-gold transition-colors mt-1"
 						onclick={(e) => e.stopPropagation()}
 					>
-						open in {platform || 'source'}
+						{$t('omniTrace.open_in_source_lower', 'open in {platform}', { platform: sourceName })}
 						<svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-4.5-6H18m0 0v4.5m0-4.5L10.5 13.5" />
 						</svg>
@@ -192,7 +196,7 @@
 					{/if}
 					<span class="ml-auto text-laya-secondary text-surface-500">{timeStr}</span>
 					<span class="px-1.5 py-0.5 rounded text-laya-micro font-medium {priorityColors[card.priority] || ''}">
-						{card.priority}
+						{priorityLabel}
 					</span>
 				</div>
 
@@ -215,7 +219,7 @@
 				<div class="border-t border-surface-700/50 p-3 space-y-3">
 					{#if card.intelligence && card.intelligence.length > 0}
 						<div>
-							<h5 class="text-laya-secondary font-medium text-surface-400 uppercase tracking-wider mb-1">Intelligence</h5>
+							<h5 class="text-laya-secondary font-medium text-surface-400 uppercase tracking-wider mb-1">{$t('omniTrace.intelligence', 'Intelligence')}</h5>
 							<ul class="space-y-0.5">
 								{#each card.intelligence as item}
 									<li class="text-laya-secondary text-surface-300 flex gap-1.5">
@@ -230,7 +234,7 @@
 					{#if card.staged_output?.content}
 						<div>
 							<h5 class="text-laya-secondary font-medium text-surface-400 uppercase tracking-wider mb-1">
-								{card.staged_output.type.replace(/_/g, ' ')}
+								{$t(`omniTrace.output_${card.staged_output.type}`, card.staged_output.type.replace(/_/g, ' '))}
 							</h5>
 							<div class="text-laya-secondary text-surface-300 prose prose-invert prose-xs max-w-none">
 								{@html DOMPurify.sanitize(marked(card.staged_output.content.slice(0, 500)) as string)}
@@ -256,7 +260,7 @@
 							class="inline-flex items-center gap-1 text-laya-secondary text-laya-orange hover:text-laya-gold transition-colors"
 							onclick={(e) => e.stopPropagation()}
 						>
-							Open in {platform || 'source'}
+							{$t('omniTrace.open_in_source', 'Open in {platform}', { platform: sourceName })}
 							<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-4.5-6H18m0 0v4.5m0-4.5L10.5 13.5" />
 							</svg>

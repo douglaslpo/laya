@@ -11,6 +11,7 @@
 // arrives without one — the legacy `?cards=` deep-link path.
 
 import type { OmniBucket, OmniEvidenceCard, ActionCard } from '$lib/api/types';
+import { tr } from '$lib/i18n';
 
 export const BUCKET_ORDER: OmniBucket[] = [
 	'awaiting_you',
@@ -21,10 +22,10 @@ export const BUCKET_ORDER: OmniBucket[] = [
 
 /** Chip / filter labels — what the bucket is called to the user. */
 export const BUCKET_LABELS: Record<OmniBucket, string> = {
-	awaiting_you: 'awaiting you',
-	changes_requested: 'changes requested',
-	resolved: 'merged / resolved',
-	other: 'other activity'
+	get awaiting_you() { return tr('omniTrace.bucket_awaiting_you', 'awaiting you'); },
+	get changes_requested() { return tr('omniTrace.bucket_changes_requested', 'changes requested'); },
+	get resolved() { return tr('omniTrace.bucket_resolved', 'merged / resolved'); },
+	get other() { return tr('omniTrace.bucket_other', 'other activity'); }
 };
 
 /**
@@ -32,18 +33,18 @@ export const BUCKET_LABELS: Record<OmniBucket, string> = {
  * deliberately subordinate to that, which is the whole point of grouping.
  */
 export const BUCKET_GROUP_LABELS: Record<OmniBucket, string> = {
-	awaiting_you: 'AWAITING YOUR REVIEW',
-	changes_requested: 'CHANGES REQUESTED',
-	resolved: 'MERGED',
-	other: 'OTHER'
+	get awaiting_you() { return tr('omniTrace.bucket_group_awaiting_you', 'AWAITING YOUR REVIEW'); },
+	get changes_requested() { return tr('omniTrace.bucket_group_changes_requested', 'CHANGES REQUESTED'); },
+	get resolved() { return tr('omniTrace.bucket_group_resolved', 'MERGED'); },
+	get other() { return tr('omniTrace.bucket_group_other', 'OTHER'); }
 };
 
 /** Short status pill text on a collapsed evidence row. */
 export const BUCKET_STATUS_LABELS: Record<OmniBucket, string> = {
-	awaiting_you: 'REVIEW',
-	changes_requested: 'CHANGES',
-	resolved: 'MERGED',
-	other: 'UPDATE'
+	get awaiting_you() { return tr('omniTrace.bucket_status_awaiting_you', 'REVIEW'); },
+	get changes_requested() { return tr('omniTrace.bucket_status_changes_requested', 'CHANGES'); },
+	get resolved() { return tr('omniTrace.bucket_status_resolved', 'MERGED'); },
+	get other() { return tr('omniTrace.bucket_status_other', 'UPDATE'); }
 };
 
 /**
@@ -126,6 +127,6 @@ export function describeBuckets(
 ): string {
 	const counts = bucketCounts(cards);
 	return BUCKET_ORDER.filter((b) => counts[b] > 0)
-		.map((b) => `${counts[b]} ${BUCKET_LABELS[b]}`)
+		.map((b) => tr('omniTrace.bucket_count', '{count} {label}', { count: counts[b], label: BUCKET_LABELS[b] }))
 		.join(', ');
 }

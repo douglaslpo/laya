@@ -2,6 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { engineApi } from '$lib/api/engine';
+	import { t } from '$lib/i18n';
 
 	let {
 		platform,
@@ -39,10 +40,10 @@
 
 	const buttonLabel = $derived(
 		actionType === 'reply' || actionType === 'forward'
-			? 'Send'
+			? $t('actions.send', 'Send')
 			: actionType === 'comment'
-				? 'Post'
-				: 'Send'
+				? $t('actions.post', 'Post')
+				: $t('actions.send', 'Send')
 	);
 
 	async function submit() {
@@ -71,7 +72,7 @@
 				onClose();
 			}, 2000);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to send';
+			error = err instanceof Error ? err.message : $t('actions.failed_to_send', 'Failed to send');
 		} finally {
 			sending = false;
 		}
@@ -85,7 +86,7 @@
 			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 			</svg>
-			<span>Sent successfully</span>
+			<span>{$t('actions.sent_successfully_plain', 'Sent successfully')}</span>
 			{#if resultUrl}
 				<a
 					href={resultUrl}
@@ -93,7 +94,7 @@
 					rel="noopener noreferrer"
 					class="ml-1 text-laya-orange hover:text-laya-peach underline underline-offset-2 text-xs"
 				>
-					View
+					{$t('actions.view', 'View')}
 					<svg class="inline h-3 w-3 ml-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 					</svg>
@@ -105,7 +106,7 @@
 		{#if isEmail}
 			<div class="space-y-2">
 				<div class="flex items-center gap-2">
-					<label class="w-14 text-right text-xs font-medium text-surface-400" for="egress-to">To</label>
+					<label class="w-14 text-right text-xs font-medium text-surface-400" for="egress-to">{$t('actions.to', 'To')}</label>
 					<input
 						id="egress-to"
 						type="text"
@@ -115,13 +116,13 @@
 					/>
 				</div>
 				<div class="flex items-center gap-2">
-					<label class="w-14 text-right text-xs font-medium text-surface-400" for="egress-subject">Subject</label>
+					<label class="w-14 text-right text-xs font-medium text-surface-400" for="egress-subject">{$t('actions.subject', 'Subject')}</label>
 					<input
 						id="egress-subject"
 						type="text"
 						bind:value={subject}
 						class="flex-1 rounded-md border border-surface-600 bg-surface-900 px-2.5 py-1.5 text-xs text-surface-200 placeholder-surface-600"
-						placeholder="Subject"
+						placeholder={$t('actions.subject', 'Subject')}
 					/>
 				</div>
 			</div>
@@ -132,7 +133,9 @@
 			bind:value={body}
 			rows="6"
 			class="w-full resize-y rounded-md border border-surface-600 bg-surface-900 px-3 py-2 font-mono text-xs text-surface-200 placeholder-surface-600 focus:border-laya-orange/50 focus:outline-none focus:ring-1 focus:ring-laya-orange/30"
-			placeholder={actionType === 'comment' ? 'Write your comment...' : 'Write your message...'}
+			placeholder={actionType === 'comment'
+				? $t('actions.write_comment', 'Write your comment...')
+				: $t('actions.write_message', 'Write your message...')}
 		></textarea>
 
 		{#if error}
@@ -146,7 +149,7 @@
 				onclick={onClose}
 				disabled={sending}
 			>
-				Cancel
+				{$t('common.cancel', 'Cancel')}
 			</button>
 			<button
 				class="inline-flex items-center gap-1.5 rounded-md bg-laya-orange/20 px-3 py-1.5 text-xs font-medium text-laya-orange transition-colors hover:bg-laya-orange/30 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -158,7 +161,7 @@
 						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 					</svg>
-					Sending...
+					{$t('actions.sending', 'Sending...')}
 				{:else}
 					{buttonLabel}
 				{/if}

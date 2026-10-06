@@ -12,6 +12,7 @@
 <script lang="ts">
 	import { formatMinutes } from '$lib/timeline/scale';
 	import type { AttentionMark } from '$lib/timeline/threads';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		buckets = [],
@@ -74,7 +75,7 @@
 	style="width: {width}px; border-color: var(--tl-divider); background: var(--tl-rail-bg);"
 	role="slider"
 	tabindex="0"
-	aria-label="Day density"
+	aria-label={$t('feedGroups.day_density', 'Day density')}
 	aria-valuemin={domainStart}
 	aria-valuemax={domainEnd}
 	aria-valuenow={viewport?.from ?? domainStart}
@@ -84,7 +85,7 @@
 		if (e.key === 'ArrowUp') onseek((viewport?.from ?? domainStart) - 60);
 	}}
 >
-	<span class="absolute inset-x-0 top-1.5 text-center font-mono text-[8px] uppercase tracking-[0.1em]" style="color: var(--tl-micro)">Heat</span>
+	<span class="absolute inset-x-0 top-1.5 text-center font-mono text-[8px] uppercase tracking-[0.1em]" style="color: var(--tl-micro)">{$t('feedGroups.heat', 'Heat')}</span>
 
 	{#if viewport}
 		<div
@@ -108,7 +109,11 @@
 			onmouseenter={(e) =>
 				onhover?.(
 					e.currentTarget as HTMLElement,
-					`${formatMinutes(bucket.start_minute)}–${formatMinutes(bucket.start_minute + bucketMinutes)} · ${bucket.count.toLocaleString()} events`
+					`${formatMinutes(bucket.start_minute)}–${formatMinutes(bucket.start_minute + bucketMinutes)} · ${
+						bucket.count === 1
+							? $t('feedGroups.events_one', '{count} event', { count: bucket.count.toLocaleString($locale) })
+							: $t('feedGroups.events_other', '{count} events', { count: bucket.count.toLocaleString($locale) })
+					}`
 				)}
 			onmouseleave={() => onleave?.()}
 		></div>

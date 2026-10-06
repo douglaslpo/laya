@@ -8,6 +8,7 @@
  * If not, drives the setup flow with progress events from Tauri.
  */
 import { writable } from 'svelte/store';
+import { tr } from '$lib/i18n';
 
 export interface EnvStatus {
 	python_path: string | null;
@@ -31,11 +32,11 @@ export const needsSetup = writable<boolean | null>(null);
 
 /** Current setup steps with their progress. */
 export const setupSteps = writable<SetupStep[]>([
-	{ id: 'preflight', label: 'Preparing runtimes', status: 'waiting', message: 'Checking prerequisites...' },
-	{ id: 'environment', label: 'Setting up environment', status: 'waiting', message: 'Creating virtual environment...' },
-	{ id: 'deps', label: 'Installing dependencies', status: 'waiting', message: 'Installing packages...' },
-	{ id: 'automation', label: 'Setting up automation', status: 'waiting', message: 'Installing n8n...' },
-	{ id: 'engine', label: 'Starting engine', status: 'waiting', message: 'Starting Laya engine...' },
+	{ id: 'preflight', label: tr('setupLegal.step_preflight', 'Preparing runtimes'), status: 'waiting', message: tr('setupLegal.step_preflight_msg', 'Checking prerequisites...') },
+	{ id: 'environment', label: tr('setupLegal.step_environment', 'Setting up environment'), status: 'waiting', message: tr('setupLegal.step_environment_msg', 'Creating virtual environment...') },
+	{ id: 'deps', label: tr('setupLegal.step_deps', 'Installing dependencies'), status: 'waiting', message: tr('setupLegal.step_deps_msg', 'Installing packages...') },
+	{ id: 'automation', label: tr('setupLegal.step_automation', 'Setting up automation'), status: 'waiting', message: tr('setupLegal.step_automation_msg', 'Installing n8n...') },
+	{ id: 'engine', label: tr('setupLegal.step_engine', 'Starting engine'), status: 'waiting', message: tr('setupLegal.step_engine_msg', 'Starting Laya engine...') },
 ]);
 
 /** Error message if setup fails. */
@@ -108,6 +109,6 @@ export async function runSetup(): Promise<void> {
 		// Trigger setup on the Rust side
 		await invoke('setup_environment');
 	} catch (e) {
-		setupError.set(`Setup failed: ${e}`);
+		setupError.set(tr('setupLegal.setup_failed', 'Setup failed: {error}', { error: String(e) }));
 	}
 }

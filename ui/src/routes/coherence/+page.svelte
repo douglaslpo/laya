@@ -22,6 +22,7 @@
 	import layaProcessing from '$lib/assets/laya-processing.gif';
 	import layaProcessingStatic from '$lib/assets/laya-processing-static.png';
 	import type { TraceResponse } from '$lib/api/types';
+	import { t, tr, locale } from '$lib/i18n';
 
 	// Use the persistent store so loading state survives navigation away and back.
 	// `loading` reflects an in-flight coherence search specifically — NOT a quick
@@ -79,11 +80,15 @@
 		return [...platforms].sort();
 	});
 
-	function formatDate(iso: string): string {
+	const DATE_OPTS: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+
+	// Ordinal suffixes ("24th Mar 2026") only exist in English; other locales use Intl.
+	function formatDate(iso: string, loc: string): string {
 		if (!iso) return '';
 		const d = new Date(iso + 'T00:00:00');
+		if (loc !== 'en') return d.toLocaleDateString(loc, DATE_OPTS);
 		const day = d.getDate();
-		const month = d.toLocaleString(undefined, { month: 'short' });
+		const month = d.toLocaleString(loc, { month: 'short' });
 		const year = d.getFullYear();
 		const suffix = [11, 12, 13].includes(day % 100)
 			? 'th'
@@ -105,27 +110,29 @@
 
 	const dateRangeText = $derived.by(() => {
 		if (!dateRange.from) return '';
-		const f = formatDate(dateRange.from);
+		const loc = $locale;
+		const f = formatDate(dateRange.from, loc);
 		if (!dateRange.to || dateRange.to === dateRange.from) return f;
 		const fd = new Date(dateRange.from + 'T00:00:00');
 		const td = new Date(dateRange.to + 'T00:00:00');
-		const t = formatDate(dateRange.to);
+		if (loc !== 'en') return new Intl.DateTimeFormat(loc, DATE_OPTS).formatRange(fd, td);
+		const toText = formatDate(dateRange.to, loc);
 		if (fd.getFullYear() === td.getFullYear() && fd.getMonth() === td.getMonth()) {
 			const fDay = fd.getDate();
 			const fSuffix = [11, 12, 13].includes(fDay % 100)
 				? 'th'
 				: ['th', 'st', 'nd', 'rd'][fDay % 10] ?? 'th';
-			return `${fDay}${fSuffix} — ${t}`;
+			return `${fDay}${fSuffix} — ${toText}`;
 		}
 		if (fd.getFullYear() === td.getFullYear()) {
 			const fDay = fd.getDate();
 			const fSuffix = [11, 12, 13].includes(fDay % 100)
 				? 'th'
 				: ['th', 'st', 'nd', 'rd'][fDay % 10] ?? 'th';
-			const fMonth = fd.toLocaleString(undefined, { month: 'short' });
-			return `${fDay}${fSuffix} ${fMonth} — ${t}`;
+			const fMonth = fd.toLocaleString(loc, { month: 'short' });
+			return `${fDay}${fSuffix} ${fMonth} — ${toText}`;
 		}
-		return `${f} — ${t}`;
+		return `${f} — ${toText}`;
 	});
 
 	const totalCards = $derived(
@@ -329,11 +336,11 @@
 				trace = result;
 				currentTrace.set(result);
 				if (result.clusters.length === 0) {
-					error = 'No results found. Try a different search term.';
+					error = tr('omniTrace.no_results', 'No results found. Try a different search term.');
 				}
 			}
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : 'Search failed';
+			const msg = e instanceof Error ? e.message : tr('omniTrace.search_failed', 'Search failed');
 			// Don't show error for cancellation, and only surface it if the user is
 			// still on the progress view for this search.
 			if (!msg.includes('cancelled') && !msg.includes('abort')) {
@@ -391,7 +398,7 @@
 				return merged;
 			});
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : 'Failed to load trace';
+			const msg = e instanceof Error ? e.message : tr('omniTrace.failed_load_trace', 'Failed to load trace');
 			// Self-heal a stale history entry: a "Trace not found" here means the row was
 			// deleted (e.g. retention housekeeping) since the list was loaded. Drop it and
 			// refresh so the dead entry can't sit in Recent Searches 404'ing on every click.
@@ -435,7 +442,7 @@
 			trace = result;
 			currentTrace.set(result);
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : 'Rerun failed';
+			const msg = e instanceof Error ? e.message : tr('omniTrace.rerun_failed', 'Rerun failed');
 			// Suppress the abort/cancel noise — the rerun now persists server-side under
 			// the SAME trace_id even if the HTTP request timed out, so the finally-block
 			// history refresh (and, once it lands, the trace_complete WS message) recovers
@@ -517,7 +524,7 @@
 			await engineApi.generateClusterNarrative(trace.trace_id, clusterId);
 		} catch (e) {
 			// Surface the failure, not just console.error (review §2 UI — P4-35).
-			error = e instanceof Error ? e.message : 'Narrative generation failed';
+			error = e instanceof Error ? e.message : tr('omniTrace.narrative_failed', 'Narrative generation failed');
 			console.error('Narrative generation failed:', e);
 		}
 	}
@@ -559,19 +566,19 @@
 			await engineApi.generateTraceSummary(trace.trace_id);
 		} catch (e) {
 			// Surface the failure, not just console.error (review §2 UI — P4-35).
-			error = e instanceof Error ? e.message : 'Summary generation failed';
+			error = e instanceof Error ? e.message : tr('omniTrace.summary_failed', 'Summary generation failed');
 			console.error('Summary generation failed:', e);
 		}
 	}
 
-	const coherenceStages = [
-		'Searching',
-		'Ranking results',
-		'Applying feedback',
-		'Expanding results',
-		'Analyzing connections',
-		'Building clusters',
-	];
+	const coherenceStages = $derived([
+		$t('omniTrace.stage_searching', 'Searching'),
+		$t('omniTrace.stage_ranking', 'Ranking results'),
+		$t('omniTrace.stage_feedback', 'Applying feedback'),
+		$t('omniTrace.stage_expanding', 'Expanding results'),
+		$t('omniTrace.stage_analyzing', 'Analyzing connections'),
+		$t('omniTrace.stage_clusters', 'Building clusters'),
+	]);
 
 	function handleBack() {
 		// During an in-flight search (no trace yet) Back should hide the progress view
@@ -622,19 +629,19 @@
 				<div>
 					<h1 class="text-xl font-bold text-surface-50">Laya <span class="text-laya-orange">Coherence</span><sup class="text-laya-micro ml-1 text-surface-500 tracking-wider font-medium">BETA</sup></h1>
 					<p class="text-laya-secondary text-surface-500 mt-0.5">
-						{trace ? `"${trace.query}"` : 'Connect the dots across every platform'}
+						{trace ? `"${trace.query}"` : $t('omniTrace.coherence_tagline', 'Connect the dots across every platform')}
 					</p>
 				</div>
 				{#if trace || (loading && !showHistoryDuringSearch)}
 					<button
 						onclick={handleBack}
 						class="flex items-center gap-1 px-2.5 py-1 rounded-md text-laya-secondary text-surface-400 hover:text-surface-200 transition-colors {$glassTheme ? 'hover:bg-black/[0.06]' : 'hover:bg-surface-800'}"
-						aria-label="Back to search"
+						aria-label={$t('omniTrace.back_to_search', 'Back to search')}
 					>
 						<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
 						</svg>
-						Back
+						{$t('common.back', 'Back')}
 					</button>
 				{/if}
 			</div>
@@ -664,7 +671,7 @@
 				<svg class="w-3.5 h-3.5 text-laya-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
 				</svg>
-				<span class="text-laya-secondary text-laya-orange font-medium">New events detected — Click to refresh</span>
+				<span class="text-laya-secondary text-laya-orange font-medium">{$t('omniTrace.new_events_detected', 'New events detected — Click to refresh')}</span>
 			</button>
 		{/if}
 
@@ -674,9 +681,13 @@
 			<div class="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 px-3 py-2 mb-4 {$glassTheme ? 'glass-section rounded-lg' : 'rounded-md bg-surface-800/60 border border-surface-700/50'}">
 				<!-- Row 1 left: stats -->
 				<div class="flex items-center gap-2 text-laya-secondary text-surface-400">
-					<span class="text-surface-200 font-medium whitespace-nowrap">{totalCards} cards</span>
+					<span class="text-surface-200 font-medium whitespace-nowrap">{totalCards === 1
+						? $t('omniTrace.cards_one', '{count} card', { count: totalCards })
+						: $t('omniTrace.cards_other', '{count} cards', { count: totalCards })}</span>
 					<span class="text-surface-600">·</span>
-					<span class="whitespace-nowrap">{visibleClusters.length} {visibleClusters.length === 1 ? 'cluster' : 'clusters'}</span>
+					<span class="whitespace-nowrap">{visibleClusters.length === 1
+						? $t('omniTrace.clusters_one', '{count} cluster', { count: visibleClusters.length })
+						: $t('omniTrace.clusters_other', '{count} clusters', { count: visibleClusters.length })}</span>
 					<span class="text-surface-600">·</span>
 					<span class="whitespace-nowrap">{allPlatforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}</span>
 					{#if dateRangeText}
@@ -688,9 +699,9 @@
 				<div class="row-span-2 flex items-center gap-1.5">
 					<button
 						onclick={() => handleRerun()}
-						onmouseenter={(e) => showTooltip(e, 'Re-run trace')}
+						onmouseenter={(e) => showTooltip(e, $t('omniTrace.rerun_trace', 'Re-run trace'))}
 						onmouseleave={hideTooltip}
-						aria-label="Re-run trace"
+						aria-label={$t('omniTrace.rerun_trace', 'Re-run trace')}
 						class="p-1 rounded text-surface-400 hover:text-laya-orange hover:bg-laya-orange/5 transition-colors"
 					>
 						<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -708,7 +719,11 @@
 						<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
 						</svg>
-						{summaryStreaming ? 'Summarizing...' : hasSummary ? 'Re-summarize' : 'Summarize'}
+						{summaryStreaming
+							? $t('omniTrace.summarizing', 'Summarizing...')
+							: hasSummary
+								? $t('omniTrace.resummarize', 'Re-summarize')
+								: $t('omniTrace.summarize', 'Summarize')}
 					</button>
 					<button
 						onclick={handleExport}
@@ -721,7 +736,7 @@
 						<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
 						</svg>
-						{exporting ? '...' : 'Export'}
+						{exporting ? '...' : $t('omniTrace.export', 'Export')}
 					</button>
 				</div>
 				<!-- Row 2 left: elapsed time + search mode badges -->
@@ -730,16 +745,16 @@
 					<span class="text-surface-600">·</span>
 					<span class="flex items-center gap-1">
 						{#if trace.search_metadata.enable_semantic !== false}
-							<span class="px-1.5 py-0.5 rounded bg-laya-orange/10 text-laya-orange text-laya-micro font-medium whitespace-nowrap">Semantic</span>
+							<span class="px-1.5 py-0.5 rounded bg-laya-orange/10 text-laya-orange text-laya-micro font-medium whitespace-nowrap">{$t('omniTrace.badge_semantic', 'Semantic')}</span>
 						{/if}
 						{#if trace.search_metadata.enable_text !== false}
-							<span class="px-1.5 py-0.5 rounded bg-laya-gold/10 text-laya-gold text-laya-micro font-medium whitespace-nowrap">Text</span>
+							<span class="px-1.5 py-0.5 rounded bg-laya-gold/10 text-laya-gold text-laya-micro font-medium whitespace-nowrap">{$t('omniTrace.badge_text', 'Text')}</span>
 						{/if}
 						{#if trace.search_metadata.enable_llm_filter !== false}
-							<span class="px-1.5 py-0.5 rounded bg-laya-peach/10 text-laya-peach text-laya-micro font-medium whitespace-nowrap">AI Filter</span>
+							<span class="px-1.5 py-0.5 rounded bg-laya-peach/10 text-laya-peach text-laya-micro font-medium whitespace-nowrap">{$t('omniTrace.badge_ai_filter', 'AI Filter')}</span>
 						{/if}
 						{#if trace.search_metadata.fuzzy_search}
-							<span class="px-1.5 py-0.5 rounded bg-laya-coral/10 text-laya-coral text-laya-micro font-medium whitespace-nowrap">Fuzzy</span>
+							<span class="px-1.5 py-0.5 rounded bg-laya-coral/10 text-laya-coral text-laya-micro font-medium whitespace-nowrap">{$t('omniTrace.badge_fuzzy', 'Fuzzy')}</span>
 						{/if}
 					</span>
 				</div>
@@ -754,11 +769,11 @@
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 							</svg>
-							Generating summary...
+							{$t('omniTrace.generating_summary', 'Generating summary...')}
 						</div>
 					{:else}
 						<div class="flex items-center gap-1.5 mb-1.5">
-							<span class="text-laya-micro font-semibold uppercase tracking-wider text-laya-orange/70 inline-flex items-center gap-1"><span class="text-laya-micro leading-none -translate-y-px">✦</span> Summary</span>
+							<span class="text-laya-micro font-semibold uppercase tracking-wider text-laya-orange/70 inline-flex items-center gap-1"><span class="text-laya-micro leading-none -translate-y-px">✦</span> {$t('omniTrace.summary', 'Summary')}</span>
 							{#if summaryStreaming}
 								<svg class="h-2.5 w-2.5 animate-spin text-laya-orange/60 shrink-0" fill="none" viewBox="0 0 24 24">
 									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -772,7 +787,7 @@
 									<svg class="w-2.5 h-2.5 shrink-0 transition-transform [[open]>&]:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
 										<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
 									</svg>
-									thought process
+									{$t('omniTrace.thought_process', 'thought process')}
 								</summary>
 								<div class="ml-3.5 border-l border-laya-orange/10 pl-2 text-laya-micro leading-relaxed text-surface-500 whitespace-pre-wrap mt-1">
 									{parsedSummary.thinking}
@@ -794,19 +809,21 @@
 				<div class="flex items-center gap-1.5 pb-2 mb-1 border-b border-surface-700/30">
 					<span class="text-laya-orange text-laya-base">◆</span>
 					<span class="text-laya-base font-medium text-surface-200">{trace.query}</span>
-					<span class="text-laya-secondary text-surface-500 ml-1">{visibleClusters.length} clusters</span>
+					<span class="text-laya-secondary text-surface-500 ml-1">{visibleClusters.length === 1
+						? $t('omniTrace.clusters_one', '{count} cluster', { count: visibleClusters.length })
+						: $t('omniTrace.clusters_other', '{count} clusters', { count: visibleClusters.length })}</span>
 
 					<div class="ml-auto flex items-center gap-1.5">
 						{#if clustersExpanded}
 							<button
 								onclick={() => { expandAllClusters = false; clustersExpanded = false; setTimeout(() => expandAllClusters = null, 50); }}
 								class="text-laya-secondary text-surface-500 hover:text-laya-orange transition-colors"
-							>collapse all</button>
+							>{$t('omniTrace.collapse_all_lower', 'collapse all')}</button>
 						{:else}
 							<button
 								onclick={() => { expandAllClusters = true; clustersExpanded = true; setTimeout(() => expandAllClusters = null, 50); }}
 								class="text-laya-secondary text-surface-500 hover:text-laya-orange transition-colors"
-							>expand all</button>
+							>{$t('omniTrace.expand_all_lower', 'expand all')}</button>
 						{/if}
 						{#if removedClusterIds.size > 0}
 							<span class="text-surface-600">·</span>
@@ -814,7 +831,7 @@
 								onclick={handleRestoreClusters}
 								class="text-laya-secondary text-surface-500 hover:text-laya-orange transition-colors"
 							>
-								restore {removedClusterIds.size}
+								{$t('omniTrace.restore_count', 'restore {count}', { count: removedClusterIds.size })}
 							</button>
 						{/if}
 					</div>
@@ -841,12 +858,12 @@
 		<!-- All clusters removed -->
 		{:else if trace && trace.clusters.length > 0 && visibleClusters.length === 0}
 			<div class="text-center py-10 text-surface-500" in:fade={{ duration: $reducedMotion ? 0 : 250, delay: $reducedMotion ? 0 : 300 }}>
-				<p class="text-laya-secondary">All clusters removed.</p>
+				<p class="text-laya-secondary">{$t('omniTrace.all_clusters_removed', 'All clusters removed.')}</p>
 				<button
 					onclick={handleRestoreClusters}
 					class="mt-2 text-laya-secondary text-laya-orange hover:text-laya-gold transition-colors"
 				>
-					Restore all
+					{$t('omniTrace.restore_all', 'Restore all')}
 				</button>
 			</div>
 
@@ -855,7 +872,7 @@
 		{:else if !trace && (!loading || showHistoryDuringSearch)}
 			<div class="mt-4">
 				<h2 class="text-laya-secondary font-medium text-surface-400 uppercase tracking-wider mb-3">
-					Recent Searches
+					{$t('omniTrace.recent_searches', 'Recent Searches')}
 				</h2>
 
 				{#if loading}
@@ -874,10 +891,10 @@
 						<div class="flex-1 min-w-0">
 							<div class="flex items-center gap-2">
 								<h3 class="text-laya-base font-medium text-surface-100 truncate">
-									"{$traceProgress?.query || 'Searching...'}"
+									"{$traceProgress?.query || $t('omniTrace.searching', 'Searching...')}"
 								</h3>
 								<span class="shrink-0 px-1.5 py-0.5 rounded text-laya-micro font-medium bg-laya-orange/15 text-laya-orange border border-laya-orange/30">
-									Running
+									{$t('omniTrace.running', 'Running')}
 								</span>
 							</div>
 							<div class="mt-2 h-1 w-full rounded-full bg-surface-700/60 overflow-hidden">
@@ -887,7 +904,7 @@
 								></div>
 							</div>
 							<div class="flex items-center gap-2 mt-1.5 text-laya-secondary text-surface-400">
-								<span>{($traceProgress?.step ?? 0) > 0 && ($traceProgress?.step ?? 0) <= coherenceStages.length ? coherenceStages[($traceProgress?.step ?? 1) - 1] : 'Preparing'}</span>
+								<span>{($traceProgress?.step ?? 0) > 0 && ($traceProgress?.step ?? 0) <= coherenceStages.length ? coherenceStages[($traceProgress?.step ?? 1) - 1] : $t('omniTrace.preparing', 'Preparing')}</span>
 								<span class="text-surface-600">&middot;</span>
 								<span class="text-surface-500">{$traceProgress?.step ?? 0} / {$traceProgress?.total ?? coherenceStages.length}</span>
 							</div>
@@ -913,7 +930,7 @@
 				<!-- Query title -->
 				<div class="flex items-center gap-2 mb-5">
 					<span class="text-laya-orange text-laya-base">◆</span>
-					<span class="text-laya-base font-medium text-surface-200">{$traceProgress?.query || 'Searching...'}</span>
+					<span class="text-laya-base font-medium text-surface-200">{$traceProgress?.query || $t('omniTrace.searching', 'Searching...')}</span>
 				</div>
 
 				<!-- Progress bar -->
@@ -935,7 +952,7 @@
 						     A GIF animates unconditionally, so under reduced motion we swap in a
 						     static frame (same geometry/framing) instead of the looping animation. -->
 						<img src={$reducedMotion ? layaProcessingStatic : layaProcessing} alt="" class="w-[18px] h-[18px] shrink-0" />
-						<span class="font-medium transition-all duration-300">{($traceProgress?.step ?? 0) > 0 && ($traceProgress?.step ?? 0) <= coherenceStages.length ? coherenceStages[($traceProgress?.step ?? 1) - 1] : 'Preparing'}</span>
+						<span class="font-medium transition-all duration-300">{($traceProgress?.step ?? 0) > 0 && ($traceProgress?.step ?? 0) <= coherenceStages.length ? coherenceStages[($traceProgress?.step ?? 1) - 1] : $t('omniTrace.preparing', 'Preparing')}</span>
 						<span class="text-surface-600">&middot;</span>
 						<span class="text-surface-500">{$traceProgress?.step ?? 0} / {$traceProgress?.total ?? coherenceStages.length}</span>
 					</div>
@@ -944,7 +961,7 @@
 						disabled={cancelling}
 						class="text-laya-secondary transition-colors {cancelling ? 'text-surface-600 cursor-not-allowed' : 'text-surface-500 hover:text-red-400'}"
 					>
-						{cancelling ? 'Cancelling...' : 'Cancel'}
+						{cancelling ? $t('omniTrace.cancelling', 'Cancelling...') : $t('common.cancel', 'Cancel')}
 					</button>
 				</div>
 			</div>

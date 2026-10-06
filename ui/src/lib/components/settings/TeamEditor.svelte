@@ -5,6 +5,7 @@
 	import { engineApi } from '$lib/api/engine';
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import type { TeamMember } from '$lib/api/types';
+	import { t } from '$lib/i18n';
 
 	const roles: TeamMember['role'][] = ['self', 'manager', 'teammate', 'external', 'bot'];
 	const roleLabels: Record<TeamMember['role'], string> = {
@@ -14,6 +15,10 @@
 		external: 'external',
 		bot: 'bot',
 	};
+
+	function roleLabel(role: TeamMember['role']): string {
+		return $t(`settingsRules.role_${role}`, roleLabels[role] ?? role);
+	}
 
 	let members = $state<TeamMember[]>([]);
 	let loading = $state(true);
@@ -56,7 +61,7 @@
 			const data = await engineApi.getTeam();
 			members = data.members;
 		} catch {
-			error = 'Failed to load team configuration';
+			error = $t('settingsRules.err_load_team', 'Failed to load team configuration');
 		} finally {
 			loading = false;
 		}
@@ -68,7 +73,7 @@
 		try {
 			await engineApi.updateTeam({ members });
 		} catch {
-			error = 'Failed to save team';
+			error = $t('settingsRules.err_save_team', 'Failed to save team');
 		} finally {
 			saving = false;
 		}
@@ -129,7 +134,7 @@
 </script>
 
 {#if loading}
-	<div class="text-surface-400">Loading team...</div>
+	<div class="text-surface-400">{$t('settingsRules.loading_team', 'Loading team...')}</div>
 {:else}
 	{#if error}
 		<div class="rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-laya-base text-red-300">{error}</div>
@@ -141,8 +146,8 @@
 			class="mb-4 w-full rounded-xl border border-dashed border-laya-orange/40 bg-laya-orange/5 px-4 py-3 text-left transition-colors hover:border-laya-orange/60 hover:bg-laya-orange/10"
 			onclick={() => { formRole = 'self'; showAddForm = true; }}
 		>
-			<span class="text-laya-base font-medium text-laya-orange">Identify yourself</span>
-			<span class="mt-0.5 block text-laya-secondary text-surface-400">Add your name, emails, and platform accounts so Laya can personalise cards and avoid drafting messages to yourself.</span>
+			<span class="text-laya-base font-medium text-laya-orange">{$t('settingsRules.identify_prompt', 'Identify yourself')}</span>
+			<span class="mt-0.5 block text-laya-secondary text-surface-400">{$t('settingsRules.identify_prompt_desc', 'Add your name, emails, and platform accounts so Laya can personalise cards and avoid drafting messages to yourself.')}</span>
 		</button>
 	{/if}
 
@@ -151,11 +156,11 @@
 		<table class="w-full text-laya-base">
 			<thead class="{$glassTheme ? 'bg-white/[0.03]' : 'bg-surface-800'} text-left text-laya-secondary uppercase tracking-wider text-surface-400">
 				<tr>
-					<th class="px-4 py-3">Name</th>
-					<th class="px-4 py-3">Email</th>
-					<th class="px-4 py-3">Role</th>
-					<th class="px-4 py-3">Notes</th>
-					<th class="px-4 py-3 text-right">Actions</th>
+					<th class="px-4 py-3">{$t('settingsRules.col_name', 'Name')}</th>
+					<th class="px-4 py-3">{$t('settingsRules.col_email', 'Email')}</th>
+					<th class="px-4 py-3">{$t('settingsRules.col_role', 'Role')}</th>
+					<th class="px-4 py-3">{$t('settingsRules.col_notes', 'Notes')}</th>
+					<th class="px-4 py-3 text-right">{$t('settingsRules.col_actions', 'Actions')}</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y {$glassTheme ? 'divide-white/[0.05]' : 'divide-surface-700'}">
@@ -170,9 +175,9 @@
 						</td>
 						<td class="px-4 py-3">
 							{#if member.role === 'self'}
-								<span class="rounded-full bg-laya-orange/20 px-2 py-0.5 text-laya-secondary text-laya-orange">You</span>
+								<span class="rounded-full bg-laya-orange/20 px-2 py-0.5 text-laya-secondary text-laya-orange">{roleLabel('self')}</span>
 							{:else}
-								<span class="rounded-full bg-surface-700 px-2 py-0.5 text-laya-secondary">{member.role}</span>
+								<span class="rounded-full bg-surface-700 px-2 py-0.5 text-laya-secondary">{roleLabel(member.role)}</span>
 							{/if}
 						</td>
 						<td class="px-4 py-3 text-surface-400">
@@ -183,13 +188,13 @@
 							{/if}
 						</td>
 						<td class="px-4 py-3 text-right">
-							<button class="text-surface-400 hover:text-surface-100" onclick={() => startEdit(i)}>Edit</button>
-							<button class="ml-2 text-red-400 hover:text-red-300" onclick={() => removeMember(i)}>Remove</button>
+							<button class="text-surface-400 hover:text-surface-100" onclick={() => startEdit(i)}>{$t('common.edit', 'Edit')}</button>
+							<button class="ml-2 text-red-400 hover:text-red-300" onclick={() => removeMember(i)}>{$t('settingsRules.remove', 'Remove')}</button>
 						</td>
 					</tr>
 				{/each}
 				{#if members.length === 0}
-					<tr><td colspan="5" class="px-4 py-6 text-center text-surface-500">No team members configured</td></tr>
+					<tr><td colspan="5" class="px-4 py-6 text-center text-surface-500">{$t('settingsRules.no_members', 'No team members configured')}</td></tr>
 				{/if}
 			</tbody>
 		</table>
@@ -200,29 +205,29 @@
 		<div class="mt-4 {$glassTheme ? 'glass-section' : 'rounded-xl border border-surface-700 bg-surface-800'} p-4">
 			<h3 class="mb-3 text-laya-base font-medium">
 				{#if editingIndex !== null}
-					{isSelfForm ? 'Edit Your Identity' : 'Edit Member'}
+					{isSelfForm ? $t('settingsRules.edit_identity', 'Edit Your Identity') : $t('settingsRules.edit_member', 'Edit Member')}
 				{:else if isSelfForm}
-					Identify Yourself
+					{$t('settingsRules.identify_title', 'Identify Yourself')}
 				{:else}
-					Add Member
+					{$t('settingsRules.add_member_title', 'Add Member')}
 				{/if}
 			</h3>
 			{#if isSelfForm && editingIndex === null}
-				<p class="mb-3 text-laya-secondary text-surface-400">Laya will use this to personalise your cards — referring to your actions in first person and avoiding drafting messages to yourself.</p>
+				<p class="mb-3 text-laya-secondary text-surface-400">{$t('settingsRules.self_form_desc', 'Laya will use this to personalise your cards — referring to your actions in first person and avoiding drafting messages to yourself.')}</p>
 			{/if}
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-				<input bind:value={formName} placeholder="Name" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
-				<input bind:value={formEmail} placeholder={isSelfForm ? 'Primary email' : 'Email'} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+				<input bind:value={formName} placeholder={$t('settingsRules.col_name', 'Name')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+				<input bind:value={formEmail} placeholder={isSelfForm ? $t('settingsRules.primary_email', 'Primary email') : $t('settingsRules.col_email', 'Email')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
 				<select bind:value={formRole} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50">
 					{#each availableRoles as role}
-						<option value={role}>{roleLabels[role]}</option>
+						<option value={role}>{roleLabel(role)}</option>
 					{/each}
 				</select>
 				{#if isSelfForm}
-					<input bind:value={formAliases} placeholder="Other emails (comma-separated)" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
-					<input bind:value={formAccounts} placeholder="Platform accounts, e.g. jdoe, jane.doe (comma-separated)" class="col-span-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+					<input bind:value={formAliases} placeholder={$t('settingsRules.other_emails_placeholder', 'Other emails (comma-separated)')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+					<input bind:value={formAccounts} placeholder={$t('settingsRules.accounts_placeholder', 'Platform accounts, e.g. jdoe, jane.doe (comma-separated)')} class="col-span-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
 				{/if}
-				<input bind:value={formNotes} placeholder="Notes (optional)" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+				<input bind:value={formNotes} placeholder={$t('settingsRules.notes_placeholder', 'Notes (optional)')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
 			</div>
 			<div class="mt-3 flex gap-2">
 				<button
@@ -230,10 +235,10 @@
 					onclick={editingIndex !== null ? saveEdit : addMember}
 					disabled={!formName || !formEmail}
 				>
-					{saving ? 'Saving...' : editingIndex !== null ? 'Save' : isSelfForm ? 'Save' : 'Add'}
+					{saving ? $t('settingsRules.saving', 'Saving...') : editingIndex !== null ? $t('common.save', 'Save') : isSelfForm ? $t('common.save', 'Save') : $t('settingsRules.add', 'Add')}
 				</button>
 				<button class="rounded-lg px-4 py-2 text-laya-base text-surface-400 hover:text-surface-200" onclick={resetForm}>
-					Cancel
+					{$t('common.cancel', 'Cancel')}
 				</button>
 			</div>
 		</div>
@@ -242,7 +247,7 @@
 			class="mt-4 rounded-lg border border-dashed border-surface-600 px-4 py-2 text-laya-base text-surface-400 transition-colors hover:border-surface-400 hover:text-surface-200"
 			onclick={() => (showAddForm = true)}
 		>
-			+ Add Member
+			{$t('settingsRules.add_member', '+ Add Member')}
 		</button>
 	{/if}
 {/if}

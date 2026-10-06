@@ -2,6 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 
 	let {
 		tags = $bindable<string[]>([]),
@@ -70,7 +71,7 @@
 				type="button"
 				class="ml-0.5 rounded-full p-0.5 text-surface-400 hover:text-surface-200
 					{$glassTheme ? 'hover:bg-white/[0.15]' : 'hover:bg-surface-500'}"
-				aria-label="Remove {tag}"
+				aria-label={$t('settingsRules.remove_tag', 'Remove {tag}', { tag })}
 				onclick={() => removeTag(i)}
 			>
 				<svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
@@ -89,4 +90,4 @@
 		oninput={handleInput}
 	/>
 </div>
-<span class="mt-1 block text-xs text-surface-500">Separate channel names with a comma</span>
+<span class="mt-1 block text-xs text-surface-500">{$t('settingsRules.tag_input_hint', 'Separate channel names with a comma')}</span>

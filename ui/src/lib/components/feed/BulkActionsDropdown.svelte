@@ -4,6 +4,7 @@
 	import type { ActionCard } from '$lib/api/types';
 	import { engineApi } from '$lib/api/engine';
 	import { feedSelection } from '$lib/stores/feedSelection';
+	import { t } from '$lib/i18n';
 
 	let {
 		selectedCards,
@@ -97,6 +98,13 @@
 		})
 	);
 
+	// Splits a translated sentence around its un-interpolated {count} slot so the
+	// number can be rendered highlighted without concatenating fragments.
+	function aroundCount(text: string): [string, string] {
+		const i = text.indexOf('{count}');
+		return i < 0 ? [text, ''] : [text.slice(0, i), text.slice(i + '{count}'.length)];
+	}
+
 	function handleActionClick(stat: typeof actionStats[number]) {
 		if (stat.applicableCount === 0) return;
 
@@ -182,12 +190,12 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 			</svg>
-			Applying...
+			{$t('feedPage.bulk_applying', 'Applying...')}
 		{:else}
 			<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
 			</svg>
-			Actions
+			{$t('feedPage.bulk_actions', 'Actions')}
 		{/if}
 	</button>
 
@@ -210,12 +218,12 @@
 						<path stroke-linecap="round" stroke-linejoin="round" d={stat.icon} />
 						{#if stat.key === 'unlink'}<line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" />{/if}
 					</svg>
-					<span class="flex-1 text-left">{stat.label}</span>
+					<span class="flex-1 text-left">{$t(`feedPage.bulk_${stat.key}`, stat.label)}</span>
 					<span class="text-[10px] {stat.applicableCount === 0 ? 'text-surface-600' : 'text-surface-500'}">
 						{#if stat.key === 'link'}
-							{stat.total < 2 ? 'need 2+' : `${stat.total} cards`}
+							{stat.total < 2 ? $t('feedPage.bulk_need_two', 'need 2+') : $t('feedPage.n_cards', '{count} cards', { count: stat.total })}
 						{:else}
-							{stat.applicableCount} of {stat.total}
+							{$t('feedPage.bulk_x_of_y', '{count} of {total}', { count: stat.applicableCount, total: stat.total })}
 						{/if}
 					</span>
 				</button>
@@ -229,7 +237,7 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		role="dialog"
-		aria-label="Confirm bulk action"
+		aria-label={$t('feedPage.bulk_confirm_aria', 'Confirm bulk action')}
 		tabindex="-1"
 		onclick={(e) => { if (e.target === e.currentTarget) confirm = null; }}
 		onkeydown={(e) => { if (e.key === 'Escape') confirm = null; }}
@@ -248,22 +256,29 @@
 					{/if}
 				</div>
 				<div>
-					<h4 class="text-sm font-semibold text-surface-50">{confirm.label}</h4>
+					<h4 class="text-sm font-semibold text-surface-50">{$t(`feedPage.bulk_${confirm.key}`, confirm.label)}</h4>
 					{#if confirm.isDelete}
 						<p class="mt-1 text-xs leading-relaxed text-surface-400">
-							This will permanently delete {confirm.applicable.length} card{confirm.applicable.length !== 1 ? 's' : ''}. This action cannot be undone.
+							{confirm.applicable.length === 1
+								? $t('feedPage.bulk_delete_confirm_one', 'This will permanently delete {count} card. This action cannot be undone.', { count: confirm.applicable.length })
+								: $t('feedPage.bulk_delete_confirm_other', 'This will permanently delete {count} cards. This action cannot be undone.', { count: confirm.applicable.length })}
 						</p>
 					{:else if confirm.isLink}
+						{@const p = aroundCount($t('feedPage.bulk_link_confirm', 'This will link {count} selected cards into a shared context group.'))}
 						<p class="mt-1 text-xs leading-relaxed text-surface-400">
-							This will link <span class="font-medium text-laya-orange">{confirm.applicable.length}</span> selected cards into a shared context group.
+							{p[0]}<span class="font-medium text-laya-orange">{confirm.applicable.length}</span>{p[1]}
 						</p>
 					{:else if confirm.key === 'unlink'}
+						{@const p = aroundCount(confirm.applicable.length === 1
+							? $t('feedPage.bulk_unlink_confirm_one', 'This will remove {count} card from their context groups.')
+							: $t('feedPage.bulk_unlink_confirm_other', 'This will remove {count} cards from their context groups.'))}
 						<p class="mt-1 text-xs leading-relaxed text-surface-400">
-							This will remove <span class="font-medium text-laya-orange">{confirm.applicable.length}</span> card{confirm.applicable.length !== 1 ? 's' : ''} from their context groups.
+							{p[0]}<span class="font-medium text-laya-orange">{confirm.applicable.length}</span>{p[1]}
 						</p>
 					{:else if confirm.applicable.length < confirm.total}
+						{@const p = aroundCount($t('feedPage.bulk_partial_confirm', 'This action will apply to {count} of {total} selected cards. Cards where this action is not applicable will be skipped.', { total: confirm.total }))}
 						<p class="mt-1 text-xs leading-relaxed text-surface-400">
-							This action will apply to <span class="font-medium text-laya-orange">{confirm.applicable.length}</span> of {confirm.total} selected cards. Cards where this action is not applicable will be skipped.
+							{p[0]}<span class="font-medium text-laya-orange">{confirm.applicable.length}</span>{p[1]}
 						</p>
 					{/if}
 				</div>
@@ -273,13 +288,13 @@
 					class="rounded-md px-3 py-1.5 text-xs text-surface-400 hover:text-surface-200"
 					onclick={() => confirm = null}
 				>
-					Cancel
+					{$t('common.cancel', 'Cancel')}
 				</button>
 				<button
 					class="rounded-md px-3 py-1.5 text-xs font-medium {confirm.isDelete ? 'bg-red-700 text-red-50 hover:bg-red-600' : 'bg-laya-orange/20 text-laya-orange hover:bg-laya-orange/30'}"
 					onclick={() => { if (confirm) executeAction(confirm.key, confirm.applicable); }}
 				>
-					{confirm.isDelete ? 'Delete' : 'Confirm'}
+					{confirm.isDelete ? $t('common.delete', 'Delete') : $t('feedPage.bulk_confirm', 'Confirm')}
 				</button>
 			</div>
 		</div>

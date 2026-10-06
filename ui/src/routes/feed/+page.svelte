@@ -36,6 +36,7 @@
 	import { platformKey } from '$lib/utils/cardVisuals';
 	import { threadAttention } from '$lib/utils/threadAttention';
 	import { formatMinutes, localMinutes } from '$lib/timeline/scale';
+	import { t, locale } from '$lib/i18n';
 
 	// Filter toolbar state
 	let filterPopoverOpen = $state(false);
@@ -435,9 +436,9 @@
 		const d = new Date();
 		d.setDate(d.getDate() - 1);
 		const yesterday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-		if (dateStr === today) return 'Today';
-		if (dateStr === yesterday) return 'Yesterday';
-		return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, {
+		if (dateStr === today) return $t('common.today', 'Today');
+		if (dateStr === yesterday) return $t('common.yesterday', 'Yesterday');
+		return new Date(dateStr + 'T00:00:00').toLocaleDateString($locale, {
 			weekday: 'short',
 			month: 'short',
 			day: 'numeric'
@@ -624,7 +625,7 @@
 			}
 		} catch {
 			if (id !== _fetchId) return;
-			error = 'Failed to load cards';
+			error = $t('feedPage.error_load_cards', 'Failed to load cards');
 		} finally {
 			if (id === _fetchId) loading = false;
 		}
@@ -1145,7 +1146,7 @@
 		try {
 			await engineApi.runEntityAgent(entityId);
 		} catch (e: any) {
-			const detail = e?.body?.detail || e?.message || 'Failed to start agent';
+			const detail = e?.body?.detail || e?.message || $t('feedPage.error_start_agent', 'Failed to start agent');
 			error = detail;
 		} finally {
 			runningAgentEntityId = null;
@@ -1762,6 +1763,41 @@
 		return [...map.entries()];
 	});
 
+	// Splits a translated sentence around one un-interpolated placeholder so the
+	// value can keep its own styling without concatenating fragments.
+	function aroundCount(text: string, slot = 'count'): [string, string] {
+		const marker = `{${slot}}`;
+		const i = text.indexOf(marker);
+		return i < 0 ? [text, ''] : [text.slice(0, i), text.slice(i + marker.length)];
+	}
+
+	// Display label for a section header. sort_key stays the engine value (it is the
+	// collapse key); only known enum values and the engine's fallbacks are translated.
+	const STATUS_SECTION_KEYS: Record<string, string> = {
+		'Input Needed': 'feedPage.section_input_needed',
+		'Failed': 'feedPage.status_failed',
+		'Agent Running': 'shared.status_agent_running',
+		'Processing': 'feedPage.status_processing',
+		'Ready': 'feedPage.status_ready',
+		'Done': 'feedPage.status_done',
+		'Dismissed': 'feedPage.status_dismissed',
+		'Archived': 'shared.status_archived'
+	};
+	const PRIORITIES = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+	const PERSONAS = ['ENGINEER', 'COMMS', 'OPS', 'SALES', 'HR', 'FINANCE'];
+	const CATEGORIES = ['CODE', 'COMMS', 'PEOPLE', 'FINANCE', 'OPS'];
+
+	function sectionLabel(key: string): string {
+		if (key === 'Other') return $t('feedPage.section_other', 'Other');
+		if (key === 'Unknown') return $t('feedPage.section_unknown', 'Unknown');
+		const sortBy = $feedFilters.sortBy;
+		if (sortBy === 'priority' && PRIORITIES.includes(key)) return $t(`shared.priority_${key}`, key);
+		if (sortBy === 'persona' && PERSONAS.includes(key)) return $t(`shared.persona_${key}`, key);
+		if (sortBy === 'category' && CATEGORIES.includes(key)) return $t(`shared.category_${key}`, key);
+		if (sortBy === 'status' && STATUS_SECTION_KEYS[key]) return $t(STATUS_SECTION_KEYS[key], key);
+		return key;
+	}
+
 	// Collapsed sections — reset when sort order changes
 	let collapsedSections = $state<Set<string>>(new Set());
 	$effect(() => {
@@ -1826,14 +1862,14 @@
 		<!-- Stats -->
 		{#if hasSelection && $feedViewMode === 'list'}
 			<div class="flex items-center gap-2">
-				<span class="text-laya-secondary font-medium text-laya-orange">{selectionCount} selected</span>
+				<span class="text-laya-secondary font-medium text-laya-orange">{$t('feedPage.n_selected', '{count} selected', { count: selectionCount })}</span>
 				<span class="text-laya-micro text-surface-600">·</span>
 				{#if !allVisibleSelected}
 					<button
 						class="text-laya-secondary text-surface-400 hover:text-surface-200 transition-colors"
 						onclick={() => feedSelection.selectMany(allVisibleCardIds)}
 					>
-						Select All
+						{$t('feedPage.select_all', 'Select All')}
 					</button>
 					<span class="text-laya-micro text-surface-600">·</span>
 				{/if}
@@ -1841,7 +1877,7 @@
 					class="text-laya-secondary text-surface-400 hover:text-surface-200 transition-colors"
 					onclick={() => feedSelection.deselectAll()}
 				>
-					Deselect All
+					{$t('feedPage.deselect_all', 'Deselect All')}
 				</button>
 				<div class="ml-1">
 					<BulkActionsDropdown {selectedCards} ondelete={handleDelete} onunlinked={handleBulkUnlinked} />
@@ -1851,18 +1887,20 @@
 			<div class="flex items-center gap-1.5 flex-wrap whitespace-nowrap">
 				{#if $feedViewMode === 'timeline'}
 					<!-- Timeline counts the day's whole event stream, not just the cards -->
-					<span class="text-laya-secondary text-surface-500"><span class="font-mono font-semibold text-surface-100">{timelineEventTotal.toLocaleString()}</span> events</span>
+					{@const eventsText = aroundCount(timelineEventTotal === 1 ? $t('feedPage.events_one', '{count} event') : $t('feedPage.events_other', '{count} events'))}
+					{@const threadsText = aroundCount(filteredGroups.length === 1 ? $t('feedPage.threads_one', '{count} thread') : $t('feedPage.threads_other', '{count} threads'))}
+					<span class="text-laya-secondary text-surface-500">{eventsText[0]}<span class="font-mono font-semibold text-surface-100">{timelineEventTotal.toLocaleString($locale)}</span>{eventsText[1]}</span>
 					<span class="text-laya-micro text-surface-600">·</span>
-					<span class="text-laya-secondary text-surface-500"><span class="font-mono font-semibold text-surface-100">{filteredGroups.length}</span> {filteredGroups.length === 1 ? 'thread' : 'threads'}</span>
+					<span class="text-laya-secondary text-surface-500">{threadsText[0]}<span class="font-mono font-semibold text-surface-100">{filteredGroups.length}</span>{threadsText[1]}</span>
 				{:else}
-					<span class="text-laya-secondary text-surface-500">{totalGroups} {totalGroups === 1 ? 'group' : 'groups'}</span>
+					<span class="text-laya-secondary text-surface-500">{totalGroups === 1 ? $t('feedPage.groups_one', '{count} group', { count: totalGroups }) : $t('feedPage.groups_other', '{count} groups', { count: totalGroups })}</span>
 					<span class="text-laya-micro text-surface-600">·</span>
-					<span class="text-laya-secondary text-surface-500">{totalCards} cards</span>
+					<span class="text-laya-secondary text-surface-500">{$t('feedPage.n_cards', '{count} cards', { count: totalCards })}</span>
 				{/if}
 				{#if searchActive && filteredTotalCards !== totalCards}
 					<span class="inline-flex items-center gap-1 rounded-full bg-laya-orange/10 px-2 py-0.5 text-laya-micro font-medium text-laya-orange">
 						<svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-						{filteredGroups.length} shown
+						{$t('feedPage.n_shown', '{count} shown', { count: filteredGroups.length })}
 					</span>
 				{/if}
 				{#if searchActive && !$feedFilters.showAllDaysSearch && !$feedFilters.showBookmarked && !$feedFilters.showRelated}
@@ -1870,7 +1908,7 @@
 						class="text-laya-micro font-medium text-laya-orange hover:underline"
 						onclick={() => { $allDaysSavedDate = $feedDate; $feedFilters = { ...$feedFilters, showAllDaysSearch: true }; }}
 					>
-						Search all days
+						{$t('feedPage.search_all_days', 'Search all days')}
 					</button>
 				{/if}
 				{#if $feedFilters.timeBrush}
@@ -1878,10 +1916,10 @@
 					     shared filter store, so it survives a switch to card/list. -->
 					<span class="inline-flex items-center gap-1 rounded-full bg-laya-orange/10 px-2 py-0.5 text-laya-micro font-medium text-laya-orange">
 						{formatMinutes($feedFilters.timeBrush.from)} – {formatMinutes($feedFilters.timeBrush.to)}
-						<span class="opacity-70">· {filteredTotalCards} cards</span>
+						<span class="opacity-70">· {$t('feedPage.n_cards', '{count} cards', { count: filteredTotalCards })}</span>
 						<button
 							class="ml-0.5 rounded p-px hover:bg-laya-orange/20"
-							aria-label="Clear time range filter"
+							aria-label={$t('feedPage.clear_time_range', 'Clear time range filter')}
 							onclick={() => ($feedFilters.timeBrush = null)}
 						>
 							<svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1891,25 +1929,25 @@
 				{#if $feedViewMode === 'timeline' && attentionCounts.escalating > 0}
 					<span class="tl-soft-pulse inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-laya-micro font-medium text-red-400">
 						<span class="h-1.5 w-1.5 rounded-full bg-red-400"></span>
-						{attentionCounts.escalating} escalating
+						{$t('feedPage.n_escalating', '{count} escalating', { count: attentionCounts.escalating })}
 					</span>
 				{/if}
 				{#if $feedViewMode === 'timeline' && attentionCounts.awaiting > 0}
 					<span class="inline-flex items-center gap-1 rounded-full bg-laya-orange/10 px-2 py-0.5 text-laya-micro font-medium text-laya-orange">
 						<span class="h-1.5 w-1.5 rounded-full bg-laya-orange"></span>
-						{attentionCounts.awaiting} awaiting you
+						{$t('feedPage.n_awaiting_you', '{count} awaiting you', { count: attentionCounts.awaiting })}
 					</span>
 				{/if}
 				{#if agentRunningCount > 0}
 					<span class="inline-flex items-center gap-1 rounded-full bg-laya-coral/10 px-2 py-0.5 text-laya-micro font-medium text-laya-coral">
 						<span class="h-1.5 w-1.5 rounded-full bg-laya-coral animate-pulse"></span>
-						{agentRunningCount} running
+						{$t('feedPage.n_running', '{count} running', { count: agentRunningCount })}
 					</span>
 				{/if}
 				{#if failedCount > 0}
 					<span class="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-laya-micro font-medium text-red-400">
 						<span class="h-1.5 w-1.5 rounded-full bg-red-400"></span>
-						{failedCount} failed
+						{$t('feedPage.n_failed', '{count} failed', { count: failedCount })}
 					</span>
 				{/if}
 			</div>
@@ -1926,7 +1964,7 @@
 						{hasActiveFilters || $feedFilters.showBookmarked || $recentDrawerOpen || summaryModalOpen
 							? 'border-laya-orange/30 bg-laya-orange/10 text-laya-orange'
 							: 'border-surface-700 bg-surface-800/60 text-surface-400 hover:text-surface-200 hover:border-surface-600'}"
-					aria-label="More actions"
+					aria-label={$t('feedPage.more_actions', 'More actions')}
 				>
 					<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
 						<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
@@ -1946,7 +1984,7 @@
 							<svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
 							</svg>
-							Filters
+							{$t('feedPage.filters', 'Filters')}
 							{#if hasActiveFilters}
 								<span class="flex h-4 w-4 items-center justify-center rounded-full bg-laya-orange text-laya-micro font-bold text-surface-900">{activeFilterCount}</span>
 							{/if}
@@ -1959,7 +1997,7 @@
 							<svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
-							Recent
+							{$t('feedPage.recent', 'Recent')}
 						</button>
 						<button
 							class="flex w-full items-center gap-2 whitespace-nowrap px-4 py-1.5 text-laya-secondary transition-colors hover:bg-surface-700
@@ -1969,7 +2007,7 @@
 							<svg class="h-3.5 w-3.5 shrink-0" fill={$feedFilters.showBookmarked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
 							</svg>
-							Bookmarks
+							{$t('feedPage.bookmarks', 'Bookmarks')}
 						</button>
 						<div class="my-0.5 border-t border-surface-700"></div>
 							<button
@@ -1981,7 +2019,7 @@
 								<svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
 								</svg>
-								Mark all read
+								{$t('feedPage.mark_all_read', 'Mark all read')}
 							</button>
 						<div class="my-0.5 border-t border-surface-700"></div>
 						<button
@@ -1992,7 +2030,7 @@
 							<svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
 							</svg>
-							Summary
+							{$t('feedPage.summary', 'Summary')}
 						</button>
 					</div>
 				{/if}
@@ -2010,7 +2048,7 @@
 					<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
 					</svg>
-					Filters
+					{$t('feedPage.filters', 'Filters')}
 					{#if hasActiveFilters}
 						<span class="flex h-4 w-4 items-center justify-center rounded-full bg-laya-orange text-laya-micro font-bold text-surface-900">{activeFilterCount}</span>
 					{/if}
@@ -2027,7 +2065,7 @@
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 				</svg>
-				Recent
+				{$t('feedPage.recent', 'Recent')}
 			</button>
 
 			<button
@@ -2040,7 +2078,7 @@
 				<svg class="h-3.5 w-3.5" fill={$feedFilters.showBookmarked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
 				</svg>
-				Bookmarks
+				{$t('feedPage.bookmarks', 'Bookmarks')}
 			</button>
 
 			<div class="h-5 w-px bg-surface-700/60 mx-0.5"></div>
@@ -2058,7 +2096,7 @@
 					<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
 					</svg>
-					Mark all read
+					{$t('feedPage.mark_all_read', 'Mark all read')}
 				</button>
 
 			<div class="h-5 w-px bg-surface-700/60 mx-0.5"></div>
@@ -2073,7 +2111,7 @@
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
 				</svg>
-				Summary
+				{$t('feedPage.summary', 'Summary')}
 			</button>
 		{/if}
 
@@ -2110,7 +2148,7 @@
 					bind:this={searchInputEl}
 					type="text"
 					bind:value={searchQuery}
-					placeholder={activeSearchTags.length > 0 ? 'Search...' : 'Search or #tag'}
+					placeholder={activeSearchTags.length > 0 ? $t('common.search', 'Search...') : $t('feedPage.search_placeholder', 'Search or #tag')}
 					class="h-full flex-1 min-w-0 bg-transparent pl-1.5 pr-7 text-laya-secondary text-surface-200 placeholder-surface-500 outline-none"
 					oninput={() => updateTagAutocomplete()}
 					onblur={() => { setTimeout(() => { showTagAutocomplete = false; }, 150); }}
@@ -2134,7 +2172,7 @@
 					<button
 						class="mr-1.5 rounded p-0.5 text-surface-500 hover:text-surface-300 shrink-0"
 						onclick={() => { searchQuery = ''; showTagAutocomplete = false; }}
-						title="Clear search"
+						title={$t('feedPage.clear_search', 'Clear search')}
 					>
 						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -2155,7 +2193,7 @@
 									>#{tagName}</span>
 									<button
 										class="rounded p-0.5 text-surface-500 hover:text-red-400 transition-colors cursor-pointer"
-										title="Remove #{tagName}"
+										title={$t('feedPage.remove_tag', 'Remove #{tag}', { tag: tagName })}
 										onclick={() => removeSearchTag(tagName)}
 									>
 										<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2168,7 +2206,7 @@
 						<button
 							class="mt-2 w-full rounded-md py-1 text-[10px] font-medium text-surface-400 hover:text-surface-200 hover:bg-surface-800 transition-colors cursor-pointer"
 							onclick={() => { activeSearchTags.forEach(t => removeSearchTag(t)); }}
-						>Clear all</button>
+						>{$t('feedPage.clear_all', 'Clear all')}</button>
 					</div>
 				</div>
 			{/if}
@@ -2179,31 +2217,31 @@
 				<button
 					class="flex items-center gap-1 rounded-md px-2 py-1 text-laya-secondary transition-colors {$feedViewMode === 'card' ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-200'}"
 					onclick={() => ($feedViewMode = 'card')}
-					aria-label="Card View"
+					aria-label={$t('feedPage.view_card', 'Card View')}
 				>
 					<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
 					</svg>
 				</button>
-				<span class="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-laya-micro font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">Card View</span>
+				<span class="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-laya-micro font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">{$t('feedPage.view_card', 'Card View')}</span>
 			</div>
 			<div class="group/tip relative">
 				<button
 					class="flex items-center gap-1 rounded-md px-2 py-1 text-laya-secondary transition-colors {$feedViewMode === 'list' ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-200'}"
 					onclick={() => ($feedViewMode = 'list')}
-					aria-label="List View"
+					aria-label={$t('feedPage.view_list', 'List View')}
 				>
 					<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
 					</svg>
 				</button>
-				<span class="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-laya-micro font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">List View</span>
+				<span class="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-laya-micro font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">{$t('feedPage.view_list', 'List View')}</span>
 			</div>
 			<div class="group/tip relative">
 				<button
 					class="flex items-center gap-1 rounded-md px-2 py-1 text-laya-secondary transition-colors {$feedViewMode === 'timeline' ? 'bg-laya-orange/15 text-laya-orange' : 'text-surface-400 hover:text-surface-200'}"
 					onclick={() => ($feedViewMode = 'timeline')}
-					aria-label="Timeline View"
+					aria-label={$t('feedPage.view_timeline', 'Timeline View')}
 				>
 					<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
 						<path stroke-linecap="round" d="M3 7h7M14 7h7M3 13h4M11 13h10M3 19h12M19 19h2" />
@@ -2215,7 +2253,7 @@
 				<!-- Right-anchored, not centred like its two siblings: this is the last
 				     element in the toolbar, so a centred tooltip overhangs the window
 				     edge and gets clipped by the page's overflow:hidden. -->
-				<span class="pointer-events-none absolute right-0 top-full z-50 mt-1.5 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-laya-micro font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">Timeline View</span>
+				<span class="pointer-events-none absolute right-0 top-full z-50 mt-1.5 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-laya-micro font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">{$t('feedPage.view_timeline', 'Timeline View')}</span>
 			</div>
 		</div>
 	</div>
@@ -2239,17 +2277,18 @@
 		     stays pinned), so the shared container must not scroll or pad in that mode. -->
 		<div bind:this={containerEl} data-view-mode={$feedViewMode} class="feed-list-container flex min-w-0 flex-1 flex-col {$feedViewMode === 'timeline' ? 'overflow-hidden' : 'overflow-y-auto p-3'} transition-opacity duration-[250ms] ease-out {relatedViewExiting ? 'opacity-0' : 'opacity-100'}">
 			{#if $feedFilters.showRelated}
+				{@const relatedText = aroundCount($t('feedPage.related_to', 'Related to "{title}"'), 'title')}
 				<div class="mb-3 flex items-center gap-2 rounded-lg border border-laya-orange/30 bg-laya-orange/10 px-3 py-2">
 					<svg class="h-4 w-4 shrink-0 text-laya-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
 					</svg>
 					<span class="min-w-0 flex-1 truncate text-laya-secondary text-laya-orange">
-						Related to "<span class="font-medium">{$feedFilters.relatedSourceHeader}</span>"
+						{relatedText[0]}<span class="font-medium">{$feedFilters.relatedSourceHeader}</span>{relatedText[1]}
 					</span>
 					<button
 						onclick={() => clearRelatedFilter()}
 						class="shrink-0 rounded p-0.5 text-laya-orange/70 transition-colors hover:bg-laya-orange/20 hover:text-laya-orange"
-						aria-label="Clear related cards filter"
+						aria-label={$t('feedPage.clear_related', 'Clear related cards filter')}
 					>
 						<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -2262,7 +2301,7 @@
 				{#if error}
 					<div class="m-3 flex items-start gap-2 rounded-lg border border-red-800 bg-red-900/30 px-4 py-3 text-laya-base text-red-300">
 						<span class="flex-1">{error}</span>
-						<button class="shrink-0 text-red-400 hover:text-red-200" onclick={() => (error = null)} aria-label="Dismiss error">
+						<button class="shrink-0 text-red-400 hover:text-red-200" onclick={() => (error = null)} aria-label={$t('feedPage.dismiss_error', 'Dismiss error')}>
 							<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 						</button>
 					</div>
@@ -2283,43 +2322,44 @@
 					onselectcard={selectCard}
 					onselectgroup={selectGroupSummary}
 					emptyLabel={searchActive
-						? `No cards match "${searchQuery}"`
-						: `No cards for ${formatDateLabel($feedDate)}`}
+						? $t('feedPage.no_cards_match', 'No cards match "{query}"', { query: searchQuery })
+						: $t('feedPage.no_cards_for', 'No cards for {date}', { date: formatDateLabel($feedDate) })}
 				/>
 			{:else if loading && groups.length === 0}
-				<div class="py-12 text-center text-surface-400">Loading cards...</div>
+				<div class="py-12 text-center text-surface-400">{$t('feedPage.loading_cards', 'Loading cards...')}</div>
 			{:else if error}
 				<div class="flex items-start gap-2 rounded-lg border border-red-800 bg-red-900/30 px-4 py-3 text-laya-base text-red-300">
 					<span class="flex-1">{error}</span>
-					<button class="shrink-0 text-red-400 hover:text-red-200" onclick={() => (error = null)} aria-label="Dismiss error">
+					<button class="shrink-0 text-red-400 hover:text-red-200" onclick={() => (error = null)} aria-label={$t('feedPage.dismiss_error', 'Dismiss error')}>
 						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 					</button>
 				</div>
 			{:else if groups.length === 0}
 				<div class="py-12 text-center text-surface-500">
-					<p class="text-laya-heading">{$feedFilters.showRelated ? 'No related cards found' : $feedFilters.showBookmarked ? 'No bookmarked cards' : `No cards for ${formatDateLabel($feedDate)}`}</p>
+					<p class="text-laya-heading">{$feedFilters.showRelated ? $t('feedPage.no_related_cards', 'No related cards found') : $feedFilters.showBookmarked ? $t('feedPage.no_bookmarked_cards', 'No bookmarked cards') : $t('feedPage.no_cards_for', 'No cards for {date}', { date: formatDateLabel($feedDate) })}</p>
 					<p class="mt-1 text-laya-base">
 						{#if $feedFilters.showRelated}
-							<button class="text-laya-orange hover:underline" onclick={() => clearRelatedFilter()}>Back to feed</button>
+							<button class="text-laya-orange hover:underline" onclick={() => clearRelatedFilter()}>{$t('feedPage.back_to_feed', 'Back to feed')}</button>
 						{:else if $feedFilters.showBookmarked}
-							Bookmark cards to save them for later
+							{$t('feedPage.bookmark_hint', 'Bookmark cards to save them for later')}
 						{:else if $feedPrevDate}
 							<button class="text-laya-orange hover:underline" onclick={() => { if ($feedPrevDate) $feedDate = $feedPrevDate; }}>
-								View {formatDateLabel($feedPrevDate)}
+								{$t('feedPage.view_date', 'View {date}', { date: formatDateLabel($feedPrevDate) })}
 							</button>
 						{:else}
-							Cards will appear here as events are processed
+							{$t('feedPage.empty_hint', 'Cards will appear here as events are processed')}
 						{/if}
 					</p>
 
 				</div>
 			{:else if filteredGroups.length === 0 && searchActive}
+				{@const matchText = aroundCount($t('feedPage.no_cards_match', 'No cards match "{query}"'), 'query')}
 				<div class="py-12 text-center text-surface-500">
 					<svg class="mx-auto mb-2 h-8 w-8 text-surface-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 					</svg>
-					<p class="text-laya-base">No cards match "<span class="text-surface-300">{searchQuery}</span>"</p>
-					<button class="mt-2 text-laya-secondary text-laya-orange hover:underline" onclick={() => (searchQuery = '')}>Clear search</button>
+					<p class="text-laya-base">{matchText[0]}<span class="text-surface-300">{searchQuery}</span>{matchText[1]}</p>
+					<button class="mt-2 text-laya-secondary text-laya-orange hover:underline" onclick={() => (searchQuery = '')}>{$t('feedPage.clear_search', 'Clear search')}</button>
 				</div>
 			<!-- ── LIST VIEW ── -->
 			{:else if $feedViewMode === 'list'}
@@ -2337,7 +2377,7 @@
 							<svg class="h-3.5 w-3.5 shrink-0 text-surface-500 transition-transform {isCollapsed ? '-rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 							</svg>
-							<span class="text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{sectionTitle}</span>
+							<span class="text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{sectionLabel(sectionTitle)}</span>
 							<div class="flex-1 border-t border-surface-700"></div>
 							<span class="text-laya-micro text-surface-500">{sectionGroups.reduce((s, g) => s + g.card_count, 0)}</span>
 						</div>
@@ -2384,7 +2424,7 @@
 						<svg class="h-3.5 w-3.5 shrink-0 text-surface-500 transition-transform {isCollapsed ? '-rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 						</svg>
-						<span class="text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{sectionTitle}</span>
+						<span class="text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{sectionLabel(sectionTitle)}</span>
 						<div class="flex-1 border-t border-surface-700"></div>
 						<span class="text-laya-micro text-surface-500">{sectionGroups.reduce((s, g) => s + g.card_count, 0)}</span>
 					</div>
@@ -2435,7 +2475,7 @@
 						onclick={loadMoreGroups}
 						disabled={loadingMoreGroups}
 					>
-						{loadingMoreGroups ? 'Loading…' : `Load more (${totalGroups - groups.length} more)`}
+						{loadingMoreGroups ? $t('common.loading', 'Loading...') : $t('feedPage.load_more', 'Load more ({count} more)', { count: totalGroups - groups.length })}
 					</button>
 				</div>
 			{/if}
@@ -2447,7 +2487,7 @@
 			<button
 				class="absolute -left-3 top-4 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-surface-600 bg-surface-800 text-surface-400 shadow-md transition-colors hover:bg-surface-700 hover:text-surface-200"
 				onclick={() => { if (detailPanelOpen) closeDetailPanel(); else openDetailPanel(); }}
-				title={detailPanelOpen ? 'Collapse detail panel' : 'Expand detail panel'}
+				title={detailPanelOpen ? $t('feedPage.collapse_detail', 'Collapse detail panel') : $t('feedPage.expand_detail', 'Expand detail panel')}
 			>
 				<svg class="h-3 w-3 transition-transform {detailPanelOpen ? '' : 'rotate-180'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -2511,7 +2551,7 @@
 			<svg class="mb-2 h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 			</svg>
-			<p class="text-laya-secondary">Select a card to view details</p>
+			<p class="text-laya-secondary">{$t('feedPage.select_card_hint', 'Select a card to view details')}</p>
 		</div>
 	{/if}
 {/snippet}
@@ -2527,7 +2567,7 @@
 	     strip (bottom) so no feed-page background peeks around the floating panel.
 	     z-30 keeps it below the panel (z-40). -->
 	<button
-		aria-label="Collapse detail panel"
+		aria-label={$t('feedPage.collapse_detail', 'Collapse detail panel')}
 		onclick={() => detailExpanded.set(false)}
 		class="fixed inset-x-0 bottom-0 z-30 cursor-default chat-scrim backdrop-blur-sm"
 		style="top: {overlayGeom.top}px;"
@@ -2560,7 +2600,7 @@
 			<button
 				onclick={() => showIntegrationsPopup = false}
 				class="absolute right-3 top-3 text-surface-500 hover:text-surface-300 transition-colors"
-				aria-label="Close"
+				aria-label={$t('common.close', 'Close')}
 			>
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -2574,9 +2614,9 @@
 					</svg>
 				</div>
 				<div>
-					<h3 class="text-laya-base font-semibold text-surface-100">Set up your integrations</h3>
+					<h3 class="text-laya-base font-semibold text-surface-100">{$t('feedPage.integrations_title', 'Set up your integrations')}</h3>
 					<p class="mt-1.5 text-laya-secondary leading-relaxed text-surface-400">
-						Connect your tools to start receiving cards. Set up Gmail, Jira, Slack, GitHub, and more from the Integrations settings.
+						{$t('feedPage.integrations_body', 'Connect your tools to start receiving cards. Set up Gmail, Jira, Slack, GitHub, and more from the Integrations settings.')}
 					</p>
 				</div>
 			</div>
@@ -2591,13 +2631,13 @@
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 					</svg>
-					Open Integrations
+					{$t('feedPage.integrations_open', 'Open Integrations')}
 				</a>
 				<button
 					onclick={() => showIntegrationsPopup = false}
 					class="rounded-md px-4 py-2 text-laya-secondary text-surface-400 transition-colors hover:text-surface-200"
 				>
-					Later
+					{$t('feedPage.integrations_later', 'Later')}
 				</button>
 			</div>
 		</div>

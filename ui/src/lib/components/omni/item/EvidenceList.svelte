@@ -6,6 +6,7 @@
 	import { num } from '$lib/omni/layers';
 	import type { EvidenceActionContext } from '$lib/omni/evidenceActions';
 	import EvidenceRow from './EvidenceRow.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		cards,
@@ -42,6 +43,14 @@
 	const visible = $derived(showAll ? cards : cards.slice(0, PAGE_SIZE));
 	const hidden = $derived(showAll ? [] : cards.slice(PAGE_SIZE));
 	const groups = $derived(groupByBucket(visible));
+	const groupLabels = $derived.by(() => {
+		void $locale;
+		return { ...BUCKET_GROUP_LABELS };
+	});
+	const hiddenSummary = $derived.by(() => {
+		void $locale;
+		return describeBuckets(hidden);
+	});
 
 	// The control acts on what is on screen: "expand all" opens the rendered rows
 	// (not the ones still behind "show all"), and only flips to "collapse all"
@@ -59,20 +68,22 @@
 
 <div class="flex min-h-0 flex-1 flex-col">
 	<div class="flex flex-none items-center gap-[9px] px-[22px] pt-2.5 pb-2">
-		<span class="om-title-sm" style="color: var(--om-text);">Evidence</span>
+		<span class="om-title-sm" style="color: var(--om-text);">{$t('omniTrace.evidence', 'Evidence')}</span>
 		<span
 			class="om-mono rounded-full px-[7px] py-px text-[calc(10px*var(--om-scale))]"
 			style="background: var(--om-chip); color: var(--om-text-mid);"
-		>{num(totalCount)} {totalCount === 1 ? 'card' : 'cards'}</span>
+		>{totalCount === 1
+			? $t('omniTrace.cards_one', '{count} card', { count: num(totalCount, $locale) })
+			: $t('omniTrace.cards_other', '{count} cards', { count: num(totalCount, $locale) })}</span>
 		<span class="flex-1"></span>
-		<span class="om-pill-t" style="color: var(--om-text-meta);">grouped by outcome</span>
+		<span class="om-pill-t" style="color: var(--om-text-meta);">{$t('omniTrace.grouped_by_outcome', 'grouped by outcome')}</span>
 		<button
 			type="button"
 			class="om-hint rounded-md px-2 py-[3px] transition-colors disabled:opacity-40"
 			style="border: 1px solid var(--om-border-input); color: var(--om-text-mid);"
 			disabled={visibleIds.length === 0}
 			onclick={() => (allExpanded ? onCollapseAll() : onExpandAll(visibleIds))}
-		>{allExpanded ? 'Collapse all' : 'Expand all'}</button>
+		>{allExpanded ? $t('omniTrace.collapse_all', 'Collapse all') : $t('omniTrace.expand_all', 'Expand all')}</button>
 	</div>
 
 	<div bind:this={listEl} class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3.5">
@@ -92,9 +103,9 @@
 		{:else if cards.length === 0}
 			<p class="om-item-t px-2.5 py-3" style="color: var(--om-text-meta);">
 				{#if activeFilter}
-					No cards in this outcome. Clear the filter to see the rest.
+					{$t('omniTrace.no_cards_in_outcome', 'No cards in this outcome. Clear the filter to see the rest.')}
 				{:else}
-					No evidence cards could be loaded for this line.
+					{$t('omniTrace.no_evidence_loaded', 'No evidence cards could be loaded for this line.')}
 				{/if}
 			</p>
 		{:else}
@@ -107,7 +118,7 @@
 					<span
 						class="om-mono text-[calc(9px*var(--om-scale))] font-semibold tracking-[0.11em]"
 						style="color: var(--om-{BUCKET_TOKEN[group.bucket]}-fg);"
-					>{BUCKET_GROUP_LABELS[group.bucket]}</span>
+					>{groupLabels[group.bucket]}</span>
 					<span class="h-px flex-1" style="background: var(--om-border);"></span>
 				</div>
 				{#each group.cards as card (card.card_id)}
@@ -129,10 +140,12 @@
 			style="border-top: 1px dashed var(--om-border); color: var(--om-text-meta);"
 		>
 			<span class="om-mono">+{hidden.length}</span>
-			more {hidden.length === 1 ? 'card' : 'cards'} in this aggregate — {describeBuckets(hidden)}
+			{hidden.length === 1
+				? $t('omniTrace.more_cards_one', 'more card in this aggregate — {summary}', { summary: hiddenSummary })
+				: $t('omniTrace.more_cards_other', 'more cards in this aggregate — {summary}', { summary: hiddenSummary })}
 			<span class="flex-1"></span>
 			<button type="button" class="transition-colors" style="color: var(--om-comp-label);" onclick={onShowAll}>
-				Show all {num(cards.length)}
+				{$t('omniTrace.show_all', 'Show all {count}', { count: num(cards.length, $locale) })}
 			</button>
 		</div>
 	{/if}

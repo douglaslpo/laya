@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { engineApi } from '$lib/api/engine';
 	import type { EmailProviderDetection } from '$lib/api/types';
+	import { t } from '$lib/i18n';
 
 	let {
 		onSubmit,
@@ -74,17 +75,17 @@
 <div class="space-y-4">
 	<!-- Email input with auto-detect -->
 	<div>
-		<label for="smtp-email" class="mb-1 block text-laya-secondary font-medium text-surface-400">Email Address</label>
+		<label for="smtp-email" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.email_address', 'Email Address')}</label>
 		<input
 			id="smtp-email"
 			type="email"
 			bind:value={email}
 			onblur={detectProvider}
-			placeholder="you@example.com"
+			placeholder={$t('settingsModels.email_placeholder', 'you@example.com')}
 			class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 		/>
 		{#if detecting}
-			<p class="mt-1 text-laya-secondary text-surface-500">Detecting provider settings...</p>
+			<p class="mt-1 text-laya-secondary text-surface-500">{$t('settingsModels.detecting_provider', 'Detecting provider settings...')}</p>
 		{/if}
 	</div>
 
@@ -92,10 +93,12 @@
 		<!-- OAuth redirect notice -->
 		<div class="rounded-lg border border-laya-orange/30 bg-laya-orange/5 p-4">
 			<p class="text-laya-base text-laya-orange">
-				{detection?.provider ?? 'This provider'} uses OAuth for authentication.
+				{detection?.provider
+					? $t('settingsModels.provider_uses_oauth', '{provider} uses OAuth for authentication.', { provider: detection.provider })
+					: $t('settingsModels.this_provider_uses_oauth', 'This provider uses OAuth for authentication.')}
 			</p>
 			<p class="mt-1 text-laya-secondary text-surface-400">
-				{providerNote || 'Use the dedicated platform connection instead of SMTP.'}
+				{providerNote || $t('settingsModels.use_platform_connection', 'Use the dedicated platform connection instead of SMTP.')}
 			</p>
 		</div>
 	{:else}
@@ -111,12 +114,12 @@
 
 		<!-- Password / App Password -->
 		<div>
-			<label for="smtp-password" class="mb-1 block text-laya-secondary font-medium text-surface-400">Password / App Password</label>
+			<label for="smtp-password" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.password_label', 'Password / App Password')}</label>
 			<input
 				id="smtp-password"
 				type="password"
 				bind:value={password}
-				placeholder="App password or account password"
+				placeholder={$t('settingsModels.password_placeholder', 'App password or account password')}
 				class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 			/>
 		</div>
@@ -124,7 +127,7 @@
 		<!-- SMTP settings -->
 		<div class="grid grid-cols-3 gap-3">
 			<div class="col-span-2">
-				<label for="smtp-host" class="mb-1 block text-laya-secondary font-medium text-surface-400">SMTP Server</label>
+				<label for="smtp-host" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.smtp_server', 'SMTP Server')}</label>
 				<input
 					id="smtp-host"
 					type="text"
@@ -134,7 +137,7 @@
 				/>
 			</div>
 			<div>
-				<label for="smtp-port" class="mb-1 block text-laya-secondary font-medium text-surface-400">Port</label>
+				<label for="smtp-port" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.port', 'Port')}</label>
 				<input
 					id="smtp-port"
 					type="text"
@@ -148,7 +151,7 @@
 		<!-- IMAP settings -->
 		<div class="grid grid-cols-3 gap-3">
 			<div class="col-span-2">
-				<label for="imap-host" class="mb-1 block text-laya-secondary font-medium text-surface-400">IMAP Server</label>
+				<label for="imap-host" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.imap_server', 'IMAP Server')}</label>
 				<input
 					id="imap-host"
 					type="text"
@@ -158,7 +161,7 @@
 				/>
 			</div>
 			<div>
-				<label for="imap-port" class="mb-1 block text-laya-secondary font-medium text-surface-400">Port</label>
+				<label for="imap-port" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.port', 'Port')}</label>
 				<input
 					id="imap-port"
 					type="text"
@@ -172,7 +175,7 @@
 		<!-- TLS -->
 		<label class="flex items-center gap-2 text-laya-base text-surface-300">
 			<input type="checkbox" bind:checked={useTls} class="rounded border-surface-600" />
-			Use TLS/STARTTLS
+			{$t('settingsModels.use_tls', 'Use TLS/STARTTLS')}
 		</label>
 
 		<!-- Submit -->
@@ -181,7 +184,7 @@
 			disabled={!canSubmit || submitting}
 			class="w-full rounded-md bg-laya-orange px-4 py-2 text-laya-base font-medium text-white transition-colors hover:bg-laya-gold disabled:opacity-50"
 		>
-			{submitting ? 'Connecting...' : 'Connect Email'}
+			{submitting ? $t('settingsModels.connecting', 'Connecting...') : $t('settingsModels.connect_email', 'Connect Email')}
 		</button>
 	{/if}
 </div>

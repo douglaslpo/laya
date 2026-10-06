@@ -10,6 +10,7 @@
 	import { statusTone } from '$lib/timeline/threads';
 	import type { TimeScale } from '$lib/timeline/scale';
 	import { formatMinutes } from '$lib/timeline/scale';
+	import { t } from '$lib/i18n';
 
 	let {
 		threads = [],
@@ -38,14 +39,16 @@
 	<button
 		class="absolute inset-0 h-full w-full cursor-pointer"
 		onclick={onexpand}
-		title="Show {threads.length} overflowed {threads.length === 1 ? 'thread' : 'threads'} in extra lanes"
-		aria-label="Expand overflow lanes"
+		title={threads.length === 1
+			? $t('feedGroups.show_overflow_one', 'Show {count} overflowed thread in extra lanes', { count: threads.length })
+			: $t('feedGroups.show_overflow_other', 'Show {count} overflowed threads in extra lanes', { count: threads.length })}
+		aria-label={$t('feedGroups.expand_overflow', 'Expand overflow lanes')}
 	>
 		<span class="absolute inset-x-0 top-[5px] text-center font-mono text-[9px] font-semibold" style="color: var(--color-surface-400)">
 			+{threads.length}
 		</span>
 		<span class="absolute inset-x-0 top-[19px] text-center text-[7.5px] leading-[1.35]" style="color: var(--tl-micro)">
-			low<br />signal
+			{$t('feedGroups.low_signal_top', 'low')}<br />{$t('feedGroups.low_signal_bottom', 'signal')}
 		</span>
 	</button>
 
@@ -61,12 +64,16 @@
 		<button
 			class="absolute w-1 overflow-hidden rounded-[2px] opacity-[0.32] transition-opacity hover:opacity-90"
 			style="top: {top}px; height: {height}px; left: {8 + (i % 6) * 7}px; background: {spaceColor ?? tone};"
-			aria-label="{item.thread.title} — expand overflow lanes"
+			aria-label={$t('feedGroups.thread_expand_overflow', '{title} — expand overflow lanes', { title: item.thread.title })}
 			onclick={onexpand}
 			onmouseenter={(e) =>
 				onhover?.(
 					e.currentTarget as HTMLElement,
-					`${item.thread.title} · ${formatMinutes(item.startMin)}–${formatMinutes(item.endMin)} · ${item.thread.cardCount} events${
+					`${item.thread.title} · ${formatMinutes(item.startMin)}–${formatMinutes(item.endMin)} · ${
+						item.thread.cardCount === 1
+							? $t('feedGroups.events_one', '{count} event', { count: item.thread.cardCount })
+							: $t('feedGroups.events_other', '{count} events', { count: item.thread.cardCount })
+					}${
 						showSpace && item.thread.spaceName ? ` · ${item.thread.spaceName}` : ''
 					}`
 				)}

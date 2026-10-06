@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { health } from '$lib/stores/health';
 	import { showVectorStoreSetupBanner, vectorStoreState } from '$lib/utils/vectorStore';
+	import { t } from '$lib/i18n';
 
 	let dismissed = $state(false);
 </script>
@@ -13,16 +14,16 @@
 			<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 			<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
 		</svg>
-		<span class="text-xs text-surface-300">Setting up semantic search — chat and search may be slow to respond until this finishes</span>
+		<span class="text-xs text-surface-300">{$t('shell.vector_setup', 'Setting up semantic search — chat and search may be slow to respond until this finishes')}</span>
 	</div>
 {:else if vectorStoreState($health) === 'unavailable' && !dismissed}
 	<div class="flex items-center justify-center gap-2 bg-laya-gold/10 border-b border-laya-gold/25 px-4 py-1.5">
-		<span class="text-xs text-laya-amber">Semantic search is unavailable — the vector store failed to start</span>
-		<a href="/status" class="ml-1 text-xs font-medium text-laya-amber underline underline-offset-2">Status</a>
+		<span class="text-xs text-laya-amber">{$t('shell.vector_unavailable', 'Semantic search is unavailable — the vector store failed to start')}</span>
+		<a href="/status" class="ml-1 text-xs font-medium text-laya-amber underline underline-offset-2">{$t('shell.status_link', 'Status')}</a>
 		<button
 			onclick={() => (dismissed = true)}
 			class="ml-2 text-surface-500 hover:text-surface-300 text-xs transition-colors"
-			title="Dismiss">&times;</button
+			title={$t('common.dismiss', 'Dismiss')}>&times;</button
 		>
 	</div>
 {/if}

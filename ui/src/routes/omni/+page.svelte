@@ -29,6 +29,7 @@
 	import TriageColumn from '$lib/components/omni/board/TriageColumn.svelte';
 	import CompressionFunnel from '$lib/components/omni/board/CompressionFunnel.svelte';
 	import ChangelogRail from '$lib/components/omni/board/ChangelogRail.svelte';
+	import { t, tr } from '$lib/i18n';
 
 	// Where to scroll back to after returning from an item page.
 	const SCROLL_TARGET_KEY = 'laya_omni_scroll_target';
@@ -163,7 +164,7 @@
 			}
 		} catch (e) {
 			if (seq !== _loadSeq) return;
-			error = e instanceof Error ? e.message : 'Failed to load Omni';
+			error = e instanceof Error ? e.message : tr('omniTrace.failed_load_omni', 'Failed to load Omni');
 		} finally {
 			if (seq === _loadSeq) loading = false;
 		}
@@ -277,7 +278,7 @@
 			// 202 — runs in the background; the omni_updated WS event clears the flag.
 			await engineApi.triggerOmniResynthesis(activeSpaceId);
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : 'Resynthesis failed';
+			const msg = e instanceof Error ? e.message : tr('omniTrace.resynthesis_failed', 'Resynthesis failed');
 			if (msg.includes('already in progress')) return;
 			clearResynthesizing(activeSpaceId);
 			error = msg;
@@ -417,7 +418,7 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			<span class="om-row-t" style="color: var(--om-text-meta);">Loading Omni…</span>
+			<span class="om-row-t" style="color: var(--om-text-meta);">{$t('omniTrace.loading_omni', 'Loading Omni…')}</span>
 		</div>
 	{:else if snapshot}
 		<OmniIdentityBar
@@ -452,10 +453,12 @@
 					</svg>
 				</div>
 				<div>
-					<h3 class="om-title" style="color: var(--om-text);">Omni is warming up</h3>
+					<h3 class="om-title" style="color: var(--om-text);">{$t('omniTrace.warming_up_title', 'Omni is warming up')}</h3>
 					<p class="om-row-t mt-1 max-w-sm" style="color: var(--om-text-meta);">
-						As Laya processes events, Omni will build a rolling summary of your professional
-						activity across all platforms.
+						{$t(
+							'omniTrace.warming_up_body',
+							'As Laya processes events, Omni will build a rolling summary of your professional activity across all platforms.'
+						)}
 					</p>
 				</div>
 				<button
@@ -464,7 +467,9 @@
 					style="background: var(--om-comp-bg); color: var(--om-comp-num);"
 					disabled={resynthesizing}
 					onclick={handleResynthesis}
-				>{resynthesizing ? 'Synthesizing…' : 'Generate first summary'}</button>
+				>{resynthesizing
+					? $t('omni.synthesizing', 'Synthesizing…')
+					: $t('omniTrace.generate_first_summary', 'Generate first summary')}</button>
 			</div>
 		{:else}
 			<InstrumentCluster

@@ -21,6 +21,7 @@
 	} from '$lib/utils/cardVisuals';
 	import { cardDescriptions } from '$lib/stores/cardDescriptions';
 	import OmniTooltip, { anchorIfTruncated, type TooltipState } from '../OmniTooltip.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		card,
@@ -41,6 +42,16 @@
 	const token = $derived(BUCKET_TOKEN[bucket]);
 	const platform = $derived(cardPlatform(card));
 	const isTerminal = $derived(TERMINAL_CARD_STATUSES.has(card.status));
+	const labels = $derived.by(() => {
+		void $locale;
+		return {
+			status: BUCKET_STATUS_LABELS[bucket],
+			priority: PRIORITY_LABELS[card.priority] ?? card.priority,
+			output: card.staged_output
+				? (OUTPUT_TYPE_LABELS[card.staged_output.type] ?? $t('omniTrace.output_generic', 'Output'))
+				: ''
+		};
+	});
 
 	// The draft that staged_output already renders — kept so the Suggested Actions
 	// block below doesn't render the same draft a second time.
@@ -95,10 +106,10 @@
 	<span
 		class="om-status flex-none rounded-[3px] px-1.5 py-0.5"
 		style="background: var(--om-{token}-bg); color: var(--om-{token}-fg);"
-	>{BUCKET_STATUS_LABELS[bucket]}</span>
+	>{labels.status}</span>
 
 	<span class="om-stamp w-9 flex-none text-right" style="color: var(--om-text-faint);">
-		{hhmm(card.created_at)}
+		{hhmm(card.created_at, $locale)}
 	</span>
 
 	<span
@@ -118,22 +129,22 @@
 				class="om-status rounded-[3px] px-1.5 py-0.5"
 				style="background: var(--om-pri-{priorityToken(card.priority)}-bg);
 					color: var(--om-pri-{priorityToken(card.priority)}-fg);"
-			>{PRIORITY_LABELS[card.priority] ?? card.priority}</span>
+			>{labels.priority}</span>
 			<span
 				class="om-mono text-[calc(9px*var(--om-scale))] tracking-[0.1em] uppercase"
 				style="color: var(--om-text-meta);"
-			>{card.persona} · {card.category} · {platformLabel(platform)}</span>
+			>{$t(`shared.persona_${card.persona}`, card.persona)} · {$t(`shared.category_${card.category}`, card.category)} · {platformLabel(platform)}</span>
 			<span
 				class="rounded-[3px] px-1.5 py-0.5 text-[calc(9px*var(--om-scale))]"
 				style="background: var(--om-chip); color: var(--om-text-mid);"
-			>{card.status}</span>
+			>{$t(`shared.status_${card.status}`, card.status)}</span>
 			<span class="flex-1"></span>
 			<button
 				type="button"
 				class="om-hint transition-colors"
 				style="color: var(--om-comp-label);"
 				onclick={() => actions.showInPulse(card.card_id)}
-			>Show in Pulse</button>
+			>{$t('omniTrace.show_in_pulse', 'Show in Pulse')}</button>
 			{#if card.source_url}
 				<a
 					href={card.source_url}
@@ -141,7 +152,7 @@
 					rel="noopener noreferrer"
 					class="om-hint transition-colors"
 					style="color: var(--om-comp-label);"
-				>Open on {platformLabel(platform)} ↗</a>
+				>{$t('omniTrace.open_on_platform', 'Open on {platform} ↗', { platform: platformLabel(platform) })}</a>
 			{/if}
 		</div>
 
@@ -160,7 +171,7 @@
 		{/if}
 
 		{#if card.intelligence && card.intelligence.length > 0}
-			<div class="om-micro mb-1.5">Intelligence report</div>
+			<div class="om-micro mb-1.5">{$t('omniTrace.intelligence_report', 'Intelligence report')}</div>
 			<div class="mb-3 flex flex-col gap-[5px]">
 				{#each card.intelligence as point}
 					<div
@@ -236,7 +247,7 @@
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
 								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
 							</svg>
-							<span class="text-laya-orange om-entry-t font-medium">Polishing draft…</span>
+							<span class="text-laya-orange om-entry-t font-medium">{$t('omniTrace.polishing_draft', 'Polishing draft…')}</span>
 						</div>
 					{/if}
 
@@ -252,7 +263,7 @@
 									style="color: var(--om-text-dim);"
 									onclick={() => actions.startEditing(action, detectedField ? undefined : fallbackText)}
 									disabled={isPolishing}
-								>Edit draft</button>
+								>{$t('omniTrace.edit_draft', 'Edit draft')}</button>
 								{#if hasEdits}
 									<button
 										type="button"
@@ -260,12 +271,12 @@
 										style="color: var(--color-laya-gold);"
 										onclick={() => actions.polishDraft(card, action)}
 										disabled={isPolishing}
-										title="Rewrite this draft with AI to polish the phrasing"
+										title={$t('omniTrace.polish_title', 'Rewrite this draft with AI to polish the phrasing')}
 									>
 										<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 											<path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2zm7 11l.95 2.8L22.75 16.75l-2.8.95L19 20.5l-.95-2.8L15.25 16.75l2.8-.95L19 13zM5 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7L5 14z" />
 										</svg>
-										Polish
+										{$t('omniTrace.polish', 'Polish')}
 									</button>
 								{/if}
 							{:else}
@@ -275,14 +286,14 @@
 									style="color: var(--om-text-dim);"
 									onclick={actions.cancelEditing}
 									disabled={actions.savingPayload}
-								>Cancel</button>
+								>{$t('common.cancel', 'Cancel')}</button>
 								<button
 									type="button"
 									class="om-pill-t font-medium transition-colors disabled:opacity-50"
 									style="color: var(--om-comp-num);"
 									onclick={() => actions.savePayload(card, action)}
 									disabled={actions.savingPayload}
-								>{actions.savingPayload ? 'Saving…' : 'Save'}</button>
+								>{actions.savingPayload ? $t('omniTrace.saving', 'Saving…') : $t('common.save', 'Save')}</button>
 							{/if}
 						</div>
 					{/if}
@@ -292,7 +303,7 @@
 
 		{#if card.staged_output}
 			<div class="om-micro mb-1.5">
-				{OUTPUT_TYPE_LABELS[card.staged_output.type] ?? 'Output'}
+				{labels.output}
 			</div>
 			<div class="mb-3">
 				{#if card.staged_output.type === 'code_fix'}
@@ -311,7 +322,7 @@
 		{/if}
 
 		{#if card.suggested_actions && card.suggested_actions.length > 0}
-			<div class="om-micro mb-1.5">Suggested actions</div>
+			<div class="om-micro mb-1.5">{$t('omniTrace.suggested_actions', 'Suggested actions')}</div>
 			{#each card.suggested_actions as action (action.action_id)}
 				{#if card.staged_output?.type !== 'draft_reply' || action.action_id !== draftAction?.action_id}
 					<div class="mb-2">{@render draftPreview(action)}</div>
@@ -333,7 +344,7 @@
 						disabled={!!actions.executingActionId || isTerminal}
 					>
 						{#if actions.executingActionId === action.action_id}
-							Executing…
+							{$t('omniTrace.executing', 'Executing…')}
 						{:else}
 							{#if isSelected}<span class="mr-1">&#10003;</span>{/if}
 							{action.label}

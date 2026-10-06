@@ -969,6 +969,7 @@ async def _resynthesize_space(
                 if c.get("user_feedback")
                 or c.get("status") in ("done", "dismissed", "archived")
             ]
+            target_lang = settings.get("language", "pt-BR")
             messages = build_omni_resynthesis_messages(
                 current_snapshot=folded_snapshot,
                 new_cards=chunk,
@@ -980,6 +981,7 @@ async def _resynthesize_space(
                 # snapshot — apply them once, on the first fold.
                 item_states=item_states if first else [],
                 resolved_cards=resolved_cards if first else [],
+                language=target_lang,
             )
             response = await llm_call(
                 role="omni",

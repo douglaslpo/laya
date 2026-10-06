@@ -9,6 +9,7 @@
 	import type { DaySummary } from '$lib/api/types';
 	import DaySummaryComponent from '$lib/components/feed/DaySummary.svelte';
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 
 	let {
 		open,
@@ -46,12 +47,12 @@
 					<svg class="h-4 w-4 text-laya-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
 					</svg>
-					<h2 class="text-laya-base font-semibold text-surface-100">Day Summary — {dateLabel}</h2>
+					<h2 class="text-laya-base font-semibold text-surface-100">{$t('feedPage.summary_title', 'Day Summary — {date}', { date: dateLabel })}</h2>
 				</div>
 				<button
 					onclick={onClose}
 					class="text-surface-500 hover:text-surface-300 transition-colors"
-					aria-label="Close"
+					aria-label={$t('common.close', 'Close')}
 				>
 					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -63,7 +64,7 @@
 			<div class="min-h-0 flex-1 overflow-hidden p-6">
 				{#if loading}
 					<div class="flex h-full items-center justify-center text-surface-400">
-						<span class="text-laya-base">Loading summary...</span>
+						<span class="text-laya-base">{$t('feedPage.summary_loading', 'Loading summary...')}</span>
 					</div>
 				{:else}
 					<DaySummaryComponent summary={summary} updatedAt={updatedAt} ongotocard={onGotoCard} />

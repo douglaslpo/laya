@@ -1,7 +1,8 @@
 // Copyright 2026 Aayush Chawla
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { locale } from '$lib/i18n';
 import {
 	BUCKET_ORDER,
 	activeBuckets,
@@ -12,6 +13,9 @@ import {
 	groupByBucket
 } from './buckets';
 import type { OmniBucket } from '$lib/api/types';
+
+// describeBuckets is asserted in English; the default locale is pt-BR.
+beforeAll(() => locale.set('en'));
 
 const card = (status: string, bucket?: OmniBucket, card_id = 'c') =>
 	({ status, bucket, card_id }) as never;

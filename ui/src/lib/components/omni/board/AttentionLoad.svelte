@@ -3,6 +3,7 @@
 <script lang="ts">
 	import type { OmniItem } from '$lib/api/types';
 	import { livePriority, num } from '$lib/omni/layers';
+	import { t } from '$lib/i18n';
 
 	let {
 		items,
@@ -42,21 +43,21 @@
 			class="om-pulse h-1.5 w-1.5 rounded-full"
 			style="background: var(--om-layer-attention);"
 		></span>
-		<span class="om-micro" style="color: var(--om-attn-label);">Attention load</span>
+		<span class="om-micro uppercase tracking-wider" style="color: var(--om-attn-label); font-weight: 600;">{$t('omni.attention_load')}</span>
 	</div>
 
 	<div class="flex items-baseline gap-2">
 		<span class="om-num-lg" style="color: var(--om-attn-num);">{openCount}</span>
 		<span class="om-pill-t leading-[1.35]" style="color: var(--om-text-dim);">
-			{openCount === 1 ? 'open item' : 'open items'}<br />from {num(eventCount)}
-			{eventCount === 1 ? 'event' : 'events'}
+			{openCount === 1 ? $t('omni.open_item') : $t('omni.open_items')}<br />{$t('omni.from_events')} {num(eventCount)}
+			{eventCount === 1 ? $t('omni.event') : $t('omni.events')}
 		</span>
 		<span class="flex-1"></span>
 		{#if delta !== null && delta !== 0}
 			<span
 				class="om-mono text-[calc(10px*var(--om-scale))]"
 				style="color: var(--om-attn-delta);"
-				title="Change since the last version you looked at"
+				title={$t('omniTrace.delta_since_seen', 'Change since the last version you looked at')}
 			>{delta > 0 ? `+${delta}` : delta}</span>
 		{/if}
 	</div>
@@ -77,15 +78,13 @@
 			class="flex gap-[11px] text-[calc(9.5px*var(--om-scale))]"
 			style="color: var(--om-text-meta);"
 		>
-			<span><span class="font-semibold" style="color: var(--om-pri-high-fg);">{split.high}</span> high</span>
-			<span><span class="font-semibold" style="color: var(--om-pri-medium-fg);">{split.medium}</span> medium</span>
-			<span><span class="font-semibold" style="color: var(--om-text-dim);">{split.low}</span> low</span>
+			<span><span class="font-semibold" style="color: var(--om-pri-high-fg);">{split.high}</span> {$t('omni.high')}</span>
+			<span><span class="font-semibold" style="color: var(--om-pri-medium-fg);">{split.medium}</span> {$t('omni.medium')}</span>
+			<span><span class="font-semibold" style="color: var(--om-text-dim);">{split.low}</span> {$t('omni.low')}</span>
 		</div>
 	{:else}
-		<!-- Nothing open is a result, not an empty state — say so rather than
-		     leaving a blank instrument that reads as "not loaded yet". -->
 		<div class="om-pill-t mt-auto" style="color: var(--om-text-meta);">
-			Nothing needs you right now.
+			{$t('omni.nothing_needs_you')}
 		</div>
 	{/if}
 </div>

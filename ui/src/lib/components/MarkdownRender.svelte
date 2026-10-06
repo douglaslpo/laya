@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
+	import { t } from '$lib/i18n';
 
 	let {
 		content,
@@ -42,8 +43,8 @@
 			type="button"
 			class="absolute right-2 top-2 z-10 rounded-md p-1 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 {copied ? 'bg-surface-900/70 text-green-400' : 'bg-surface-900/70 text-surface-400 hover:bg-surface-800/80 hover:text-surface-200'}"
 			onclick={handleCopy}
-			aria-label={copied ? 'Copied' : 'Copy markdown'}
-			title={copied ? 'Copied!' : 'Copy markdown'}
+			aria-label={copied ? $t('shell.copied', 'Copied') : $t('shell.copy_markdown', 'Copy markdown')}
+			title={copied ? $t('common.copied', 'Copied!') : $t('shell.copy_markdown', 'Copy markdown')}
 		>
 			{#if copied}
 				<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

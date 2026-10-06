@@ -9,6 +9,7 @@
 	import type { EgressConnection, ComposePlatform, ComposeAction, ComposeField, ComposeFieldAutocomplete } from '$lib/api/types';
 	import DateTimePicker from './DateTimePicker.svelte';
 	import Dropdown from '$lib/components/Dropdown.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let connections = $state<EgressConnection[]>([]);
 	let connectionsLoaded = $state(false);
@@ -210,7 +211,7 @@
 
 	function formatTzOffset(tz: string): string {
 		try {
-			const parts = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+			const parts = new Intl.DateTimeFormat($locale, { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
 			return parts.find(p => p.type === 'timeZoneName')?.value ?? '';
 		} catch { return ''; }
 	}
@@ -401,10 +402,15 @@
 	}
 
 	const submitLabel = $derived(
-		currentAction?.label?.startsWith('Create') ? 'Create'
-		: currentAction?.label?.startsWith('Send') ? 'Send'
-		: currentAction?.label ?? 'Send'
+		currentAction?.label?.startsWith('Create') ? $t('actions.create', 'Create')
+		: currentAction?.label?.startsWith('Send') ? $t('actions.send', 'Send')
+		: currentAction?.label ?? $t('actions.send', 'Send')
 	);
+
+	const aiAssistHintParts = $derived(
+		$t('actions.ai_assist_hint', 'AI Assist uses the {field} field as your prompt').split('{field}')
+	);
+	const closeHintParts = $derived($t('actions.press_key_to_close', 'Press {key} to close').split('{key}'));
 
 	async function aiAssist() {
 		aiAssisting = true;
@@ -430,7 +436,7 @@
 				}
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'AI assist failed';
+			error = err instanceof Error ? err.message : $t('actions.ai_assist_failed', 'AI assist failed');
 		} finally {
 			aiAssisting = false;
 		}
@@ -447,7 +453,10 @@
 			platformConnections.length > 0 &&
 			!platformConnections.some((c) => c.connection_id === selectedConnectionId)
 		) {
-			error = 'The selected account is no longer available. Pick an account and try again.';
+			error = $t(
+				'actions.account_unavailable',
+				'The selected account is no longer available. Pick an account and try again.'
+			);
 			return;
 		}
 		sending = true;
@@ -467,7 +476,7 @@
 				resetState();
 			}, 2000);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to send';
+			error = err instanceof Error ? err.message : $t('actions.failed_to_send', 'Failed to send');
 		} finally {
 			sending = false;
 		}
@@ -536,7 +545,7 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		role="dialog"
-		aria-label="Compose message"
+		aria-label={$t('actions.compose_aria', 'Compose message')}
 		tabindex="0"
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
@@ -544,11 +553,11 @@
 		<div class="mx-4 w-full max-w-2xl h-[700px] flex flex-col rounded-xl border {$glassTheme ? 'glass-card border-surface-700/40' : 'border-surface-700 bg-surface-900 shadow-2xl'}">
 			<!-- Header -->
 			<div class="flex shrink-0 items-center justify-between border-b px-5 py-3 {$glassTheme ? 'border-surface-700/40' : 'border-surface-700'}">
-				<h2 class="text-sm font-semibold text-surface-50">Compose</h2>
+				<h2 class="text-sm font-semibold text-surface-50">{$t('actions.compose_title', 'Compose')}</h2>
 				<button
 					class="rounded p-1 text-surface-400 transition-colors hover:text-surface-200"
 					onclick={close}
-					aria-label="Close"
+					aria-label={$t('common.close', 'Close')}
 				>
 					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -581,7 +590,7 @@
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 						</svg>
-						<span>Sent successfully!</span>
+						<span>{$t('actions.sent_successfully', 'Sent successfully!')}</span>
 						{#if resultUrl}
 							<a
 								href={resultUrl}
@@ -589,7 +598,7 @@
 								rel="noopener noreferrer"
 								class="ml-1 text-laya-orange hover:text-laya-peach underline underline-offset-2 text-xs"
 							>
-								View
+								{$t('actions.view', 'View')}
 							</a>
 						{/if}
 					</div>
@@ -598,31 +607,31 @@
 					<div class="flex gap-3">
 						{#if platformConnections.length > 1}
 							<div class="flex-1 min-w-0">
-								<label class={labelClass} for="compose-connection">Account</label>
+								<label class={labelClass} for="compose-connection">{$t('actions.account', 'Account')}</label>
 								<Dropdown
 									id="compose-connection"
 									bind:value={selectedConnectionId}
 									options={platformConnections.map((c) => ({ value: c.connection_id, label: c.name }))}
 									onchange={(v) => { selectedConnectionId = v; }}
-									placeholder="Select account…"
+									placeholder={$t('actions.select_account', 'Select account…')}
 								/>
 							</div>
 						{:else if platformConnections.length === 1}
 							<div class="flex-1 min-w-0">
-								<span class={labelClass}>Account</span>
+								<span class={labelClass}>{$t('actions.account', 'Account')}</span>
 								<p class="text-sm text-surface-300 px-3 py-2">{platformConnections[0].name}</p>
 							</div>
 						{/if}
 
 						<div class="flex-1 min-w-0">
-							<label class={labelClass} for="compose-action">Action</label>
+							<label class={labelClass} for="compose-action">{$t('actions.action', 'Action')}</label>
 							{#if availableActions.length > 1}
 								<Dropdown
 									id="compose-action"
 									bind:value={selectedActionType}
 									options={availableActions.map((a) => ({ value: a.action_type, label: a.label }))}
 									onchange={(v) => switchAction(v)}
-									placeholder="Select action…"
+									placeholder={$t('actions.select_action', 'Select action…')}
 								/>
 							{:else}
 								<p id="compose-action" class="text-sm text-surface-300 px-3 py-2">{currentAction?.label ?? '—'}</p>
@@ -661,7 +670,7 @@
 								<div>
 									<label class="{labelClass} flex items-center gap-1.5" for="compose-timezone">
 										<svg class="h-3.5 w-3.5 text-surface-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-width="2" d="M12 2a14.5 14.5 0 000 20 14.5 14.5 0 000-20M2 12h20"/></svg>
-										Timezone
+										{$t('actions.timezone', 'Timezone')}
 									</label>
 									<button
 										bind:this={tzTriggerRef}
@@ -693,7 +702,7 @@
 													{$glassTheme
 														? 'border-white/[0.08] bg-transparent text-surface-200'
 														: 'border-surface-700 bg-surface-800 text-surface-200'}"
-												placeholder="Search timezones…"
+												placeholder={$t('actions.search_timezones', 'Search timezones…')}
 												bind:value={tzSearchQuery}
 											/>
 											<div class="max-h-48 overflow-y-auto p-1">
@@ -716,7 +725,7 @@
 													</button>
 												{/each}
 												{#if filteredTimezones.length === 0}
-													<div class="px-3 py-3 text-center text-sm text-surface-500">No matches</div>
+													<div class="px-3 py-3 text-center text-sm text-surface-500">{$t('actions.no_matches', 'No matches')}</div>
 												{/if}
 											</div>
 										</div>
@@ -740,7 +749,7 @@
 										bind:value={formValues[field.name]}
 										options={field.options.map((opt) => ({ value: opt, label: opt }))}
 										onchange={(v) => { formValues[field.name] = v; }}
-										placeholder={field.placeholder ?? 'Select…'}
+										placeholder={field.placeholder ?? $t('actions.select_placeholder', 'Select…')}
 									/>
 								{:else if field.autocomplete}
 									<div class="relative">
@@ -760,7 +769,7 @@
 															type="button"
 															class="rounded-full p-0.5 text-surface-400 hover:text-surface-200 transition-colors"
 															onclick={(e) => { e.stopPropagation(); removeEmailChip(field.name, idx); }}
-															aria-label="Remove {chip}"
+															aria-label={$t('actions.remove_item', 'Remove {item}', { item: chip })}
 														>
 															<svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -853,19 +862,19 @@
 							{aiAssisting ? 'text-laya-orange cursor-wait' : 'text-surface-400 hover:text-laya-orange hover:bg-surface-700'}"
 						onclick={aiAssist}
 						disabled={aiAssisting || sending}
-						title="Generate a draft with AI"
+						title={$t('actions.ai_assist_title', 'Generate a draft with AI')}
 					>
 						{#if aiAssisting}
 							<svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 							</svg>
-							Drafting...
+							{$t('actions.drafting', 'Drafting...')}
 						{:else}
 							<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
 							</svg>
-							AI Assist
+							{$t('actions.ai_assist', 'AI Assist')}
 						{/if}
 					</button>
 					<div class="flex items-center gap-2">
@@ -874,7 +883,7 @@
 							onclick={close}
 							disabled={sending}
 						>
-							Cancel
+							{$t('common.cancel', 'Cancel')}
 						</button>
 						<button
 							class="inline-flex items-center gap-1.5 rounded-md bg-laya-orange/20 px-4 py-1.5 text-xs font-medium text-laya-orange transition-colors hover:bg-laya-orange/30 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -886,7 +895,7 @@
 									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 								</svg>
-								Sending...
+								{$t('actions.sending', 'Sending...')}
 							{:else}
 								{submitLabel}
 							{/if}
@@ -896,11 +905,11 @@
 			{/if}
 			<div class="shrink-0 flex items-center justify-between px-5 pb-3 pt-1.5 text-[10px] text-surface-500">
 				{#if !success && activeFields.some(f => f.type === 'textarea')}
-					<p>AI Assist uses the <span class="text-surface-400">{activeFields.find(f => f.type === 'textarea')?.label ?? 'body'}</span> field as your prompt</p>
+					<p>{aiAssistHintParts[0]}<span class="text-surface-400">{activeFields.find(f => f.type === 'textarea')?.label ?? $t('actions.body_field', 'body')}</span>{aiAssistHintParts[1] ?? ''}</p>
 				{:else}
 					<span></span>
 				{/if}
-				<p>Press <kbd class="rounded border border-surface-600 px-1 py-0.5 font-mono text-surface-400">⌘.</kbd> to close</p>
+				<p>{closeHintParts[0]}<kbd class="rounded border border-surface-600 px-1 py-0.5 font-mono text-surface-400">⌘.</kbd>{closeHintParts[1] ?? ''}</p>
 			</div>
 		</div>
 	</div>

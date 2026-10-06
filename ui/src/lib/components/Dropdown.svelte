@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { portal } from '$lib/actions/portal';
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 
 	interface Option {
 		value: string;
@@ -33,7 +34,7 @@
 		value = $bindable(),
 		options,
 		onchange,
-		placeholder = 'Select…',
+		placeholder,
 		variant = 'select',
 		size = 'md',
 		compact = false,
@@ -48,7 +49,9 @@
 	let dropPos = $state({ top: 0, left: 0, width: 0, openUp: false });
 
 	let displayLabel = $derived(
-		options.find((o) => o.value === value)?.label ?? placeholder
+		options.find((o) => o.value === value)?.label ??
+			placeholder ??
+			$t('shell.dropdown_placeholder', 'Select…')
 	);
 
 	let groups = $derived.by(() => {
@@ -296,7 +299,7 @@
 				{/each}
 
 				{#if options.length === 0}
-					<div class="px-3 py-3 text-center text-sm text-surface-500">No options</div>
+					<div class="px-3 py-3 text-center text-sm text-surface-500">{$t('shell.dropdown_no_options', 'No options')}</div>
 				{/if}
 			</div>
 		</div>

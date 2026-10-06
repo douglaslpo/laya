@@ -1,7 +1,8 @@
 // Copyright 2026 Aayush Chawla
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { locale } from '$lib/i18n';
 import {
 	LAYERS,
 	countdownTo,
@@ -11,6 +12,9 @@ import {
 	priorityToken,
 	shortAge
 } from './layers';
+
+// Assertions below use the English labels; the default locale is pt-BR.
+beforeAll(() => locale.set('en'));
 
 describe('LAYERS', () => {
 	it('is the compression chain in order', () => {

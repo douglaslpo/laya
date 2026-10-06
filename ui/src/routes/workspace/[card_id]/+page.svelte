@@ -10,6 +10,7 @@
 	import TimelinePanel from '$lib/components/workspace/TimelinePanel.svelte';
 	import AgentPanel from '$lib/components/workspace/AgentPanel.svelte';
 	import ContextPanel from '$lib/components/workspace/ContextPanel.svelte';
+	import { t } from '$lib/i18n';
 
 	let card = $state<ActionCard | null>(null);
 	let session = $state<WorkspaceSession | null>(null);
@@ -87,7 +88,7 @@
 			events = workspaceData.events;
 			context = workspaceData.context;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load workspace';
+			error = err instanceof Error ? err.message : $t('actions.failed_load_workspace', 'Failed to load workspace');
 		} finally {
 			loading = false;
 		}
@@ -157,7 +158,7 @@
 
 {#if loading}
 	<div class="flex h-full items-center justify-center">
-		<p class="text-sm text-surface-400">Loading workspace...</p>
+		<p class="text-sm text-surface-400">{$t('actions.loading_workspace', 'Loading workspace...')}</p>
 	</div>
 {:else if error}
 	<div class="flex h-full flex-col items-center justify-center gap-3">
@@ -165,7 +166,7 @@
 		<button
 			class="rounded-lg bg-surface-700 px-4 py-2 text-sm text-surface-200 hover:bg-surface-600"
 			onclick={loadWorkspace}
-		>Retry</button>
+		>{$t('common.retry', 'Retry')}</button>
 	</div>
 {:else if card}
 	<!-- -m-4 cancels main's p-4; h-[calc(100%+2rem)] reclaims the vertical padding so

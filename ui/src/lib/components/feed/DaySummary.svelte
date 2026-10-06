@@ -3,6 +3,7 @@
 <script lang="ts">
 	import type { DaySummary, SummaryItem } from '$lib/api/types';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		summary,
@@ -55,7 +56,7 @@
 	}
 
 	function formatTime(iso: string): string {
-		return parseBackendDate(iso)?.toLocaleTimeString(undefined, {
+		return parseBackendDate(iso)?.toLocaleTimeString($locale, {
 			hour: '2-digit',
 			minute: '2-digit'
 		}) ?? '';
@@ -78,7 +79,7 @@
 			const sid = item.space_id || 'default';
 			if (!seen.has(sid)) {
 				seen.set(sid, {
-					name: item.space_name || 'Default',
+					name: item.space_name || $t('feedGroups.default_space', 'Default'),
 					color: item.space_color || '#F97316',
 				});
 			}
@@ -128,8 +129,8 @@
 		<svg class="mb-3 h-10 w-10 text-laya-orange opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
 		</svg>
-		<p class="text-laya-base">No summary yet</p>
-		<p class="mt-1 text-laya-secondary text-surface-600">Summary builds as events arrive throughout the day</p>
+		<p class="text-laya-base">{$t('feedGroups.no_summary', 'No summary yet')}</p>
+		<p class="mt-1 text-laya-secondary text-surface-600">{$t('feedGroups.day_summary_hint', 'Summary builds as events arrive throughout the day')}</p>
 	</div>
 {:else}
 	<!-- h-full flex column: fixed sub-header (last updated + legend) stays put while
@@ -140,7 +141,7 @@
 			<div class="flex shrink-0 flex-col gap-3">
 				<!-- Last updated -->
 				{#if updatedAt}
-					<p class="text-laya-micro text-surface-500">Last updated {formatTime(updatedAt)}</p>
+					<p class="text-laya-micro text-surface-500">{$t('feedGroups.last_updated', 'Last updated {time}', { time: formatTime(updatedAt) })}</p>
 				{/if}
 
 				<!-- Space legend (only when multiple spaces) — interactive: acts as an
@@ -155,7 +156,7 @@
 								style:--space-color={space.color}
 								onclick={() => toggleSpace(space.id)}
 								aria-pressed={!hiddenSpaces.includes(space.id)}
-								title={hiddenSpaces.includes(space.id) ? `Show ${space.name}` : `Hide ${space.name}`}
+								title={hiddenSpaces.includes(space.id) ? $t('feedGroups.show_space', 'Show {name}', { name: space.name }) : $t('feedGroups.hide_space', 'Hide {name}', { name: space.name })}
 							>
 								<span class="summary-space-legend-dot" style:background={space.color}></span>
 								{space.name}
@@ -178,10 +179,10 @@
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 						</svg>
 					</div>
-					<h3 class="summary-section-title">Events & Meetings</h3>
+					<h3 class="summary-section-title">{$t('feedGroups.events_meetings', 'Events & Meetings')}</h3>
 					<span class="summary-section-badge summary-section-badge--events">{filteredEvents.length}</span>
 					{#if eventsFilteredCount > 0}
-						<span class="text-laya-micro text-surface-500">({eventsFilteredCount} filtered)</span>
+						<span class="text-laya-micro text-surface-500">{$t('feedGroups.filtered_count', '({count} filtered)', { count: eventsFilteredCount })}</span>
 					{/if}
 				</div>
 				{#if filteredEvents.length > 0}
@@ -198,12 +199,12 @@
 								{#if item.space_name}
 									<span class="summary-item-space" style:--space-color={item.space_color || '#F97316'}>{item.space_name}</span>
 								{/if}
-								<span class="summary-item-priority {priorityColor(item.priority)}">{item.priority}</span>
+								<span class="summary-item-priority {priorityColor(item.priority)}">{$t(`shared.priority_${item.priority}`, item.priority)}</span>
 							</button>
 						{/each}
 					</div>
 				{:else}
-					<p class="text-laya-secondary text-surface-500 px-1">No items match the selected space</p>
+					<p class="text-laya-secondary text-surface-500 px-1">{$t('feedGroups.no_items_space', 'No items match the selected space')}</p>
 				{/if}
 			</section>
 		{/if}
@@ -217,15 +218,15 @@
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
 						</svg>
 					</div>
-					<h3 class="summary-section-title">Action Items</h3>
+					<h3 class="summary-section-title">{$t('feedGroups.action_items', 'Action Items')}</h3>
 					<span class="summary-section-badge summary-section-badge--actions">
 						{pendingActions}/{totalActions}
 					</span>
 					{#if actionsFilteredCount > 0}
-						<span class="text-laya-micro text-surface-500">({actionsFilteredCount} filtered)</span>
+						<span class="text-laya-micro text-surface-500">{$t('feedGroups.filtered_count', '({count} filtered)', { count: actionsFilteredCount })}</span>
 					{/if}
 					{#if pendingActions > 0}
-						<span class="ml-auto text-laya-micro text-laya-orange">{pendingActions} pending</span>
+						<span class="ml-auto text-laya-micro text-laya-orange">{$t('feedGroups.pending_count', '{count} pending', { count: pendingActions })}</span>
 					{/if}
 				</div>
 				{#if filteredActions.length > 0}
@@ -249,12 +250,12 @@
 								{#if item.space_name}
 									<span class="summary-item-space" style:--space-color={item.space_color || '#F97316'}>{item.space_name}</span>
 								{/if}
-								<span class="summary-item-priority {priorityColor(item.priority)}">{item.priority}</span>
+								<span class="summary-item-priority {priorityColor(item.priority)}">{$t(`shared.priority_${item.priority}`, item.priority)}</span>
 							</button>
 						{/each}
 					</div>
 				{:else}
-					<p class="text-laya-secondary text-surface-500 px-1">No items match the selected space</p>
+					<p class="text-laya-secondary text-surface-500 px-1">{$t('feedGroups.no_items_space', 'No items match the selected space')}</p>
 				{/if}
 			</section>
 		{/if}
@@ -268,10 +269,10 @@
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 						</svg>
 					</div>
-					<h3 class="summary-section-title">Key Updates</h3>
+					<h3 class="summary-section-title">{$t('feedGroups.key_updates', 'Key Updates')}</h3>
 					<span class="summary-section-badge summary-section-badge--updates">{filteredUpdates.length}</span>
 					{#if updatesFilteredCount > 0}
-						<span class="text-laya-micro text-surface-500">({updatesFilteredCount} filtered)</span>
+						<span class="text-laya-micro text-surface-500">{$t('feedGroups.filtered_count', '({count} filtered)', { count: updatesFilteredCount })}</span>
 					{/if}
 				</div>
 				{#if filteredUpdates.length > 0}
@@ -288,12 +289,12 @@
 								{#if item.space_name}
 									<span class="summary-item-space" style:--space-color={item.space_color || '#F97316'}>{item.space_name}</span>
 								{/if}
-								<span class="summary-item-priority {priorityColor(item.priority)}">{item.priority}</span>
+								<span class="summary-item-priority {priorityColor(item.priority)}">{$t(`shared.priority_${item.priority}`, item.priority)}</span>
 							</button>
 						{/each}
 					</div>
 				{:else}
-					<p class="text-laya-secondary text-surface-500 px-1">No items match the selected space</p>
+					<p class="text-laya-secondary text-surface-500 px-1">{$t('feedGroups.no_items_space', 'No items match the selected space')}</p>
 				{/if}
 			</section>
 		{/if}

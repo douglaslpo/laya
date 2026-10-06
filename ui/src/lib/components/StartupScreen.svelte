@@ -14,6 +14,7 @@
 	} from '$lib/stores/setup';
 	import { onMount } from 'svelte';
 	import layaIcon from '$lib/assets/laya-splash.png';
+	import { t } from '$lib/i18n';
 
 	// ── Normal startup components (shown after setup is done) ──
 	interface ComponentStatus {
@@ -44,8 +45,8 @@
 
 		return [
 			{ label: 'Engine', state: engineState },
-			{ label: 'Database', state: sqliteState },
-			{ label: 'n8n Workflows', state: n8nState },
+			{ label: $t('shell.startup_database', 'Database'), state: sqliteState },
+			{ label: $t('shell.startup_n8n', 'n8n Workflows'), state: n8nState },
 			{ label: 'WebSocket', state: wsState },
 		];
 	});
@@ -85,15 +86,15 @@
 		error: 'text-red-500',
 	};
 
-	const stateLabel: Record<string, string> = {
-		waiting: 'Waiting',
-		loading: 'Starting',
-		running: 'Running',
-		ready: 'Ready',
-		done: 'Done',
-		warning: 'Warning',
-		error: 'Error',
-	};
+	const stateLabel: Record<string, string> = $derived({
+		waiting: $t('shell.state_waiting', 'Waiting'),
+		loading: $t('shell.state_loading', 'Starting'),
+		running: $t('shell.state_running', 'Running'),
+		ready: $t('shell.state_ready', 'Ready'),
+		done: $t('shell.state_done', 'Done'),
+		warning: $t('shell.state_warning', 'Warning'),
+		error: $t('common.error', 'Error'),
+	});
 
 	function dotColor(state: string): string {
 		if (state === 'ready' || state === 'done') return 'bg-green-500';
@@ -110,7 +111,7 @@
 
 	{#if $needsSetup === null}
 		<!-- Still checking environment -->
-		<p class="text-sm text-surface-500 animate-pulse">Checking environment...</p>
+		<p class="text-sm text-surface-500 animate-pulse">{$t('shell.startup_checking_env', 'Checking environment...')}</p>
 
 	{:else if $needsSetup && !$setupComplete}
 		<!-- Setup phase -->
@@ -145,7 +146,7 @@
 							class="mt-2 rounded-md bg-surface-700 px-3 py-1 text-xs text-surface-200 transition-colors hover:bg-surface-600"
 							onclick={retrySetup}
 						>
-							Retry
+							{$t('common.retry', 'Retry')}
 						</button>
 					</div>
 				{/if}
@@ -162,9 +163,12 @@
 
 		<p class="mt-4 text-xs text-surface-500">
 			{#if $setupError && !setupStarted}
-				Setup cannot continue
+				{$t('shell.startup_cannot_continue', 'Setup cannot continue')}
 			{:else}
-				Setting up Laya... {setupReadyCount}/{setupTotal} steps complete
+				{$t('shell.startup_progress', 'Setting up Laya... {done}/{total} steps complete', {
+					done: setupReadyCount,
+					total: setupTotal
+				})}
 			{/if}
 		</p>
 

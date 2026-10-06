@@ -9,6 +9,7 @@
 	import { portal } from '$lib/actions/portal';
 	import { spaces, loadSpaces } from '$lib/stores/spaces';
 	import { get } from 'svelte/store';
+	import { t } from '$lib/i18n';
 
 	const AGENT_MODES: Record<string, string[]> = {
 		claude_code: ['plan', 'acceptEdits'],
@@ -20,21 +21,29 @@
 		.filter((a) => a.value !== 'none')
 		.map((a) => ({ value: a.value, label: a.label, modes: AGENT_MODES[a.value] ?? [] }));
 
-	const modeLabels: Record<string, string> = {
-		plan: 'Plan',
-		acceptEdits: 'Accept Edits',
-		'read-only': 'Read Only',
-		'full-auto': 'Full Auto',
-		force: 'Full Access'
-	};
+	const modeLabels: Record<string, string> = $derived({
+		plan: $t('actions.mode_plan', 'Plan'),
+		acceptEdits: $t('actions.mode_accept_edits', 'Accept Edits'),
+		'read-only': $t('actions.mode_read_only', 'Read Only'),
+		'full-auto': $t('actions.mode_full_auto', 'Full Auto'),
+		force: $t('actions.mode_force', 'Full Access')
+	});
 
-	const modeDescriptions: Record<string, string> = {
-		plan: 'Agent creates a plan and asks for approval before making changes',
-		acceptEdits: 'Agent can read and write files without asking',
-		'read-only': 'Agent can only read files, sandbox mode',
-		'full-auto': 'Agent can read and write files automatically',
-		force: 'Edits auto-applied and shell commands run without asking'
-	};
+	const modeDescriptions: Record<string, string> = $derived({
+		plan: $t('actions.mode_plan_desc', 'Agent creates a plan and asks for approval before making changes'),
+		acceptEdits: $t('actions.mode_accept_edits_desc', 'Agent can read and write files without asking'),
+		'read-only': $t('actions.mode_read_only_desc', 'Agent can only read files, sandbox mode'),
+		'full-auto': $t('actions.mode_full_auto_desc', 'Agent can read and write files automatically'),
+		force: $t('actions.mode_force_desc', 'Edits auto-applied and shell commands run without asking')
+	});
+
+	const submitHint = $derived.by(() => {
+		const text = $t('actions.submit_hint', '{key} to submit · drop, paste, or {browse}');
+		const [beforeKey, rest = ''] = text.split('{key}');
+		const [middle, afterBrowse = ''] = rest.split('{browse}');
+		return { beforeKey, middle, afterBrowse };
+	});
+	const closeHintParts = $derived($t('actions.press_key_to_close', 'Press {key} to close').split('{key}'));
 
 	interface UploadedFile {
 		path: string;
@@ -122,7 +131,7 @@
 		try {
 			const { invoke } = await import('@tauri-apps/api/core');
 			const path = await invoke<string>('pick_folder', {
-				title: 'Select additional directory'
+				title: $t('actions.select_additional_dir', 'Select additional directory')
 			});
 			if (path && !addDirs.includes(path)) {
 				addDirs = [...addDirs, path];
@@ -150,7 +159,7 @@
 				body: formData
 			});
 			if (!resp.ok) {
-				throw new Error(`Upload failed: ${resp.status}`);
+				throw new Error($t('actions.upload_failed_status', 'Upload failed: {status}', { status: resp.status }));
 			}
 			const result = await resp.json();
 
@@ -168,7 +177,7 @@
 				}
 			];
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'File upload failed';
+			error = err instanceof Error ? err.message : $t('actions.file_upload_failed', 'File upload failed');
 		} finally {
 			uploading = false;
 		}
@@ -188,7 +197,7 @@
 				body: JSON.stringify({ path })
 			});
 			if (!resp.ok) {
-				throw new Error(`Upload failed: ${resp.status}`);
+				throw new Error($t('actions.upload_failed_status', 'Upload failed: {status}', { status: resp.status }));
 			}
 			const result = await resp.json();
 			const contentType: string = result.content_type || '';
@@ -204,7 +213,7 @@
 				}
 			];
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'File upload failed';
+			error = err instanceof Error ? err.message : $t('actions.file_upload_failed', 'File upload failed');
 		} finally {
 			uploading = false;
 		}
@@ -336,7 +345,7 @@
 
 	async function submit() {
 		if (!prompt.trim()) {
-			error = 'Please enter a prompt';
+			error = $t('actions.enter_prompt', 'Please enter a prompt');
 			return;
 		}
 
@@ -358,7 +367,7 @@
 			resetState();
 			goto(`/workspace/${result.card_id}`);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to start agent';
+			error = err instanceof Error ? err.message : $t('actions.failed_start_agent', 'Failed to start agent');
 		} finally {
 			submitting = false;
 		}
@@ -438,7 +447,7 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		role="dialog"
-		aria-label="Run Agent"
+		aria-label={$t('actions.run_agent', 'Run Agent')}
 		tabindex="0"
 		onclick={handleBackdrop}
 		onkeydown={handleKeydown}
@@ -467,12 +476,12 @@
 							d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
 						/>
 					</svg>
-					<h2 class="text-sm font-semibold text-surface-50">Run Agent</h2>
+					<h2 class="text-sm font-semibold text-surface-50">{$t('actions.run_agent', 'Run Agent')}</h2>
 				</div>
 				<button
 					class="rounded p-1 text-surface-400 transition-colors hover:text-surface-200"
 					onclick={close}
-					aria-label="Close"
+					aria-label={$t('common.close', 'Close')}
 				>
 					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
@@ -489,7 +498,7 @@
 			<div class="space-y-4 overflow-y-auto p-5">
 				<!-- Agent selector -->
 				<div>
-					<span class={labelClass}>Agent</span>
+					<span class={labelClass}>{$t('actions.agent', 'Agent')}</span>
 					<!-- Grid (not flex) so all agent buttons share one row height; 3 columns below
 					     560px where five cells would force labels onto two lines. -->
 					<div class="grid grid-cols-5 gap-2 max-[560px]:grid-cols-3">
@@ -503,9 +512,9 @@
 							>
 								<div class="truncate text-xs font-medium" title={agent.label}>{agent.label}</div>
 								{#if agentPaths[agent.value]}
-									<div class="mt-0.5 text-[10px] text-green-400/70">configured</div>
+									<div class="mt-0.5 text-[10px] text-green-400/70">{$t('actions.configured', 'configured')}</div>
 								{:else}
-									<div class="mt-0.5 text-[10px] text-surface-500">not found</div>
+									<div class="mt-0.5 text-[10px] text-surface-500">{$t('actions.not_found', 'not found')}</div>
 								{/if}
 							</button>
 						{/each}
@@ -514,7 +523,7 @@
 
 				<!-- Mode selector — always rendered for stable layout; disabled when agent has no modes -->
 				<div class={hasMultipleModes ? '' : 'opacity-40 pointer-events-none'}>
-					<span class={labelClass}>Mode</span>
+					<span class={labelClass}>{$t('actions.mode', 'Mode')}</span>
 					<div class="flex gap-2">
 						{#if hasMultipleModes}
 							{#each availableModes as mode}
@@ -533,8 +542,8 @@
 							{/each}
 						{:else}
 							<div class="flex-1 rounded-lg border border-surface-600 bg-surface-800 px-3 py-2 text-left">
-								<div class="text-xs font-medium text-surface-400">N/A</div>
-								<div class="mt-0.5 text-[10px] text-surface-500 h-[2lh]">No mode options for this agent</div>
+								<div class="text-xs font-medium text-surface-400">{$t('actions.not_available', 'N/A')}</div>
+								<div class="mt-0.5 text-[10px] text-surface-500 h-[2lh]">{$t('actions.no_mode_options', 'No mode options for this agent')}</div>
 							</div>
 							<div class="flex-1 rounded-lg border border-surface-600 bg-surface-800 px-3 py-2 text-left">
 								<div class="text-xs font-medium text-surface-400">&nbsp;</div>
@@ -547,7 +556,7 @@
 				<!-- Space selector — only shown when the user has more than the default space -->
 				{#if $spaces.length > 1}
 					<div class="relative" data-space-dropdown>
-						<span class={labelClass}>Space</span>
+						<span class={labelClass}>{$t('actions.space', 'Space')}</span>
 						<button
 							bind:this={spaceTriggerRef}
 							type="button"
@@ -559,7 +568,7 @@
 									<span class="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style="background-color: {activeSpace.color}"></span>
 									<span class="truncate">{activeSpace.name}</span>
 								{:else}
-									<span class="truncate text-surface-500">Select a space</span>
+									<span class="truncate text-surface-500">{$t('actions.select_space', 'Select a space')}</span>
 								{/if}
 							</span>
 							<svg
@@ -600,14 +609,14 @@
 							</div>
 						{/if}
 						<p class="mt-1 text-[10px] text-surface-500">
-							The card for this agent run will be created in this space.
+							{$t('actions.space_hint', 'The card for this agent run will be created in this space.')}
 						</p>
 					</div>
 				{/if}
 
 				<!-- Working Directory -->
 				<div class="relative" data-dir-dropdown>
-					<label class={labelClass} for="agent-directory">Working Directory</label>
+					<label class={labelClass} for="agent-directory">{$t('actions.working_directory', 'Working Directory')}</label>
 					<button
 						bind:this={dirTriggerRef}
 						id="agent-directory"
@@ -615,7 +624,7 @@
 						class="flex w-full items-center justify-between rounded-md border border-surface-600 bg-surface-800 px-3 py-2 text-left text-sm transition-colors hover:border-surface-500 {directory ? 'text-surface-200' : 'text-surface-500'}"
 						onclick={() => { if (!dirDropdownOpen && dirTriggerRef) { const r = dirTriggerRef.getBoundingClientRect(); dirDropPos = { top: r.bottom + 4, left: r.left, width: r.width }; } dirDropdownOpen = !dirDropdownOpen; }}
 					>
-						<span class="truncate">{directory || 'Optional — leave empty for a research workspace'}</span>
+						<span class="truncate">{directory || $t('actions.directory_optional', 'Optional — leave empty for a research workspace')}</span>
 						<svg
 							class="ml-2 h-4 w-4 shrink-0 text-surface-400 transition-transform {dirDropdownOpen ? 'rotate-180' : ''}"
 							fill="none"
@@ -644,7 +653,7 @@
 										<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 										</svg>
-										Clear selection (use research workspace)
+										{$t('actions.clear_directory', 'Clear selection (use research workspace)')}
 									</button>
 								{/if}
 								{#each repos as repo}
@@ -657,21 +666,21 @@
 									</button>
 								{/each}
 								{#if repos.length === 0}
-									<div class="px-3 py-2 text-xs text-surface-500">No repos configured</div>
+									<div class="px-3 py-2 text-xs text-surface-500">{$t('actions.no_repos', 'No repos configured')}</div>
 								{/if}
 							</div>
 						</div>
 					{/if}
 					<p class="mt-1 text-[10px] text-surface-500">
-						Leave empty to auto-provision a research workspace for this card.
+						{$t('actions.directory_hint', 'Leave empty to auto-provision a research workspace for this card.')}
 					</p>
 				</div>
 
 				<!-- Additional directories -->
 				<div>
 					<label class={labelClass} for="agent-add-dirs-input">
-						Additional Directories
-						<span class="font-normal text-surface-500">(optional)</span>
+						{$t('actions.additional_directories', 'Additional Directories')}
+						<span class="font-normal text-surface-500">{$t('actions.optional', '(optional)')}</span>
 					</label>
 					{#if addDirs.length > 0}
 						<div class="mb-2 space-y-1">
@@ -685,7 +694,7 @@
 									<button
 										class="shrink-0 text-surface-500 transition-colors hover:text-red-400"
 										onclick={() => removeAddDir(i)}
-										aria-label="Remove directory"
+										aria-label={$t('actions.remove_directory', 'Remove directory')}
 									>
 										<svg
 											class="h-3.5 w-3.5"
@@ -717,13 +726,13 @@
 								d="M12 4v16m8-8H4"
 							/>
 						</svg>
-						Add directory
+						{$t('actions.add_directory', 'Add directory')}
 					</button>
 				</div>
 
 				<!-- Prompt + file drop zone -->
 				<div>
-					<label class={labelClass} for="agent-prompt">Prompt</label>
+					<label class={labelClass} for="agent-prompt">{$t('actions.prompt', 'Prompt')}</label>
 					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div
 						class="relative"
@@ -736,7 +745,10 @@
 							bind:value={prompt}
 							rows="6"
 							class="{inputClass} resize-y {dragOver ? '!border-laya-orange !bg-laya-orange/5' : ''}"
-							placeholder="Describe what you want the agent to do...&#10;&#10;Drop or paste files (PDFs, images, text) here for reference"
+							placeholder={$t(
+								'actions.prompt_placeholder',
+								'Describe what you want the agent to do...\n\nDrop or paste files (PDFs, images, text) here for reference'
+							)}
 							onpaste={handlePaste}
 						></textarea>
 
@@ -758,7 +770,7 @@
 											d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
 										/>
 									</svg>
-									Drop files here
+									{$t('actions.drop_files_here', 'Drop files here')}
 								</div>
 							</div>
 						{/if}
@@ -819,7 +831,7 @@
 										<button
 											class="absolute -right-1.5 -top-1.5 hidden rounded-full bg-surface-800 p-0.5 text-surface-400 shadow-md transition-colors hover:text-red-400 group-hover:block"
 											onclick={() => removeFile(i)}
-											aria-label="Remove file"
+											aria-label={$t('actions.remove_file', 'Remove file')}
 										>
 											<svg
 												class="h-3 w-3"
@@ -864,21 +876,20 @@
 									d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
 								></path>
 							</svg>
-							Uploading file...
+							{$t('actions.uploading_file', 'Uploading file...')}
 						</div>
 					{/if}
 
 					<div class="mt-3 flex items-center justify-between gap-2">
 						<p class="text-[10px] text-surface-500">
-							<kbd
+							{submitHint.beforeKey}<kbd
 								class="rounded border border-surface-600 bg-surface-800 px-1 py-0.5 font-mono text-[10px]"
 								>Cmd+Enter</kbd
-							> to submit &middot; drop, paste, or
-							<button
+							>{submitHint.middle}<button
 								type="button"
 								class="text-laya-orange underline-offset-2 hover:underline"
 								onclick={triggerFilePicker}
-							>browse files</button>
+							>{$t('actions.browse_files', 'browse files')}</button>{submitHint.afterBrowse}
 						</p>
 					</div>
 					<input
@@ -904,7 +915,7 @@
 					onclick={close}
 					disabled={submitting}
 				>
-					Cancel
+					{$t('common.cancel', 'Cancel')}
 				</button>
 				<button
 					class="inline-flex items-center gap-1.5 rounded-md bg-laya-orange/20 px-4 py-1.5 text-xs font-medium text-laya-orange transition-colors hover:bg-laya-orange/30 disabled:cursor-not-allowed disabled:opacity-50"
@@ -927,7 +938,7 @@
 								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
 							></path>
 						</svg>
-						Starting...
+						{$t('actions.starting', 'Starting...')}
 					{:else}
 						<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
@@ -943,11 +954,11 @@
 								d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						Run Agent
+						{$t('actions.run_agent', 'Run Agent')}
 					{/if}
 				</button>
 			</div>
-			<p class="px-5 pb-3 pt-1.5 w-full text-right text-[10px] text-surface-500">Press <kbd class="rounded border border-surface-600 px-1 py-0.5 font-mono text-surface-400">⌘.</kbd> to close</p>
+			<p class="px-5 pb-3 pt-1.5 w-full text-right text-[10px] text-surface-500">{closeHintParts[0]}<kbd class="rounded border border-surface-600 px-1 py-0.5 font-mono text-surface-400">⌘.</kbd>{closeHintParts[1] ?? ''}</p>
 		</div>
 	</div>
 {/if}

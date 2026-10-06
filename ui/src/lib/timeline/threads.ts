@@ -12,6 +12,7 @@ import { parseBackendDate } from '$lib/utils/datetime';
 import { platformKey } from '$lib/utils/cardVisuals';
 import { localMinutes } from './scale';
 import { threadAttention, TERMINAL_STATUSES, type ThreadAttention } from '$lib/utils/threadAttention';
+import { tr } from '$lib/i18n';
 
 export interface ThreadEvent {
 	cardId: string;
@@ -162,7 +163,7 @@ export function buildThreads(groups: CardGroup[], opts: BuildThreadsOptions): Th
 				card,
 				minute: carried ? 0 : localMinutes(d),
 				status: card.status,
-				statusLabel: STATUS_LABELS[card.status] ?? card.status,
+				statusLabel: tr(`feedGroups.thread_status_${card.status}`, STATUS_LABELS[card.status] ?? card.status),
 				carried
 			});
 		}
@@ -235,7 +236,7 @@ export function attentionMarks(threads: Thread[]): AttentionMark[] {
 		} else if (t.attention.agentRunning || t.attention.awaitingInput) {
 			marks.push({ minute, kind: 'agent', label: `${t.title} — ${t.attention.reason}`, entityId: t.entityId, ...space });
 		} else if (t.attention.needsYou) {
-			marks.push({ minute, kind: 'needs-you', label: `${t.title} — needs you`, entityId: t.entityId, ...space });
+			marks.push({ minute, kind: 'needs-you', label: tr('feedGroups.mark_needs_you', '{title} — needs you', { title: t.title }), entityId: t.entityId, ...space });
 		}
 	}
 	return marks;

@@ -14,6 +14,7 @@
 	import type { Conversation } from '$lib/api/types';
 	import { parseBackendDate } from '$lib/utils/datetime';
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t, locale } from '$lib/i18n';
 
 	let loading = $state(true);
 	let deletingId = $state<string | null>(null);
@@ -149,14 +150,14 @@
 		if (!d) return '';
 		const diff = Date.now() - d.getTime();
 		const mins = Math.floor(diff / 60000);
-		if (mins < 1) return 'just now';
-		if (mins < 60) return `${mins}m ago`;
+		if (mins < 1) return $t('shell.time_just_now', 'just now');
+		if (mins < 60) return $t('shell.time_minutes_ago', '{count}m ago', { count: mins });
 		const hours = Math.floor(mins / 60);
-		if (hours < 24) return `${hours}h ago`;
+		if (hours < 24) return $t('shell.time_hours_ago', '{count}h ago', { count: hours });
 		const days = Math.floor(hours / 24);
-		if (days === 1) return 'yesterday';
-		if (days < 30) return `${days}d ago`;
-		return d.toLocaleDateString();
+		if (days === 1) return $t('shell.time_yesterday', 'yesterday');
+		if (days < 30) return $t('shell.time_days_ago', '{count}d ago', { count: days });
+		return d.toLocaleDateString($locale);
 	}
 </script>
 
@@ -164,14 +165,14 @@
 	<!-- Header — h-11 (not py-3) to match the workspace panels' h-11 headers so the divider
 	     aligns when the chat is docked flush on the workspace. -->
 	<div class="flex h-11 shrink-0 items-center justify-between border-b {$glassTheme ? 'border-white/[0.06]' : 'border-surface-700'} px-4">
-		<h3 class="text-laya-base font-semibold">Conversations</h3>
+		<h3 class="text-laya-base font-semibold">{$t('shell.chat_conversations', 'Conversations')}</h3>
 		<div class="flex items-center gap-1">
 			<!-- New Chat -->
 			<button
 				onclick={startNewChat}
-				aria-label="New chat"
+				aria-label={$t('chat.new_chat', 'New chat')}
 				class="rounded-md p-1 text-surface-400 transition-colors {$glassTheme ? 'glass-hover' : 'hover:bg-surface-800'} hover:text-laya-orange"
-				title="New chat"
+				title={$t('chat.new_chat', 'New chat')}
 			>
 				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -181,7 +182,9 @@
 			<div class="group/exp relative">
 				<button
 					onclick={() => chatExpanded.set(!$chatExpanded)}
-					aria-label={$chatExpanded ? 'Collapse chat' : 'Expand chat'}
+					aria-label={$chatExpanded
+						? $t('shell.chat_collapse', 'Collapse chat')
+						: $t('shell.chat_expand', 'Expand chat')}
 					class="rounded-md p-1 text-surface-400 transition-colors {$glassTheme ? 'glass-hover' : 'hover:bg-surface-800'} hover:text-laya-orange"
 				>
 					{#if $chatExpanded}
@@ -195,13 +198,13 @@
 					{/if}
 				</button>
 				<span class="pointer-events-none absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md border border-transparent glass-tooltip glass-tooltip-dense px-2 py-1 text-[10px] font-medium shadow-lg opacity-0 transition-opacity duration-75 group-hover/exp:opacity-100">
-					{$chatExpanded ? 'Collapse' : 'Expand'}
+					{$chatExpanded ? $t('shell.collapse', 'Collapse') : $t('shell.expand', 'Expand')}
 				</span>
 			</div>
 			<!-- Close -->
 			<button
 				onclick={() => chatOpen.set(false)}
-				aria-label="Close chat"
+				aria-label={$t('shell.chat_close', 'Close chat')}
 				class="rounded-md p-1 text-surface-400 transition-colors hover:text-surface-200"
 			>
 				<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,18 +217,18 @@
 	<!-- List -->
 	<div class="flex-1 overflow-auto">
 		{#if loading}
-			<p class="p-4 text-center text-laya-base text-surface-500">Loading...</p>
+			<p class="p-4 text-center text-laya-base text-surface-500">{$t('common.loading', 'Loading...')}</p>
 		{:else if $conversations.length === 0}
 			<div class="flex flex-col items-center gap-3 p-8 text-center">
 				<svg class="h-10 w-10 text-surface-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
 				</svg>
-				<p class="text-laya-base text-surface-500">No conversations yet</p>
+				<p class="text-laya-base text-surface-500">{$t('shell.chat_no_conversations', 'No conversations yet')}</p>
 				<button
 					onclick={startNewChat}
 					class="rounded-md bg-laya-orange/80 px-3 py-1.5 text-laya-secondary font-medium text-surface-900 transition-colors hover:bg-laya-orange"
 				>
-					Start a new chat
+					{$t('shell.chat_start_new', 'Start a new chat')}
 				</button>
 			</div>
 		{:else}
@@ -247,7 +250,7 @@
 									onkeydown={(e) => handleEditKey(e, conv.conversation_id)}
 									onblur={() => commitEdit(conv.conversation_id)}
 									maxlength={100}
-									aria-label="Rename conversation"
+									aria-label={$t('shell.chat_rename', 'Rename conversation')}
 									class="min-w-0 flex-1 rounded border border-laya-orange/40 {$glassTheme ? 'bg-white/[0.05]' : 'bg-surface-800'} px-1.5 py-0.5 text-laya-base font-medium text-surface-100 focus:border-laya-orange focus:outline-none"
 								/>
 							{:else}
@@ -266,8 +269,8 @@
 										<button
 											onclick={(e) => startEdit(e, conv)}
 											class="rounded p-1 text-surface-500 transition-colors hover:text-laya-orange"
-											aria-label="Rename conversation"
-											title="Rename"
+											aria-label={$t('shell.chat_rename', 'Rename conversation')}
+											title={$t('shell.rename', 'Rename')}
 										>
 											<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -278,7 +281,9 @@
 											<button
 												onclick={(e) => deleteConversation(e, conv.conversation_id)}
 												class="rounded p-1 transition-colors {deletingId === conv.conversation_id ? 'text-red-400' : 'text-surface-500 hover:text-red-400'}"
-												aria-label={deletingId === conv.conversation_id ? 'Click again to confirm delete' : 'Double-click to delete'}
+												aria-label={deletingId === conv.conversation_id
+													? $t('shell.chat_confirm_delete', 'Click again to confirm delete')
+													: $t('shell.chat_double_click_delete', 'Double-click to delete')}
 											>
 												<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -287,7 +292,9 @@
 											<span class="pointer-events-none absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md border border-transparent glass-tooltip glass-tooltip-dense px-2 py-1 text-[10px] font-medium shadow-lg
 												opacity-0 transition-opacity duration-75 group-hover/del:opacity-100
 												{deletingId === conv.conversation_id ? '!border-red-400/30 !bg-red-950 !text-red-300' : ''}">
-												{deletingId === conv.conversation_id ? 'Click again to confirm' : 'Double-click to delete'}
+												{deletingId === conv.conversation_id
+													? $t('shell.chat_confirm_click', 'Click again to confirm')
+													: $t('shell.chat_double_click_delete', 'Double-click to delete')}
 											</span>
 										</div>
 									</div>
@@ -297,7 +304,9 @@
 						{#if conv.preview}
 							<p class="mt-0.5 truncate text-laya-secondary text-surface-500">{conv.preview}</p>
 						{/if}
-						<span class="mt-0.5 text-laya-micro text-surface-600">{conv.message_count} message{conv.message_count === 1 ? '' : 's'}</span>
+						<span class="mt-0.5 text-laya-micro text-surface-600">{conv.message_count === 1
+							? $t('shell.chat_messages_one', '{count} message', { count: conv.message_count })
+							: $t('shell.chat_messages_other', '{count} messages', { count: conv.message_count })}</span>
 					</div>
 				{/each}
 			</div>

@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { engineApi } from '$lib/api/engine';
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 	import PlatformIcon from './PlatformIcon.svelte';
 	import SmtpSetupForm from './SmtpSetupForm.svelte';
 	import TagInput from './TagInput.svelte';
@@ -62,11 +63,11 @@
 
 	async function handleApiKeySubmit() {
 		if (!connectionName.trim()) {
-			nameError = 'Please provide a name for this account';
+			nameError = $t('settingsModels.name_required', 'Please provide a name for this account');
 			return;
 		}
 		if (connectionName && existingNames.includes(connectionName.trim())) {
-			nameError = 'This name is already in use';
+			nameError = $t('settingsModels.name_in_use', 'This name is already in use');
 			return;
 		}
 		nameError = null;
@@ -80,7 +81,7 @@
 			});
 			onConnected();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Connection failed';
+			error = e instanceof Error ? e.message : $t('settingsModels.connection_failed', 'Connection failed');
 		} finally {
 			submitting = false;
 		}
@@ -97,7 +98,7 @@
 			});
 			onConnected();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Connection failed';
+			error = e instanceof Error ? e.message : $t('settingsModels.connection_failed', 'Connection failed');
 		} finally {
 			submitting = false;
 		}
@@ -105,15 +106,15 @@
 
 	async function handleOAuthConnect() {
 		if (!connectionName.trim()) {
-			nameError = 'Please provide a name for this account';
+			nameError = $t('settingsModels.name_required', 'Please provide a name for this account');
 			return;
 		}
 		if (connectionName && existingNames.includes(connectionName.trim())) {
-			nameError = 'This name is already in use';
+			nameError = $t('settingsModels.name_in_use', 'This name is already in use');
 			return;
 		}
 		if (platform === 'slack' && slackChannels.length === 0) {
-			oauthError = 'Please specify at least one channel to monitor.';
+			oauthError = $t('settingsModels.slack_channel_required', 'Please specify at least one channel to monitor.');
 			return;
 		}
 		nameError = null;
@@ -143,7 +144,7 @@
 			oauthPolling = true;
 			pollForOAuthCompletion();
 		} catch (e) {
-			const msg = e instanceof Error ? e.message : 'OAuth failed';
+			const msg = e instanceof Error ? e.message : $t('settingsModels.oauth_failed', 'OAuth failed');
 			if (msg.includes('not configured') || msg.includes('client')) {
 				showOAuthSetup = true;
 				oauthError = null;
@@ -165,7 +166,7 @@
 				// 60 seconds timeout
 				stopPolling();
 				oauthPolling = false;
-				oauthError = 'OAuth flow timed out. Please try again.';
+				oauthError = $t('settingsModels.oauth_timeout', 'OAuth flow timed out. Please try again.');
 				return;
 			}
 			try {
@@ -204,7 +205,7 @@
 			// Now try the OAuth flow again
 			await handleOAuthConnect();
 		} catch (e) {
-			oauthError = e instanceof Error ? e.message : 'Setup failed';
+			oauthError = e instanceof Error ? e.message : $t('settingsModels.setup_failed', 'Setup failed');
 		} finally {
 			submitting = false;
 		}
@@ -240,19 +241,19 @@
 				<PlatformIcon platform={platform} size={18} />
 			</div>
 			<div>
-				<h3 class="text-laya-base font-semibold text-surface-100">Connect {platformLabel}</h3>
+				<h3 class="text-laya-base font-semibold text-surface-100">{$t('settingsModels.connect_platform', 'Connect {platform}', { platform: platformLabel })}</h3>
 				<p class="text-laya-secondary text-surface-500">
 					{#if isOAuth}
-						Authenticate via OAuth
+						{$t('settingsModels.auth_via_oauth', 'Authenticate via OAuth')}
 					{:else if platform === 'smtp'}
-						Configure email server settings
+						{$t('settingsModels.configure_email_server', 'Configure email server settings')}
 					{:else}
-						Enter your API credentials
+						{$t('settingsModels.enter_api_credentials', 'Enter your API credentials')}
 					{/if}
 				</p>
 			</div>
 			<button
-				aria-label="Close"
+				aria-label={$t('common.close', 'Close')}
 				onclick={() => { stopPolling(); onClose(); }}
 				class="ml-auto text-surface-500 hover:text-surface-200 transition-colors"
 			>
@@ -272,32 +273,32 @@
 
 			<!-- Account name input -->
 			<div class="mb-4">
-				<label for="connection-name" class="mb-1 block text-laya-secondary font-medium text-surface-400">Account Name</label>
+				<label for="connection-name" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.account_name', 'Account Name')}</label>
 				<input
 					id="connection-name"
 					type="text"
 					bind:value={connectionName}
-					placeholder="e.g., Personal, Work"
+					placeholder={$t('settingsModels.account_name_placeholder', 'e.g., Personal, Work')}
 					class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 				/>
 				{#if nameError}
 					<p class="mt-1 text-laya-secondary text-red-400">{nameError}</p>
 				{:else if connectionName && existingNames.includes(connectionName.trim())}
-					<p class="mt-1 text-laya-secondary text-red-400">This name is already in use</p>
+					<p class="mt-1 text-laya-secondary text-red-400">{$t('settingsModels.name_in_use', 'This name is already in use')}</p>
 				{:else}
-					<p class="mt-1 text-laya-secondary text-surface-500">A label to identify this account</p>
+					<p class="mt-1 text-laya-secondary text-surface-500">{$t('settingsModels.account_name_hint', 'A label to identify this account')}</p>
 				{/if}
 			</div>
 
 			{#if platform === 'slack' && isOAuth}
 				<div class="mb-4">
-					<span class="mb-1 block text-laya-secondary font-medium text-surface-400">Channels to Monitor</span>
+					<span class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.channels_to_monitor', 'Channels to Monitor')}</span>
 					<TagInput
 						bind:tags={slackChannels}
-						placeholder="e.g., general, dev, team-standup"
+						placeholder={$t('settingsModels.channels_placeholder', 'e.g., general, dev, team-standup')}
 					/>
 					<p class="mt-1 text-laya-secondary text-surface-500">
-						Type channel names separated by commas. Only these channels will be monitored.
+						{$t('settingsModels.channels_hint', 'Type channel names separated by commas. Only these channels will be monitored.')}
 					</p>
 				</div>
 			{/if}
@@ -311,25 +312,25 @@
 				{#if showOAuthSetup}
 					<div class="space-y-4">
 						<p class="text-laya-secondary text-surface-400">
-							To connect {platformLabel}, first configure your OAuth application credentials.
+							{$t('settingsModels.oauth_setup_intro', 'To connect {platform}, first configure your OAuth application credentials.', { platform: platformLabel })}
 						</p>
 						<div>
-							<label for="oauth-client-id" class="mb-1 block text-laya-secondary font-medium text-surface-400">Client ID</label>
+							<label for="oauth-client-id" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.client_id', 'Client ID')}</label>
 							<input
 								id="oauth-client-id"
 								type="text"
 								bind:value={oauthClientId}
-								placeholder="Your OAuth client ID"
+								placeholder={$t('settingsModels.client_id_placeholder', 'Your OAuth client ID')}
 								class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 							/>
 						</div>
 						<div>
-							<label for="oauth-client-secret" class="mb-1 block text-laya-secondary font-medium text-surface-400">Client Secret</label>
+							<label for="oauth-client-secret" class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.client_secret', 'Client Secret')}</label>
 							<input
 								id="oauth-client-secret"
 								type="password"
 								bind:value={oauthClientSecret}
-								placeholder="Your OAuth client secret"
+								placeholder={$t('settingsModels.client_secret_placeholder', 'Your OAuth client secret')}
 								class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base text-surface-100 placeholder:text-surface-500"
 							/>
 						</div>
@@ -343,19 +344,19 @@
 							disabled={submitting || !oauthClientId.trim() || !oauthClientSecret.trim()}
 							class="w-full rounded-md bg-laya-orange px-4 py-2 text-laya-base font-medium text-white transition-colors hover:bg-laya-gold disabled:opacity-50"
 						>
-							{submitting ? 'Saving...' : 'Save & Continue'}
+							{submitting ? $t('settingsModels.saving', 'Saving…') : $t('settingsModels.save_continue', 'Save & Continue')}
 						</button>
 					</div>
 				{:else if oauthPolling}
 					<div class="flex flex-col items-center gap-3 py-6">
 						<div class="h-8 w-8 animate-spin rounded-full border-2 border-surface-600 border-t-laya-orange"></div>
-						<p class="text-laya-base text-surface-300">Waiting for authorization...</p>
-						<p class="text-laya-secondary text-surface-500">Complete the sign-in in the opened window</p>
+						<p class="text-laya-base text-surface-300">{$t('settingsModels.waiting_authorization', 'Waiting for authorization...')}</p>
+						<p class="text-laya-secondary text-surface-500">{$t('settingsModels.complete_signin', 'Complete the sign-in in the opened window')}</p>
 					</div>
 				{:else}
 					<div class="flex flex-col items-center gap-4 py-4">
 						<p class="text-center text-laya-base text-surface-400">
-							Click below to sign in with {platformLabel}. A new window will open for authorization.
+							{$t('settingsModels.oauth_signin_intro', 'Click below to sign in with {platform}. A new window will open for authorization.', { platform: platformLabel })}
 						</p>
 						{#if oauthError}
 							<div class="w-full rounded-md border border-red-800/50 bg-red-900/20 px-3 py-2 text-laya-secondary text-red-300">
@@ -367,13 +368,13 @@
 							class="flex items-center gap-2 rounded-md bg-laya-orange px-6 py-2.5 text-laya-base font-medium text-white transition-colors hover:bg-laya-gold"
 						>
 							<PlatformIcon platform={platform} size={16} />
-							Connect {platformLabel}
+							{$t('settingsModels.connect_platform', 'Connect {platform}', { platform: platformLabel })}
 						</button>
 						<button
 							onclick={() => { showOAuthSetup = true; oauthError = null; }}
 							class="text-laya-secondary text-surface-500 hover:text-surface-300 transition-colors"
 						>
-							Change OAuth credentials
+							{$t('settingsModels.change_oauth_credentials', 'Change OAuth credentials')}
 						</button>
 					</div>
 				{/if}
@@ -424,7 +425,7 @@
 						disabled={submitting || fields.some((f) => f.type !== 'checkbox' && !String(fieldValues[f.key] ?? '').trim())}
 						class="w-full rounded-md bg-laya-orange px-4 py-2 text-laya-base font-medium text-white transition-colors hover:bg-laya-gold disabled:opacity-50"
 					>
-						{submitting ? 'Connecting...' : 'Connect'}
+						{submitting ? $t('settingsModels.connecting', 'Connecting...') : $t('settingsModels.connect', 'Connect')}
 					</button>
 				</div>
 			{/if}

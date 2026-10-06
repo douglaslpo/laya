@@ -1,7 +1,8 @@
 // Copyright 2026 Aayush Chawla
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { locale } from '$lib/i18n';
 import { parseBackendDate, timeAgo } from './datetime';
 
 describe('parseBackendDate', () => {
@@ -39,8 +40,13 @@ describe('parseBackendDate', () => {
 });
 
 describe('timeAgo', () => {
+	beforeEach(() => {
+		locale.set('en');
+	});
+
 	afterEach(() => {
 		vi.useRealTimers();
+		locale.set('pt-BR');
 	});
 
 	// Anchor "now" to a fixed absolute instant; the backend strings below are all

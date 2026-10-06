@@ -3,6 +3,7 @@
 <script lang="ts">
 	import type { EgressCapability } from '$lib/api/types';
 	import { engineApi } from '$lib/api/engine';
+	import { t } from '$lib/i18n';
 	import InlineEditor from './InlineEditor.svelte';
 	import ConfirmAction from './ConfirmAction.svelte';
 
@@ -67,7 +68,7 @@
 			const resp = await engineApi.getEgressCapabilities(platform);
 			capabilities = resp.capabilities;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load capabilities';
+			error = err instanceof Error ? err.message : $t('actions.failed_load_capabilities', 'Failed to load capabilities');
 		} finally {
 			loading = false;
 		}
@@ -113,7 +114,7 @@
 				confirmPreview = {
 					platform,
 					action_type: cap.action_type,
-					summary: `Execute ${cap.label}`,
+					summary: $t('actions.execute_label', 'Execute {label}', { label: cap.label }),
 					details: confirmPayload,
 					warnings: [],
 					estimated_impact: ''
@@ -154,13 +155,15 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
 			</svg>
-			Loading actions...
+			{$t('actions.loading_actions', 'Loading actions...')}
 		</div>
 	{:else if error}
 		<p class="text-xs text-red-400">{error}</p>
 	{:else if capabilities.length === 0}
 		<p class="text-xs text-surface-500">
-			Connect {platformLabels[platform] ?? platform} to enable actions
+			{$t('actions.connect_to_enable', 'Connect {platform} to enable actions', {
+				platform: platformLabels[platform] ?? platform
+			})}
 		</p>
 	{:else}
 		<div class="flex flex-wrap gap-2">

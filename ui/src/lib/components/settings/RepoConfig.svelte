@@ -7,6 +7,7 @@
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { portal } from '$lib/actions/portal';
 	import type { Repo } from '$lib/api/types';
+	import { t } from '$lib/i18n';
 
 	interface RepoDetection {
 		path: string;
@@ -48,7 +49,7 @@
 			const data = await engineApi.getRepos();
 			repos = data.repos;
 		} catch {
-			error = 'Failed to load repository configuration';
+			error = $t('settingsRules.err_load_repos', 'Failed to load repository configuration');
 		} finally {
 			loading = false;
 		}
@@ -60,7 +61,7 @@
 		try {
 			await engineApi.updateRepos({ repos });
 		} catch {
-			error = 'Failed to save repos';
+			error = $t('settingsRules.err_save_repos', 'Failed to save repos');
 		} finally {
 			saving = false;
 		}
@@ -99,7 +100,7 @@
 				// hint so the user picks the platform before adding.
 				detectionStatus = {
 					ok: true,
-					msg: `Self-hosted host detected (${result.host}) — choose a platform, then Add`
+					msg: $t('settingsRules.self_hosted_detected', 'Self-hosted host detected ({host}) — choose a platform, then Add', { host: result.host })
 				};
 			}
 		} catch (err: unknown) {
@@ -144,7 +145,7 @@
 </script>
 
 {#if loading}
-	<div class="text-surface-400">Loading repos...</div>
+	<div class="text-surface-400">{$t('settingsRules.loading_repos', 'Loading repos...')}</div>
 {:else}
 	{#if error}
 		<div class="rounded-lg border border-red-800 bg-red-900/30 px-4 py-2 text-laya-base text-red-300">{error}</div>
@@ -155,11 +156,11 @@
 		<table class="w-full table-fixed text-laya-base">
 			<thead class="{$glassTheme ? 'bg-white/[0.03]' : 'bg-surface-800'} text-left text-laya-secondary uppercase tracking-wider text-surface-400">
 				<tr>
-					<th class="w-[15%] px-4 py-3">Name</th>
-					<th class="w-[25%] px-4 py-3">Path</th>
-					<th class="w-[12%] px-4 py-3">Platform</th>
-					<th class="px-4 py-3">Remote ID</th>
-					<th class="w-[15%] px-4 py-3 text-right">Actions</th>
+					<th class="w-[15%] px-4 py-3">{$t('settingsRules.col_name', 'Name')}</th>
+					<th class="w-[25%] px-4 py-3">{$t('settingsRules.col_path', 'Path')}</th>
+					<th class="w-[12%] px-4 py-3">{$t('settingsRules.col_platform', 'Platform')}</th>
+					<th class="px-4 py-3">{$t('settingsRules.col_remote_id', 'Remote ID')}</th>
+					<th class="w-[15%] px-4 py-3 text-right">{$t('settingsRules.col_actions', 'Actions')}</th>
 				</tr>
 			</thead>
 			<tbody class="divide-y {$glassTheme ? 'divide-white/[0.05]' : 'divide-surface-700'}">
@@ -176,13 +177,13 @@
 						</td>
 						<td class="truncate px-4 py-3 text-surface-400" onmouseenter={showTooltipIfTruncated} onmouseleave={hideTooltip}>{repo.remote_id || '-'}</td>
 						<td class="px-4 py-3 text-right whitespace-nowrap">
-							<button class="text-surface-400 hover:text-surface-100" onclick={() => startEdit(i)}>Edit</button>
-							<button class="ml-2 text-red-400 hover:text-red-300" onclick={() => removeRepo(i)}>Remove</button>
+							<button class="text-surface-400 hover:text-surface-100" onclick={() => startEdit(i)}>{$t('common.edit', 'Edit')}</button>
+							<button class="ml-2 text-red-400 hover:text-red-300" onclick={() => removeRepo(i)}>{$t('settingsRules.remove', 'Remove')}</button>
 						</td>
 					</tr>
 				{/each}
 				{#if repos.length === 0}
-					<tr><td colspan="5" class="px-4 py-6 text-center text-surface-500">No repositories configured</td></tr>
+					<tr><td colspan="5" class="px-4 py-6 text-center text-surface-500">{$t('settingsRules.no_repos', 'No repositories configured')}</td></tr>
 				{/if}
 			</tbody>
 		</table>
@@ -191,14 +192,14 @@
 	<!-- Add/Edit form -->
 	{#if showAddForm || editingIndex !== null}
 		<div class="mt-4 {$glassTheme ? 'glass-section' : 'rounded-xl border border-surface-700 bg-surface-800'} p-4">
-			<h3 class="mb-3 text-laya-base font-medium">{editingIndex !== null ? 'Edit Repository' : 'Add Repository'}</h3>
+			<h3 class="mb-3 text-laya-base font-medium">{editingIndex !== null ? $t('settingsRules.edit_repo', 'Edit Repository') : $t('settingsRules.add_repo_title', 'Add Repository')}</h3>
 			<div class="mb-3 flex items-center gap-3">
 				<button
 					class="rounded-lg border border-surface-600 bg-surface-700 px-3 py-2 text-laya-base font-medium transition-colors hover:bg-surface-600 disabled:opacity-50"
 					onclick={browseRepo}
 					disabled={browsing}
 				>
-					{browsing ? 'Opening…' : 'Browse…'}
+					{browsing ? $t('settingsRules.opening', 'Opening…') : $t('settingsRules.browse', 'Browse…')}
 				</button>
 				{#if detectionStatus}
 					<span class="text-laya-base {detectionStatus.ok ? 'text-green-400' : 'text-red-400'}">
@@ -207,11 +208,11 @@
 				{/if}
 			</div>
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-				<input bind:value={formName} placeholder="Name (e.g. payments-service)" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
-				<input bind:value={formPath} placeholder="Local path (e.g. /home/user/repos/payments)" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
-				<input bind:value={formPlatform} placeholder="Platform (e.g. github, bitbucket)" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
-				<input bind:value={formRemoteId} placeholder="Remote ID (e.g. org/repo)" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
-				<input bind:value={formHost} placeholder="Host (e.g. bitbucket.org; leave blank for cloud)" class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+				<input bind:value={formName} placeholder={$t('settingsRules.repo_name_placeholder', 'Name (e.g. payments-service)')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+				<input bind:value={formPath} placeholder={$t('settingsRules.repo_path_placeholder', 'Local path (e.g. /home/user/repos/payments)')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+				<input bind:value={formPlatform} placeholder={$t('settingsRules.repo_platform_placeholder', 'Platform (e.g. github, bitbucket)')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+				<input bind:value={formRemoteId} placeholder={$t('settingsRules.repo_remote_placeholder', 'Remote ID (e.g. org/repo)')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
+				<input bind:value={formHost} placeholder={$t('settingsRules.repo_host_placeholder', 'Host (e.g. bitbucket.org; leave blank for cloud)')} class="rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 text-laya-base text-surface-50 placeholder-surface-500" />
 			</div>
 			<div class="mt-3 flex gap-2">
 				<button
@@ -219,10 +220,10 @@
 					onclick={editingIndex !== null ? saveEdit : addRepo}
 					disabled={!formName || !formPath}
 				>
-					{saving ? 'Saving...' : editingIndex !== null ? 'Save' : 'Add'}
+					{saving ? $t('settingsRules.saving', 'Saving...') : editingIndex !== null ? $t('common.save', 'Save') : $t('settingsRules.add', 'Add')}
 				</button>
 				<button class="rounded-lg px-4 py-2 text-laya-base text-surface-400 hover:text-surface-200" onclick={resetForm}>
-					Cancel
+					{$t('common.cancel', 'Cancel')}
 				</button>
 			</div>
 		</div>
@@ -231,7 +232,7 @@
 			class="mt-4 rounded-lg border border-dashed border-surface-600 px-4 py-2 text-laya-base text-surface-400 transition-colors hover:border-surface-400 hover:text-surface-200"
 			onclick={() => (showAddForm = true)}
 		>
-			+ Add Repository
+			{$t('settingsRules.add_repo', '+ Add Repository')}
 		</button>
 	{/if}
 {/if}

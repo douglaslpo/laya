@@ -34,6 +34,7 @@
 	import ThreadCapsule from './ThreadCapsule.svelte';
 	import OverflowStrip from './OverflowStrip.svelte';
 	import HeatRail from './HeatRail.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		groups = [],
@@ -50,7 +51,7 @@
 		onloadmore,
 		onselectcard,
 		onselectgroup,
-		emptyLabel = 'No cards for this day'
+		emptyLabel
 	}: {
 		groups?: CardGroup[];
 		dayEvents?: DayEventsResponse | null;
@@ -91,7 +92,12 @@
 	const nowMinute = $derived(localMinutes(now));
 
 	// ── data → geometry ─────────────────────────────────────────────────
-	const threads = $derived(buildThreads(groups, { date, now }));
+	// Status labels and attention reasons are translated inside buildThreads, so a
+	// locale switch has to rebuild them.
+	const threads = $derived.by(() => {
+		void $locale;
+		return buildThreads(groups, { date, now });
+	});
 
 	const meetingMinutes = $derived.by(() => {
 		const out: number[] = [];
@@ -459,7 +465,7 @@
 					onpointerup={endBrush}
 					onpointercancel={endBrush}
 					role="presentation"
-					title="Drag to filter the feed to a time range"
+					title={$t('feedGroups.drag_brush', 'Drag to filter the feed to a time range')}
 				>
 					{#each scale.hourLines as line (line.minute)}
 						<div class="absolute right-1.5 font-mono text-[10px] leading-none" style="top: {line.y - 4}px; color: var(--color-surface-400)">
@@ -508,15 +514,23 @@
 								? scale.quietBandPx
 								: scale.y(run.endMin) - scale.y(run.startMin)}px; {collapsed ? '' : 'border-color: var(--tl-quiet-border); align-items: flex-start; padding-top: 4px;'}"
 							onclick={() => toggleRun(run)}
-							title={collapsed ? 'Expand this quiet stretch' : 'Collapse this quiet stretch'}
+							title={collapsed
+								? $t('feedGroups.expand_quiet', 'Expand this quiet stretch')
+								: $t('feedGroups.collapse_quiet', 'Collapse this quiet stretch')}
 						>
 							<span class="shrink-0 font-mono text-[9px] uppercase tracking-[0.1em]" style="color: var(--tl-quiet-label)">
-								{formatMinutes(run.startMin)} – {formatMinutes(run.endMin)} Quiet
+								{$t('feedGroups.quiet_range', '{from} – {to} Quiet', { from: formatMinutes(run.startMin), to: formatMinutes(run.endMin) })}
 							</span>
 							<span class="truncate text-[10px]" style="color: var(--tl-quiet-text)">
-								{run.eventCount} low-priority {run.eventCount === 1 ? 'event' : 'events'}{run.carriedThreads > 0
-									? `, ${run.carriedThreads} thread${run.carriedThreads === 1 ? '' : 's'} carried forward`
-									: ''} — click to {collapsed ? 'expand' : 'collapse'}
+								{run.eventCount === 1
+									? $t('feedGroups.quiet_events_one', '{count} low-priority event', { count: run.eventCount })
+									: $t('feedGroups.quiet_events_other', '{count} low-priority events', { count: run.eventCount })}{run.carriedThreads > 0
+									? run.carriedThreads === 1
+										? $t('feedGroups.quiet_carried_one', ', {count} thread carried forward', { count: run.carriedThreads })
+										: $t('feedGroups.quiet_carried_other', ', {count} threads carried forward', { count: run.carriedThreads })
+									: ''} {collapsed
+									? $t('feedGroups.quiet_click_expand', '— click to expand')
+									: $t('feedGroups.quiet_click_collapse', '— click to collapse')}
 							</span>
 						</button>
 					{/each}
@@ -534,8 +548,8 @@
 						{/each}
 					{:else if threads.length === 0}
 						<div class="absolute inset-x-0 top-24 flex flex-col items-center justify-center text-center text-surface-500">
-							<p class="text-laya-heading">{emptyLabel}</p>
-							<p class="mt-1 text-laya-base">Cards will appear here as events are processed</p>
+							<p class="text-laya-heading">{emptyLabel ?? $t('feedGroups.no_cards_day', 'No cards for this day')}</p>
+							<p class="mt-1 text-laya-base">{$t('feedGroups.cards_will_appear', 'Cards will appear here as events are processed')}</p>
 						</div>
 					{:else}
 						{#each pack.placed as item (item.key)}
@@ -582,7 +596,7 @@
 							<span
 								class="absolute left-0 rounded-full px-1.5 py-px font-mono text-[9px] font-semibold"
 								style="top: -8px; background: var(--tl-now); color: var(--tl-now-fg)"
-							>{formatMinutes(nowMinute)} NOW</span>
+							>{$t('feedGroups.now_marker', '{time} NOW', { time: formatMinutes(nowMinute) })}</span>
 						</div>
 					{/if}
 				</div>
@@ -596,7 +610,7 @@
 					class="absolute -left-24 top-1 z-20 rounded-md border px-2 py-0.5 text-[10px] font-medium"
 					style="border-color: var(--tl-control-border); background: var(--tl-control-bg); color: var(--color-surface-300)"
 					onclick={() => timelineView.setOverflowExpanded(false)}
-				>Collapse lanes</button>
+				>{$t('feedGroups.collapse_lanes', 'Collapse lanes')}</button>
 			{/if}
 			<HeatRail
 				buckets={dayEvents?.buckets ?? []}
@@ -641,7 +655,7 @@
 				<div class="mt-1 line-clamp-3 text-[10.5px] leading-relaxed opacity-80">{tooltipCard.summary}</div>
 			{/if}
 			<div class="mt-2 flex flex-wrap items-center gap-1.5 text-[9px] font-medium">
-				<span class="rounded px-1.5 py-0.5" style="background: var(--tl-bg-dormant); color: var(--tl-fg-dormant)">{tooltipCard.persona}</span>
+				<span class="rounded px-1.5 py-0.5" style="background: var(--tl-bg-dormant); color: var(--tl-fg-dormant)">{$t(`shared.persona_${tooltipCard.persona}`, tooltipCard.persona)}</span>
 				<span class="rounded px-1.5 py-0.5" style="background: var(--tl-bg-ready); color: var(--tl-fg-ready)">{thread.latest.statusLabel}</span>
 				{#if thread.spaceName}
 					<!-- Named here rather than on the capsule: the stripe carries the
@@ -651,7 +665,9 @@
 						{thread.spaceName}
 					</span>
 				{/if}
-				<span class="font-mono opacity-70">{thread.cardCount} events · {thread.openHours.toFixed(1)}h</span>
+				<span class="font-mono opacity-70">{thread.cardCount === 1
+					? $t('feedGroups.events_one', '{count} event', { count: thread.cardCount })
+					: $t('feedGroups.events_other', '{count} events', { count: thread.cardCount })} · {thread.openHours.toLocaleString($locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}h</span>
 			</div>
 			{#if thread.attention.reason}
 				<div class="mt-1.5 text-[9.5px]" style="color: var(--tl-fg-failed)">{thread.attention.reason}</div>

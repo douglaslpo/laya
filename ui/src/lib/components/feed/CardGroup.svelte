@@ -17,6 +17,7 @@
 	import { platformDotColor, PRIORITY_LABELS, PRIORITY_COLORS } from '$lib/utils/cardVisuals';
 	import { parseBackendDate, timeAgo as _timeAgo } from '$lib/utils/datetime';
 	import PlatformIcon from '$lib/components/settings/PlatformIcon.svelte';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		group,
@@ -127,8 +128,20 @@
 		awaiting_input: 'Needs Input', staged: 'Staged'
 	};
 
+	function summaryLabel(status: string): string {
+		return statusSummaryLabel[status]
+			? $t(`feedGroups.card_status_${status}`, statusSummaryLabel[status])
+			: $t(`shared.status_${status}`, status);
+	}
+
+	function cardsLabel(count: number): string {
+		return count === 1
+			? $t('feedGroups.cards_one', '{count} card', { count })
+			: $t('feedGroups.cards_other', '{count} cards', { count });
+	}
+
 	const statusText = $derived(
-		statusSummary.map(s => `${s.count} ${statusSummaryLabel[s.status] ?? s.status}`).join(' \u00b7 ') + ` \u00b7 ${group.card_count} cards` + (group.unread_count > 0 ? ` \u00b7 ${group.unread_count} new` : '')
+		statusSummary.map(s => `${s.count} ${summaryLabel(s.status)}`).join(' \u00b7 ') + ` \u00b7 ${cardsLabel(group.card_count)}` + (group.unread_count > 0 ? ` \u00b7 ${$t('feedGroups.new_count', '{count} new', { count: group.unread_count })}` : '')
 	);
 
 	// Status priority for group color: highest-priority status wins
@@ -202,7 +215,11 @@
 
 	const priorityColors = PRIORITY_COLORS;
 
-	const priorityLabel = PRIORITY_LABELS;
+	const priorityLabel = $derived(
+		Object.fromEntries(
+			Object.entries(PRIORITY_LABELS).map(([p, label]) => [p, $t(`feedCards.priority_short_${p}`, label)])
+		) as Record<string, string>
+	);
 
 	const personaColors: Record<string, string> = {
 		ENGINEER: 'text-violet-400',
@@ -239,7 +256,10 @@
 		calendar: 'Calendar', github: 'GitHub', laya: 'Laya'
 	};
 
-	const timeAgo = (dateStr?: string) => _timeAgo(dateStr, { weeks: true });
+	const timeAgo = $derived.by(() => {
+		void $locale;
+		return (dateStr?: string) => _timeAgo(dateStr, { weeks: true });
+	});
 
 	// Extract subject ID from entity_id (e.g., "jira:ticket:FERR-1056" → "FERR-1056")
 	const subjectId = $derived(group.entity_id?.includes(':') ? group.entity_id.split(':').pop() : group.entity_id);
@@ -397,7 +417,7 @@
 							<rect x="7" y="7" width="8" height="8" rx="2" stroke="currentColor" stroke-width="1.3" />
 							<circle cx="8" cy="8" r="1.5" fill="currentColor" />
 						</svg>
-						Linked
+						{$t('feedGroups.linked', 'Linked')}
 					</span>
 				{/if}
 				<div class="ml-auto flex items-center gap-1.5">
@@ -405,7 +425,7 @@
 					     Lives at the start of the cluster so the icons/menu/chevron keep
 					     their positions when the group expands. -->
 					{#if expanded}
-						<span class="whitespace-nowrap rounded-full bg-laya-orange/10 px-2 py-0.5 text-laya-micro font-semibold text-laya-orange" title="{group.card_count} cards">
+						<span class="whitespace-nowrap rounded-full bg-laya-orange/10 px-2 py-0.5 text-laya-micro font-semibold text-laya-orange" title={cardsLabel(group.card_count)}>
 							{group.card_count}
 						</span>
 					{/if}
@@ -419,10 +439,10 @@
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<a
 							href="/workspace/{workspaceCardId}"
-							aria-label="Open Workspace"
+							aria-label={$t('feedGroups.open_workspace', 'Open Workspace')}
 							class="flex h-6 w-6 items-center justify-center rounded-md text-violet-400/60 transition-colors hover:bg-violet-500/15 hover:text-violet-400"
 							onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(`/workspace/${workspaceCardId}`); }}
-							onmouseenter={(e) => { const r = e.currentTarget.getBoundingClientRect(); hoveredTooltip = { text: 'Open Workspace', top: r.bottom + 4, left: r.left + r.width / 2 }; }}
+							onmouseenter={(e) => { const r = e.currentTarget.getBoundingClientRect(); hoveredTooltip = { text: $t('feedGroups.open_workspace', 'Open Workspace'), top: r.bottom + 4, left: r.left + r.width / 2 }; }}
 							onmouseleave={() => { hoveredTooltip = null; }}
 						>
 							<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -434,7 +454,7 @@
 						<!-- Three-dot group actions menu -->
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div class="group-menu relative" bind:this={menuEl}
-							onmouseenter={(e) => { if (!groupMenuOpen) { const r = e.currentTarget.getBoundingClientRect(); hoveredTooltip = { text: 'Group actions', top: r.bottom + 4, left: r.left + r.width / 2 }; } }}
+							onmouseenter={(e) => { if (!groupMenuOpen) { const r = e.currentTarget.getBoundingClientRect(); hoveredTooltip = { text: $t('feedGroups.group_actions', 'Group actions'), top: r.bottom + 4, left: r.left + r.width / 2 }; } }}
 							onmouseleave={() => { hoveredTooltip = null; }}
 						>
 							<button
@@ -461,7 +481,7 @@
 					<!-- Chevron — expand/collapse toggle (independent of body click) -->
 					<button
 						class="shrink-0 rounded p-0.5 transition-colors hover:bg-surface-700/50"
-						title={expanded ? 'Collapse' : 'Expand cards'}
+						title={expanded ? $t('feedGroups.collapse', 'Collapse') : $t('feedGroups.expand_cards', 'Expand cards')}
 						onclick={(e) => { e.stopPropagation(); expanded = !expanded; }}
 					>
 						<svg class="h-3.5 w-3.5 text-surface-500 transition-transform duration-200 {expanded ? 'rotate-0' : '-rotate-90'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -561,7 +581,7 @@
 							{#each statusSummary as { status, count }}
 								<span class="flex items-center gap-1 shrink-0 {status === 'awaiting_input' ? 'status-glow-violet' : ''}">
 									<StatusDot {status} />
-									<span class="text-laya-micro text-surface-400 whitespace-nowrap">{count} {statusSummaryLabel[status] ?? status}</span>
+									<span class="text-laya-micro text-surface-400 whitespace-nowrap">{count} {summaryLabel(status)}</span>
 								</span>
 							{/each}
 						</div>
@@ -572,7 +592,7 @@
 							onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); expanded = true; } }}
 							onmouseenter={(e) => {
 								const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-								hoveredTooltip = { text: `Show ${group.card_count} cards`, top: rect.bottom + 4, left: rect.left + rect.width / 2 };
+								hoveredTooltip = { text: group.card_count === 1 ? $t('feedGroups.show_cards_one', 'Show {count} card', { count: group.card_count }) : $t('feedGroups.show_cards_other', 'Show {count} cards', { count: group.card_count }), top: rect.bottom + 4, left: rect.left + rect.width / 2 };
 							}}
 							onmouseleave={hideTooltip}
 						>
@@ -622,31 +642,31 @@
 		{#if canCompleteAll}
 			<button class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary text-surface-300 transition-colors hover:bg-surface-700 hover:text-green-400" role="menuitem" onclick={(e) => bulkAction('complete', e)}>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-				Complete All
+				{$t('feedGroups.complete_all', 'Complete All')}
 			</button>
 		{/if}
 		{#if canDismissAll}
 			<button class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary text-surface-300 transition-colors hover:bg-surface-700 hover:text-red-400" role="menuitem" onclick={(e) => bulkAction('dismiss', e)}>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-				Dismiss All
+				{$t('feedGroups.dismiss_all', 'Dismiss All')}
 			</button>
 		{/if}
 		{#if canReopenAll}
 			<button class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary text-surface-300 transition-colors hover:bg-surface-700 hover:text-laya-orange" role="menuitem" onclick={(e) => bulkAction('reopen', e)}>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-				Reopen All
+				{$t('feedGroups.reopen_all', 'Reopen All')}
 			</button>
 		{/if}
 		{#if canArchiveAll}
 			<button class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary text-surface-300 transition-colors hover:bg-surface-700 hover:text-surface-400" role="menuitem" onclick={(e) => bulkAction('archive', e)}>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
-				Archive All
+				{$t('feedGroups.archive_all', 'Archive All')}
 			</button>
 		{/if}
 		{#if canUnarchiveAll}
 			<button class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary text-surface-300 transition-colors hover:bg-surface-700 hover:text-laya-orange" role="menuitem" onclick={(e) => bulkAction('unarchive', e)}>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4l3 3m0 0l3-3m-3 3V9" /></svg>
-				Unarchive All
+				{$t('feedGroups.unarchive_all', 'Unarchive All')}
 			</button>
 		{/if}
 		<div class="my-1 border-t border-surface-700"></div>
@@ -656,7 +676,7 @@
 			onclick={(e) => { e.stopPropagation(); groupMenuOpen = false; onlink?.(group); }}
 		>
 			<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-			Link to...
+			{$t('feedGroups.link_to', 'Link to...')}
 		</button>
 		{#if isContextGroup && group.context_id}
 			<button
@@ -671,7 +691,7 @@
 				}}
 			>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-				Unlink Group
+				{$t('feedGroups.unlink_group', 'Unlink Group')}
 			</button>
 		{/if}
 	</div>

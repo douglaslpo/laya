@@ -19,6 +19,7 @@
 	import { compose } from '$lib/stores/compose';
 	import { detailExpanded } from '$lib/stores/detailPanel';
 	import { spaces, loadSpaces } from '$lib/stores/spaces';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		card,
@@ -118,12 +119,12 @@
 			moveConfirm = {
 				space_id: spaceId,
 				space_name: preview.space_name ?? spaceName,
-				warning: preview.warning ?? `Move this card to “${spaceName}”?`,
+				warning: preview.warning ?? $t('feedCards.move_warning_default', 'Move this card to “{name}”?', { name: spaceName }),
 				scope: preview.scope ?? 'standalone',
 				count: preview.card_count ?? 1,
 			};
 		} catch {
-			moveConfirm = { space_id: spaceId, space_name: spaceName, warning: `Move this card to “${spaceName}”?`, scope: 'standalone', count: 1 };
+			moveConfirm = { space_id: spaceId, space_name: spaceName, warning: $t('feedCards.move_warning_default', 'Move this card to “{name}”?', { name: spaceName }), scope: 'standalone', count: 1 };
 		}
 	}
 
@@ -371,14 +372,20 @@
 		FINANCE: 'border-teal-500 text-teal-400'
 	};
 
-	const outputTypeLabels: Record<string, string> = {
-		draft_reply: 'Draft Reply',
-		code_fix: 'Code Fix',
-		briefing: 'Briefing',
-		summary: 'Summary',
-		agent_result: 'Agent Result',
-		agent_plan: 'Implementation Plan'
-	};
+	const outputTypeLabels: Record<string, string> = $derived({
+		draft_reply: $t('feedCards.output_draft_reply', 'Draft Reply'),
+		code_fix: $t('feedCards.output_code_fix', 'Code Fix'),
+		briefing: $t('feedCards.output_briefing', 'Briefing'),
+		summary: $t('feedCards.output_summary', 'Summary'),
+		agent_result: $t('feedCards.output_agent_result', 'Agent Result'),
+		agent_plan: $t('feedCards.output_agent_plan', 'Implementation Plan')
+	});
+
+	// Known action-payload field names get a translated label; others show the raw key.
+	const payloadFieldKeys = new Set(['to', 'cc', 'bcc', 'subject', 'body', 'comment', 'message', 'description', 'title', 'channel']);
+	function payloadFieldLabel(key: string): string {
+		return payloadFieldKeys.has(key) ? $t(`feedCards.payload_${key}`, key) : key;
+	}
 
 	const terminalStatuses = new Set(['done', 'failed', 'dismissed', 'archived']);
 	const actionableStatuses = new Set(['ready', 'agent_running', 'awaiting_input']);
@@ -396,16 +403,21 @@
 		archived: 'text-surface-600'
 	};
 
-	const statusLabels: Record<string, string> = {
+	// pending/ready/awaiting_input read differently on cards than the shared status labels.
+	const cardStatusFallback: Record<string, string> = {
 		pending: 'Processing',
 		ready: 'Ready',
-		agent_running: 'Agent Running',
-		awaiting_input: 'Input Needed',
-		done: 'Done',
-		failed: 'Failed',
-		dismissed: 'Dismissed',
-		archived: 'Archived'
+		awaiting_input: 'Input Needed'
 	};
+
+	function statusText(status: string): string {
+		if (status in cardStatusFallback) return $t(`feedCards.status_${status}`, cardStatusFallback[status]);
+		return $t(`shared.status_${status}`, status);
+	}
+
+	const deleteBodyParts = $derived(
+		$t('feedCards.delete_body', 'All details, intelligence, workspace sessions, and related events for this card will be {emphasis}. This cannot be undone.').split('{emphasis}')
+	);
 
 	async function executeAction(actionId: string) {
 		executingActionId = actionId;
@@ -436,7 +448,7 @@
 			editingActionId = null;
 			editedPayload = {};
 		} catch (err) {
-			executeError = err instanceof Error ? err.message : 'Execution failed';
+			executeError = err instanceof Error ? err.message : $t('feedCards.execution_failed', 'Execution failed');
 		} finally {
 			executingActionId = null;
 		}
@@ -492,7 +504,7 @@
 			polishingActionIds = next;
 			polishErrors = {
 				...polishErrors,
-				[action.action_id]: err instanceof Error ? err.message : 'Polish failed'
+				[action.action_id]: err instanceof Error ? err.message : $t('feedCards.polish_failed', 'Polish failed')
 			};
 		}
 	}
@@ -564,7 +576,7 @@
 			editingActionId = null;
 			editedPayload = {};
 		} catch (err) {
-			executeError = err instanceof Error ? err.message : 'Failed to save draft';
+			executeError = err instanceof Error ? err.message : $t('feedCards.save_draft_failed', 'Failed to save draft');
 		} finally {
 			savingPayload = false;
 		}
@@ -687,14 +699,14 @@
 	<div class="flex items-center justify-between border-b px-5 py-4 {$glassTheme ? 'border-surface-700/40' : 'border-surface-700'}">
 		<div class="flex items-center gap-2">
 			<span class="rounded px-1.5 py-0.5 text-laya-micro font-bold uppercase {priorityColors[card.priority] ?? priorityColors.MEDIUM}">
-				{priorityLabel[card.priority] ?? card.priority}
+				{$t(`feedCards.priority_short_${card.priority}`, priorityLabel[card.priority] ?? card.priority)}
 			</span>
 			<span class="rounded border px-1.5 py-0.5 text-laya-micro font-medium uppercase {personaColors[card.persona] ?? personaColors.ENGINEER}">
-				{card.persona}
+				{$t(`shared.persona_${card.persona}`, card.persona)}
 			</span>
 			{#if card.privacy_tier === 3}
 				<span class="rounded bg-red-900/50 px-1.5 py-0.5 text-laya-micro font-medium text-red-300">
-					CONFIDENTIAL
+					{$t('feedCards.confidential', 'CONFIDENTIAL')}
 				</span>
 			{/if}
 		</div>
@@ -703,9 +715,9 @@
 			<button
 				bind:this={headerMenuBtnEl}
 				onclick={toggleHeaderMenu}
-				onmouseenter={(e) => showTooltip(e.currentTarget, 'More actions')}
+				onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedCards.more_actions', 'More actions'))}
 				onmouseleave={hideTooltip}
-				aria-label="More actions"
+				aria-label={$t('feedCards.more_actions', 'More actions')}
 				class="rounded p-1.5 transition-colors {headerMenuOpen ? 'text-surface-200' : 'text-surface-500 hover:text-surface-200'}"
 			>
 				<svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -715,9 +727,9 @@
 			<!-- Expand / collapse the wide focus-mode overlay (same as the chat sidebar). -->
 			<button
 				onclick={() => detailExpanded.set(!$detailExpanded)}
-				onmouseenter={(e) => showTooltip(e.currentTarget, $detailExpanded ? 'Collapse' : 'Expand')}
+				onmouseenter={(e) => showTooltip(e.currentTarget, $detailExpanded ? $t('feedCards.collapse', 'Collapse') : $t('feedCards.expand', 'Expand'))}
 				onmouseleave={hideTooltip}
-				aria-label={$detailExpanded ? 'Collapse panel' : 'Expand panel'}
+				aria-label={$detailExpanded ? $t('feedCards.collapse_panel', 'Collapse panel') : $t('feedCards.expand_panel', 'Expand panel')}
 				class="rounded p-1.5 text-surface-500 transition-colors hover:text-surface-200"
 			>
 				{#if $detailExpanded}
@@ -730,7 +742,7 @@
 					</svg>
 				{/if}
 			</button>
-			<button aria-label="Close panel" class="rounded p-1.5 text-surface-400 transition-colors hover:text-surface-100" onclick={() => ondismiss ? ondismiss() : onclose()}>
+			<button aria-label={$t('feedCards.close_panel', 'Close panel')} class="rounded p-1.5 text-surface-400 transition-colors hover:text-surface-100" onclick={() => ondismiss ? ondismiss() : onclose()}>
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 				</svg>
@@ -770,7 +782,7 @@
 				{/if}
 				{#if card.actor_name}
 					<div class="flex items-center gap-1.5 min-w-0">
-						<span class="shrink-0 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">Actor</span>
+						<span class="shrink-0 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">{$t('feedCards.actor', 'Actor')}</span>
 						<span class="group/actor relative min-w-0 flex-1">
 							<span use:trackTruncation={{ onChange: (t) => (actorTruncated = t), text: card.actor_name }} class="block truncate text-laya-secondary text-surface-300">{card.actor_name}</span>
 							{#if actorTruncated}
@@ -783,7 +795,7 @@
 				{/if}
 				{#if card.actor_email}
 					<div class="flex items-center gap-1.5 min-w-0">
-						<span class="shrink-0 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">Email</span>
+						<span class="shrink-0 text-laya-micro font-semibold uppercase tracking-wider text-surface-500">{$t('feedCards.field_email', 'Email')}</span>
 						<span class="group/email relative min-w-0 flex-1">
 							<span use:trackTruncation={{ onChange: (t) => (emailTruncated = t), text: card.actor_email }} class="block truncate text-laya-secondary text-surface-400">{card.actor_email}</span>
 							{#if emailTruncated}
@@ -813,7 +825,7 @@
 						{#if !tag.is_system}
 							<button
 								class="ml-0.5 hover:opacity-70 cursor-pointer"
-								title="Remove tag"
+								title={$t('feedCards.remove_tag', 'Remove tag')}
 								onclick={() => removeTag(tag.tag_id)}
 							>
 								<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -828,7 +840,7 @@
 						bind:this={tagInputEl}
 						type="text"
 						class="h-6 w-24 rounded-full border border-surface-600/50 bg-transparent px-2 text-xs text-surface-300 placeholder-surface-500 outline-none focus:border-laya-orange/50 focus:w-36 transition-all"
-						placeholder="Add tag..."
+						placeholder={$t('feedCards.add_tag', 'Add tag...')}
 						bind:value={tagInput}
 						onfocus={() => { showTagDropdown = true; }}
 						onblur={() => { setTimeout(() => { showTagDropdown = false; }, 150); }}
@@ -847,7 +859,7 @@
 		<!-- Intelligence report -->
 		{#if card.intelligence && card.intelligence.length > 0}
 			<div class="mb-5">
-				<h3 class="mb-2 text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">Intelligence Report</h3>
+				<h3 class="mb-2 text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{$t('feedCards.intelligence_report', 'Intelligence Report')}</h3>
 				<ul class="space-y-1.5">
 					{#each card.intelligence as point}
 						<li class="flex items-start gap-2 text-laya-base text-surface-300 min-w-0">
@@ -865,7 +877,7 @@
 		{#if card.staged_output && !(card.staged_output.type === 'draft_reply' && (card.suggested_actions?.length ?? 0) > 0)}
 			<div class="mb-5">
 				<h3 class="mb-2 text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">
-					{outputTypeLabels[card.staged_output.type] ?? 'Output'}
+					{outputTypeLabels[card.staged_output.type] ?? $t('feedCards.output', 'Output')}
 				</h3>
 				{#if card.staged_output.type === 'code_fix'}
 					<pre class="overflow-x-auto rounded-lg bg-surface-900 p-3 text-laya-secondary text-surface-200">{card.staged_output.content}</pre>
@@ -886,7 +898,7 @@
 		<!-- Suggested actions -->
 		{#if card.suggested_actions && card.suggested_actions.length > 0}
 			<div class="mb-5">
-				<h3 class="mb-2 text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">Suggested Actions</h3>
+				<h3 class="mb-2 text-laya-secondary font-semibold uppercase tracking-wider text-surface-400">{$t('feedCards.suggested_actions', 'Suggested Actions')}</h3>
 				{#each card.suggested_actions as action}
 					{@const isSelected = card.selected_action_id === action.action_id}
 					{@const payload = action.payload}
@@ -912,7 +924,7 @@
 								{#each Object.entries(payload) as [key, value]}
 									{#if !key.startsWith('_') && typeof value === 'string' && value.length > 0 && key !== editableField && key !== 'raw'}
 										<div class="mb-1.5 flex items-center gap-1.5 text-laya-secondary">
-											<span class="font-medium text-surface-500 capitalize">{key}:</span>
+											<span class="font-medium text-surface-500 capitalize">{payloadFieldLabel(key)}:</span>
 											<span class="text-surface-300">{value}</span>
 										</div>
 									{/if}
@@ -923,7 +935,7 @@
 								{#each Object.entries(editedPayload) as [key]}
 									{#if key !== editableField}
 										<div class="mb-1.5 flex items-center gap-1.5 text-laya-secondary">
-											<span class="shrink-0 font-medium text-surface-500 capitalize">{key}:</span>
+											<span class="shrink-0 font-medium text-surface-500 capitalize">{payloadFieldLabel(key)}:</span>
 											<input
 												type="text"
 												class="w-full rounded border border-surface-600 bg-surface-800 px-1.5 py-0.5 text-laya-secondary text-surface-200 outline-none focus:border-laya-orange/50"
@@ -947,7 +959,7 @@
 										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
 										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
 									</svg>
-									<span class="text-laya-secondary font-medium text-laya-orange">Polishing draft…</span>
+									<span class="text-laya-secondary font-medium text-laya-orange">{$t('feedCards.polishing', 'Polishing draft…')}</span>
 								</div>
 							{/if}
 							<!-- Edit / Save / Cancel / Polish controls -->
@@ -962,19 +974,19 @@
 											onclick={() => startEditing(action, detectedField ? undefined : fallbackText)}
 											disabled={isPolishing}
 										>
-											Edit draft
+											{$t('feedCards.edit_draft', 'Edit draft')}
 										</button>
 										{#if hasEdits}
 											<button
 												class="inline-flex items-center gap-1 text-laya-secondary font-medium text-laya-gold hover:text-laya-peach transition-colors disabled:opacity-40 disabled:hover:text-laya-gold"
 												onclick={() => polishDraft(action)}
 												disabled={isPolishing}
-												title="Rewrite this draft with AI to polish the phrasing"
+												title={$t('feedCards.polish_title', 'Rewrite this draft with AI to polish the phrasing')}
 											>
 												<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 													<path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9L12 2zm7 11l.95 2.8L22.75 16.75l-2.8.95L19 20.5l-.95-2.8L15.25 16.75l2.8-.95L19 13zM5 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7L5 14z" />
 												</svg>
-												Polish
+												{$t('feedCards.polish', 'Polish')}
 											</button>
 										{/if}
 									{:else}
@@ -983,14 +995,14 @@
 											onclick={() => { editingActionId = null; editedPayload = {}; }}
 											disabled={savingPayload}
 										>
-											Cancel
+											{$t('common.cancel', 'Cancel')}
 										</button>
 										<button
 											class="text-laya-secondary font-medium text-laya-orange hover:text-laya-gold transition-colors disabled:opacity-50"
 											onclick={() => savePayload(action)}
 											disabled={savingPayload}
 										>
-											{savingPayload ? 'Saving...' : 'Save'}
+											{savingPayload ? $t('feedCards.saving', 'Saving...') : $t('common.save', 'Save')}
 										</button>
 									{/if}
 								</div>
@@ -1014,7 +1026,7 @@
 							disabled={!!executingActionId || isTerminal}
 						>
 							{#if executingActionId === action.action_id}
-								Executing...
+								{$t('feedCards.executing', 'Executing...')}
 							{:else}
 								{#if isSelected}
 									<span class="mr-1">{isTerminal ? '✓' : '↩'}</span>
@@ -1035,21 +1047,21 @@
 		<div class="mt-4 border-t pt-3 {$glassTheme ? 'border-surface-700/40' : 'border-surface-700'}">
 			<div class="flex flex-wrap gap-x-4 gap-y-1 text-laya-secondary text-surface-500">
 				{#if card.confidence}
-					<span>Confidence: {Math.round(card.confidence * 100)}%</span>
+					<span>{$t('feedCards.confidence', 'Confidence: {value}%', { value: Math.round(card.confidence * 100).toLocaleString($locale) })}</span>
 				{/if}
-				<span>Category: {card.category}</span>
+				<span>{$t('feedCards.category', 'Category: {value}', { value: $t(`shared.category_${card.category}`, card.category) })}</span>
 				{#if card.status === 'failed' && card.last_error}
 					<span class="{statusColors[card.status]} relative group cursor-help">
-						Status: {statusLabels[card.status]}
+						{$t('feedCards.status', 'Status: {value}', { value: statusText(card.status) })}
 						<span class="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1.5 text-laya-secondary leading-tight bg-surface-800 border border-surface-600 text-surface-300 rounded shadow-lg whitespace-normal max-w-[280px] w-max z-50">
 							{card.last_error}
 						</span>
 					</span>
 				{:else}
-					<span class={statusColors[card.status] ?? 'text-surface-400'}>Status: {statusLabels[card.status] ?? card.status}</span>
+					<span class={statusColors[card.status] ?? 'text-surface-400'}>{$t('feedCards.status', 'Status: {value}', { value: statusText(card.status) })}</span>
 				{/if}
 				{#if card.created_at}
-					<span>Created: {parseBackendDate(card.created_at)?.toLocaleString()}</span>
+					<span>{$t('feedCards.created', 'Created: {value}', { value: parseBackendDate(card.created_at)?.toLocaleString($locale) ?? '' })}</span>
 				{/if}
 			</div>
 		</div>
@@ -1066,7 +1078,7 @@
 					onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(`/workspace/${card.card_id}`); }}
 				>
 					<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-					Workspace
+					{$t('nav.workspace', 'Workspace')}
 				</a>
 			{/if}
 			<button
@@ -1074,7 +1086,7 @@
 				onclick={() => (showClassificationDialog = true)}
 			>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-				Classify
+				{$t('feedCards.classify', 'Classify')}
 			</button>
 			{#if onshowrelated && hasRelated}
 				<button
@@ -1082,7 +1094,7 @@
 					onclick={() => onshowrelated(card)}
 				>
 					<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2" stroke-width="2" /><circle cx="19" cy="6" r="2" stroke-width="2" /><circle cx="19" cy="18" r="2" stroke-width="2" /><path stroke-linecap="round" stroke-width="2" d="M7 11l10-4M7 13l10 4" /></svg>
-					Related ({relatedCount})
+					{$t('feedCards.related', 'Related ({count})', { count: relatedCount ?? 0 })}
 				</button>
 			{/if}
 			{#if onrunagent && card.entity_id && !card.has_workspace}
@@ -1091,7 +1103,7 @@
 					onclick={() => (showRunAgentInput = true)}
 				>
 					<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-					Run Agent
+					{$t('feedCards.run_agent', 'Run Agent')}
 				</button>
 			{/if}
 			<!-- Move to space — last inline action (lowest priority; first to overflow) -->
@@ -1100,10 +1112,10 @@
 					bind:this={moveBtnEl}
 					class="flex items-center gap-1 rounded-md px-2 py-1 text-laya-secondary text-surface-400 transition-colors hover:bg-surface-700/50 hover:text-laya-orange"
 					onclick={toggleMoveMenu}
-					aria-label="Move to space"
+					aria-label={$t('feedCards.move_to_space', 'Move to space')}
 				>
 					<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13h6m0 0l-2-2m2 2l-2 2" /></svg>
-					Move
+					{$t('feedCards.move', 'Move')}
 				</button>
 			{/if}
 			<!-- Overflow menu: Link / Unlink / Delete -->
@@ -1112,7 +1124,7 @@
 					bind:this={overflowBtnEl}
 					class="flex items-center justify-center rounded-md px-1.5 py-1 text-laya-secondary text-surface-400 transition-colors hover:bg-surface-700/50 hover:text-surface-200"
 					onclick={toggleOverflowMenu}
-					aria-label="More actions"
+					aria-label={$t('feedCards.more_actions', 'More actions')}
 				>
 					<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
 						<path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM18 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -1127,11 +1139,11 @@
 				<div class="flex flex-col gap-2">
 					<div class="flex items-center gap-2 text-laya-secondary text-surface-400">
 						<svg class="h-3.5 w-3.5 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-						Run Agent
+						{$t('feedCards.run_agent', 'Run Agent')}
 					</div>
 					<input
 						bind:value={runAgentPrompt}
-						placeholder="What should the agent focus on? (optional)"
+						placeholder={$t('feedCards.agent_focus_placeholder', 'What should the agent focus on? (optional)')}
 						class="flex-1 rounded-md border border-surface-600 bg-surface-900 px-2 py-1.5 text-laya-secondary text-surface-50 placeholder-surface-500"
 					/>
 					<div class="flex gap-2">
@@ -1140,13 +1152,13 @@
 							onclick={startEntityAgent}
 							disabled={startingAgent}
 						>
-							{startingAgent ? 'Starting...' : 'Start'}
+							{startingAgent ? $t('feedCards.starting', 'Starting...') : $t('feedCards.start', 'Start')}
 						</button>
 						<button
 							class="text-laya-base text-surface-400 hover:text-surface-200"
 							onclick={() => { showRunAgentInput = false; runAgentPrompt = ''; }}
 						>
-							Cancel
+							{$t('common.cancel', 'Cancel')}
 						</button>
 					</div>
 				</div>
@@ -1154,7 +1166,7 @@
 				<div class="flex gap-2">
 					<input
 						bind:value={dismissReason}
-						placeholder="Reason (optional)"
+						placeholder={$t('feedCards.reason_placeholder', 'Reason (optional)')}
 						class="flex-1 rounded-md border border-surface-600 bg-surface-900 px-2 py-1.5 text-laya-secondary text-surface-50 placeholder-surface-500"
 					/>
 					<button
@@ -1162,13 +1174,13 @@
 						onclick={dismiss}
 						disabled={dismissing}
 					>
-						{dismissing ? '...' : 'Confirm'}
+						{dismissing ? '...' : $t('feedCards.confirm', 'Confirm')}
 					</button>
 					<button
 						class="text-laya-base text-surface-400 hover:text-surface-200"
 						onclick={() => (showDismissInput = false)}
 					>
-						Cancel
+						{$t('common.cancel', 'Cancel')}
 					</button>
 				</div>
 			{:else if card.status === 'ready'}
@@ -1178,20 +1190,20 @@
 						onclick={markDone}
 						disabled={markingDone}
 					>
-						{markingDone ? '...' : 'Done'}
+						{markingDone ? '...' : $t('feedCards.done', 'Done')}
 					</button>
 					<button
 						class="flex-1 rounded-md bg-surface-700/50 px-2 py-1.5 text-laya-secondary font-medium text-surface-400 transition-colors hover:bg-surface-700"
 						onclick={() => (showDismissInput = true)}
 					>
-						Dismiss
+						{$t('common.dismiss', 'Dismiss')}
 					</button>
 					<button
 						class="flex-1 rounded-md bg-surface-700/30 px-2 py-1.5 text-laya-secondary font-medium text-surface-500 transition-colors hover:bg-surface-700 disabled:opacity-50"
 						onclick={archive}
 						disabled={archiving}
 					>
-						{archiving ? '...' : 'Archive'}
+						{archiving ? '...' : $t('feedCards.archive', 'Archive')}
 					</button>
 				</div>
 			{:else if card.status === 'dismissed' || card.status === 'archived' || card.status === 'done' || card.status === 'failed'}
@@ -1201,7 +1213,7 @@
 						onclick={reopen}
 						disabled={reopening}
 					>
-						{reopening ? 'Reopening...' : card.status === 'archived' ? 'Unarchive' : card.status === 'failed' ? 'Retry' : 'Reopen'}
+						{reopening ? $t('feedCards.reopening', 'Reopening...') : card.status === 'archived' ? $t('feedCards.unarchive', 'Unarchive') : card.status === 'failed' ? $t('common.retry', 'Retry') : $t('feedCards.reopen', 'Reopen')}
 					</button>
 					{#if card.status !== 'archived'}
 						<button
@@ -1209,7 +1221,7 @@
 							onclick={archive}
 							disabled={archiving}
 						>
-							{archiving ? '...' : 'Archive'}
+							{archiving ? '...' : $t('feedCards.archive', 'Archive')}
 						</button>
 					{/if}
 				</div>
@@ -1220,7 +1232,7 @@
 						onclick={archive}
 						disabled={archiving}
 					>
-						{archiving ? '...' : 'Archive'}
+						{archiving ? '...' : $t('feedCards.archive', 'Archive')}
 					</button>
 				</div>
 			{/if}
@@ -1232,7 +1244,7 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		role="dialog"
-		aria-label="Confirm delete"
+		aria-label={$t('feedCards.delete_confirm_label', 'Confirm delete')}
 		tabindex="-1"
 		onclick={(e) => { if (e.target === e.currentTarget) showDeleteConfirm = false; }}
 		onkeydown={(e) => { if (e.key === 'Escape') showDeleteConfirm = false; }}
@@ -1245,10 +1257,9 @@
 					</svg>
 				</div>
 				<div>
-					<h4 class="text-laya-base font-semibold text-surface-50">Delete card permanently?</h4>
+					<h4 class="text-laya-base font-semibold text-surface-50">{$t('feedCards.delete_title', 'Delete card permanently?')}</h4>
 					<p class="mt-1 text-laya-secondary leading-relaxed text-surface-400">
-						All details, intelligence, workspace sessions, and related events for this card will be
-						<span class="font-medium text-red-400">permanently removed</span>. This cannot be undone.
+						{deleteBodyParts[0]}<span class="font-medium text-red-400">{$t('feedCards.delete_body_emphasis', 'permanently removed')}</span>{deleteBodyParts[1] ?? ''}
 					</p>
 				</div>
 			</div>
@@ -1258,14 +1269,14 @@
 					onclick={() => (showDeleteConfirm = false)}
 					disabled={deleting}
 				>
-					Cancel
+					{$t('common.cancel', 'Cancel')}
 				</button>
 				<button
 					class="rounded-md bg-red-700 px-3 py-1.5 text-laya-secondary font-medium text-red-50 transition-colors hover:bg-red-600 disabled:opacity-50"
 					onclick={deleteCard}
 					disabled={deleting}
 				>
-					{deleting ? 'Deleting...' : 'Delete permanently'}
+					{deleting ? $t('feedCards.deleting', 'Deleting…') : $t('feedCards.delete_permanently', 'Delete permanently')}
 				</button>
 			</div>
 		</div>
@@ -1280,7 +1291,7 @@
 		style="top: {moveMenuPos.top}px; right: {moveMenuPos.right}px; transform: translateY(-100%);"
 		role="menu"
 	>
-		<div class="px-2.5 py-1 text-laya-micro font-medium uppercase tracking-wide text-surface-500">Move to space</div>
+		<div class="px-2.5 py-1 text-laya-micro font-medium uppercase tracking-wide text-surface-500">{$t('feedCards.move_to_space', 'Move to space')}</div>
 		{#each otherSpaces as space (space.space_id)}
 			<button
 				class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary text-surface-300 transition-colors hover:bg-surface-700 hover:text-surface-200"
@@ -1292,7 +1303,7 @@
 			</button>
 		{/each}
 		{#if otherSpaces.length === 0}
-			<div class="px-2.5 py-1.5 text-laya-secondary text-surface-500">No other spaces</div>
+			<div class="px-2.5 py-1.5 text-laya-secondary text-surface-500">{$t('feedCards.no_other_spaces', 'No other spaces')}</div>
 		{/if}
 	</div>
 {/if}
@@ -1301,7 +1312,7 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		role="dialog"
-		aria-label="Confirm move to space"
+		aria-label={$t('feedCards.move_confirm_label', 'Confirm move to space')}
 		tabindex="-1"
 		onclick={(e) => { if (e.target === e.currentTarget) moveConfirm = null; }}
 		onkeydown={(e) => { if (e.key === 'Escape') moveConfirm = null; }}
@@ -1312,7 +1323,7 @@
 					<svg class="h-4 w-4 text-laya-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13h6m0 0l-2-2m2 2l-2 2" /></svg>
 				</div>
 				<div>
-					<h4 class="text-laya-base font-semibold text-surface-50">Move to “{moveConfirm.space_name}”?</h4>
+					<h4 class="text-laya-base font-semibold text-surface-50">{$t('feedCards.move_confirm_title', 'Move to “{name}”?', { name: moveConfirm.space_name })}</h4>
 					<p class="mt-1 text-laya-secondary leading-relaxed text-surface-400">{moveConfirm.warning}</p>
 				</div>
 			</div>
@@ -1322,14 +1333,14 @@
 					onclick={() => (moveConfirm = null)}
 					disabled={moving}
 				>
-					Cancel
+					{$t('common.cancel', 'Cancel')}
 				</button>
 				<button
 					class="rounded-md bg-laya-orange/20 px-3 py-1.5 text-laya-secondary font-medium text-laya-orange transition-colors hover:bg-laya-orange/30 disabled:opacity-50"
 					onclick={confirmMove}
 					disabled={moving}
 				>
-					{moving ? 'Moving...' : 'Move'}
+					{moving ? $t('feedCards.moving', 'Moving...') : $t('feedCards.move', 'Move')}
 				</button>
 			</div>
 		</div>
@@ -1375,7 +1386,7 @@
 				onclick={() => { overflowMenuOpen = false; onlink(card); }}
 			>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-				Link to...
+				{$t('feedCards.link_to', 'Link to...')}
 			</button>
 		{/if}
 		{#if hasRelated}
@@ -1386,7 +1397,7 @@
 				onclick={unlinkCard}
 			>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg>
-				{unlinkingCard ? 'Unlinking...' : 'Unlink'}
+				{unlinkingCard ? $t('feedCards.unlinking', 'Unlinking...') : $t('feedCards.unlink', 'Unlink')}
 			</button>
 		{/if}
 		{#if card.status === 'archived'}
@@ -1397,7 +1408,7 @@
 				onclick={() => { overflowMenuOpen = false; showDeleteConfirm = true; }}
 			>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-				Delete
+				{$t('common.delete', 'Delete')}
 			</button>
 		{/if}
 		{#if egressContext && egressContext.actions.length > 0}
@@ -1417,14 +1428,14 @@
 			{/each}
 			{#if !egressContext.connected}
 				<p class="px-2.5 py-1 text-laya-micro text-surface-500 italic">
-					Connect {egressContext.platform} to use
+					{$t('feedCards.connect_to_use', 'Connect {platform} to use', { platform: egressContext.platform })}
 				</p>
 			{/if}
 		{:else if egressLoading}
 			<div class="my-1 border-t {$glassTheme ? 'border-surface-700/40' : 'border-surface-600'}"></div>
 			<div class="flex items-center gap-2 px-2.5 py-1.5 text-laya-micro text-surface-500">
 				<svg class="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" /><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-				Loading actions
+				{$t('feedCards.loading_actions', 'Loading actions')}
 			</div>
 		{/if}
 	</div>
@@ -1445,7 +1456,7 @@
 				onclick={() => { headerMenuOpen = false; ongotocard?.(card); }}
 			>
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" /></svg>
-				Go to card
+				{$t('feedCards.go_to_card', 'Go to card')}
 			</button>
 		{/if}
 		<button
@@ -1455,10 +1466,10 @@
 		>
 			{#if copied}
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-				Copied!
+				{$t('common.copied', 'Copied!')}
 			{:else}
 				<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-				Copy card ID
+				{$t('feedCards.copy_card_id', 'Copy card ID')}
 			{/if}
 		</button>
 		<button
@@ -1467,7 +1478,7 @@
 			onclick={() => { headerMenuOpen = false; showOriginalModal = true; }}
 		>
 			<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-			Show original content
+			{$t('feedCards.show_original', 'Show original content')}
 		</button>
 		<button
 			class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary text-surface-300 transition-colors hover:bg-surface-700 hover:text-surface-200"
@@ -1475,7 +1486,7 @@
 			onclick={() => { headerMenuOpen = false; chatAbout(); }}
 		>
 			<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-			Chat about card
+			{$t('feedCards.chat_about', 'Chat about card')}
 		</button>
 		<button
 			class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-laya-secondary transition-colors hover:bg-surface-700 disabled:opacity-50 {card.bookmarked_at ? 'text-laya-orange' : 'text-surface-300 hover:text-laya-orange'}"
@@ -1484,7 +1495,7 @@
 			onclick={toggleBookmark}
 		>
 			<svg class="h-3.5 w-3.5" fill={card.bookmarked_at ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
-			{card.bookmarked_at ? 'Remove bookmark' : 'Bookmark'}
+			{card.bookmarked_at ? $t('feedCards.remove_bookmark', 'Remove bookmark') : $t('feedCards.bookmark', 'Bookmark')}
 		</button>
 		<!-- Reprocess: re-run the pipeline on this card's event (recovery for a
 		     card whose LLM output came back garbled). Disabled while the card is
@@ -1497,7 +1508,7 @@
 			onclick={reprocess}
 		>
 			<svg class="h-3.5 w-3.5 {reprocessing ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-			{reprocessing ? 'Reprocessing…' : 'Reprocess'}
+			{reprocessing ? $t('feedCards.reprocessing', 'Reprocessing…') : $t('feedCards.reprocess', 'Reprocess')}
 		</button>
 	</div>
 {/if}

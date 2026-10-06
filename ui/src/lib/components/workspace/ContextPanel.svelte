@@ -8,6 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		card,
@@ -80,6 +81,25 @@
 		return counts;
 	});
 
+	const toolStatLabelKeys: Record<string, string> = {
+		'Files read': 'actions.stat_files_read',
+		'Files written': 'actions.stat_files_written',
+		'Commands run': 'actions.stat_commands_run',
+		Searches: 'actions.stat_searches',
+		'Other tools': 'actions.stat_other_tools'
+	};
+
+	const stagedOutputTitle = $derived.by(() => {
+		switch (card.staged_output?.type) {
+			case 'code_fix': return $t('actions.output_code_fix', 'Code Fix');
+			case 'draft_reply': return $t('actions.output_draft_reply', 'Draft Reply');
+			case 'briefing': return $t('actions.output_briefing', 'Briefing');
+			case 'agent_result': return $t('actions.output_agent_result', 'Agent Result');
+			case 'agent_plan': return $t('actions.implementation_plan', 'Implementation Plan');
+			default: return $t('actions.output_generic', 'Output');
+		}
+	});
+
 	const sessionDuration = $derived.by(() => {
 		if (!session?.started_at) return null;
 		const end = session.completed_at ?? session.updated_at;
@@ -142,8 +162,9 @@
 
 	function formatFileSize(bytes: number): string {
 		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+		const oneDecimal = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toLocaleString($locale, oneDecimal)} KB`;
+		return `${(bytes / (1024 * 1024)).toLocaleString($locale, oneDecimal)} MB`;
 	}
 
 	const relatedEntities = $derived(
@@ -156,12 +177,12 @@
 
 <div class="flex h-full w-80 flex-col border-l border-t {$glassTheme ? 'glass-panel border-white/[0.06]' : 'border-surface-700 bg-surface-850'}">
 	<div class="flex h-11 shrink-0 items-center justify-between border-b {$glassTheme ? 'border-white/[0.06]' : 'border-surface-700'} px-4">
-		<h2 class="text-xs font-semibold uppercase tracking-wider text-surface-400">Context</h2>
+		<h2 class="text-xs font-semibold uppercase tracking-wider text-surface-400">{$t('actions.context', 'Context')}</h2>
 		<button
 			class="rounded-md p-1 text-surface-400 transition-colors {$glassTheme ? 'glass-hover' : 'hover:bg-surface-800'} hover:text-surface-200"
 			onclick={() => goto('/feed')}
-			aria-label="Close workspace"
-			title="Close workspace"
+			aria-label={$t('actions.close_workspace', 'Close workspace')}
+			title={$t('actions.close_workspace', 'Close workspace')}
 		>
 			<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -173,15 +194,15 @@
 		<!-- Session outcome -->
 		{#if session && isTerminal}
 			<div class="rounded-lg p-3 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800'}">
-				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">Session Outcome</h3>
+				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.session_outcome', 'Session Outcome')}</h3>
 				<div class="space-y-1.5 text-xs">
 					<div class="flex justify-between">
-						<span class="text-surface-400">Status</span>
-						<span class={statusColors[session.status] ?? 'text-surface-300'}>{session.status}</span>
+						<span class="text-surface-400">{$t('actions.status', 'Status')}</span>
+						<span class={statusColors[session.status] ?? 'text-surface-300'}>{$t(`actions.session_status_${session.status}`, session.status)}</span>
 					</div>
 					{#if sessionDuration}
 						<div class="flex justify-between">
-							<span class="text-surface-400">Duration</span>
+							<span class="text-surface-400">{$t('actions.duration', 'Duration')}</span>
 							<span class="text-surface-200">{sessionDuration}</span>
 						</div>
 					{/if}
@@ -193,11 +214,11 @@
 				</div>
 				{#if Object.keys(toolStats).length > 0}
 					<div class="mt-2.5 border-t {$glassTheme ? 'border-white/[0.08]' : 'border-surface-700/50'} pt-2">
-						<h4 class="mb-1.5 text-[10px] font-medium text-surface-500">Tool Usage</h4>
+						<h4 class="mb-1.5 text-[10px] font-medium text-surface-500">{$t('actions.tool_usage', 'Tool Usage')}</h4>
 						<div class="space-y-1">
 							{#each Object.entries(toolStats) as [label, count]}
 								<div class="flex justify-between text-[11px]">
-									<span class="text-surface-400">{label}</span>
+									<span class="text-surface-400">{$t(toolStatLabelKeys[label] ?? label, label)}</span>
 									<span class="text-surface-300">{count}</span>
 								</div>
 							{/each}
@@ -211,14 +232,14 @@
 		{#if session?.repo_path}
 			<div class="rounded-lg p-3 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800'}">
 				<div class="mb-1.5 flex items-center justify-between">
-					<h3 class="text-[10px] font-semibold uppercase tracking-wider text-surface-500">Working Directory</h3>
+					<h3 class="text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.working_directory', 'Working Directory')}</h3>
 					{#if isResearch && filesLoaded}
 						<button
 							class="text-[10px] text-cyan-400 hover:text-cyan-300 transition-colors"
 							onclick={loadFiles}
 							disabled={filesLoading}
 						>
-							{filesLoading ? '...' : 'Refresh'}
+							{filesLoading ? '...' : $t('actions.refresh', 'Refresh')}
 						</button>
 					{/if}
 				</div>
@@ -227,10 +248,10 @@
 				{#if isResearch}
 					<!-- Research files -->
 					{#if filesLoading && !filesLoaded}
-						<p class="mt-2 text-[11px] text-surface-500">Loading files...</p>
+						<p class="mt-2 text-[11px] text-surface-500">{$t('actions.loading_files', 'Loading files...')}</p>
 					{:else if researchFiles.length > 0}
 						<div class="mt-2.5 border-t {$glassTheme ? 'border-white/[0.08]' : 'border-surface-700/50'} pt-2">
-							<h4 class="mb-1.5 text-[10px] font-medium text-surface-500">Generated Files</h4>
+							<h4 class="mb-1.5 text-[10px] font-medium text-surface-500">{$t('actions.generated_files', 'Generated Files')}</h4>
 							<div class="space-y-1">
 								{#each researchFiles as file}
 									<button
@@ -249,12 +270,12 @@
 							</div>
 						</div>
 					{:else if filesLoaded}
-						<p class="mt-2 text-[11px] text-surface-500">No files generated yet</p>
+						<p class="mt-2 text-[11px] text-surface-500">{$t('actions.no_files_yet', 'No files generated yet')}</p>
 					{/if}
 				{/if}
 
 				{#if session.add_dirs && session.add_dirs.length > 0}
-					<h3 class="mt-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-surface-500">Additional Directories</h3>
+					<h3 class="mt-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.additional_directories', 'Additional Directories')}</h3>
 					<div class="space-y-1">
 						{#each session.add_dirs as dir}
 							<p class="break-all font-mono text-[11px] text-surface-300">{dir}</p>
@@ -267,11 +288,11 @@
 					{#if showAddPath}
 						<div class="mt-3 border-t {$glassTheme ? 'border-white/[0.08]' : 'border-surface-700/50'} pt-2">
 							<div class="mb-1.5 flex items-center justify-between">
-								<span class="text-[10px] font-semibold uppercase tracking-wider text-surface-500">Add paths</span>
+								<span class="text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.add_paths', 'Add paths')}</span>
 								<button
 									class="text-[10px] text-surface-500 hover:text-surface-300"
 									onclick={() => { showAddPath = false; }}
-								>Close</button>
+								>{$t('common.close', 'Close')}</button>
 							</div>
 							<div class="space-y-1">
 								{#each availableRepos as repo}
@@ -298,10 +319,12 @@
 								class="rounded px-2 py-1 text-[10px] text-surface-400 border transition-colors {$glassTheme ? 'border-white/[0.10] hover:border-white/[0.20]' : 'border-surface-700 hover:border-surface-500'} hover:text-surface-200"
 								onclick={() => { showAddPath = true; }}
 							>
-								+ Add Path
+								{$t('actions.add_path_button', '+ Add Path')}
 							</button>
 							{#if selectedAddDirs.size > 0}
-								<span class="text-[10px] text-laya-orange">{selectedAddDirs.size} added</span>
+								<span class="text-[10px] text-laya-orange">{selectedAddDirs.size === 1
+									? $t('actions.added_one', '{count} added', { count: selectedAddDirs.size })
+									: $t('actions.added_other', '{count} added', { count: selectedAddDirs.size })}</span>
 							{/if}
 						</div>
 					{/if}
@@ -311,27 +334,27 @@
 
 		<!-- Card metadata -->
 		<div class="rounded-lg p-3 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800'}">
-			<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">Card Info</h3>
+			<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.card_info', 'Card Info')}</h3>
 			<div class="space-y-1.5 text-xs">
 				<div class="flex justify-between">
-					<span class="text-surface-400">Priority</span>
-					<span class={priorityColors[card.priority] ?? 'text-surface-300'}>{card.priority}</span>
+					<span class="text-surface-400">{$t('actions.priority', 'Priority')}</span>
+					<span class={priorityColors[card.priority] ?? 'text-surface-300'}>{$t(`shared.priority_${card.priority}`, card.priority)}</span>
 				</div>
 				<div class="flex justify-between">
-					<span class="text-surface-400">Persona</span>
-					<span class="text-surface-200">{card.persona}</span>
+					<span class="text-surface-400">{$t('actions.persona', 'Persona')}</span>
+					<span class="text-surface-200">{$t(`shared.persona_${card.persona}`, card.persona)}</span>
 				</div>
 				<div class="flex justify-between">
-					<span class="text-surface-400">Category</span>
-					<span class="text-surface-200">{card.category}</span>
+					<span class="text-surface-400">{$t('actions.category', 'Category')}</span>
+					<span class="text-surface-200">{$t(`shared.category_${card.category}`, card.category)}</span>
 				</div>
 				<div class="flex justify-between">
-					<span class="text-surface-400">Status</span>
-					<span class={statusColors[card.status] ?? 'text-surface-300'}>{card.status}</span>
+					<span class="text-surface-400">{$t('actions.status', 'Status')}</span>
+					<span class={statusColors[card.status] ?? 'text-surface-300'}>{$t(`shared.status_${card.status}`, card.status)}</span>
 				</div>
 				{#if card.confidence}
 					<div class="flex justify-between">
-						<span class="text-surface-400">Confidence</span>
+						<span class="text-surface-400">{$t('actions.confidence', 'Confidence')}</span>
 						<span class="text-surface-200">{Math.round(card.confidence * 100)}%</span>
 					</div>
 				{/if}
@@ -342,7 +365,7 @@
 		{#if card.staged_output}
 			<div class="rounded-lg p-3 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800'}">
 				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">
-					{card.staged_output.type === 'code_fix' ? 'Code Fix' : card.staged_output.type === 'draft_reply' ? 'Draft Reply' : card.staged_output.type === 'briefing' ? 'Briefing' : card.staged_output.type === 'agent_result' ? 'Agent Result' : card.staged_output.type === 'agent_plan' ? 'Implementation Plan' : 'Output'}
+					{stagedOutputTitle}
 				</h3>
 				{#if card.staged_output.type === 'code_fix'}
 					<pre class="whitespace-pre-wrap break-words overflow-y-auto rounded p-2 text-[11px] text-surface-200 max-h-48 {$glassTheme ? 'bg-white/[0.04]' : 'bg-surface-900'}">{card.staged_output.content}</pre>
@@ -355,7 +378,7 @@
 		<!-- Related entities -->
 		{#if relatedEntities.length > 0}
 			<div class="rounded-lg p-3 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800'}">
-				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">Related Entities</h3>
+				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.related_entities', 'Related Entities')}</h3>
 				<div class="flex flex-wrap gap-1.5">
 					{#each relatedEntities as entity}
 						<span class="min-w-0 max-w-full truncate rounded px-2 py-0.5 text-[11px] text-surface-300 {$glassTheme ? 'bg-white/[0.08]' : 'bg-surface-700'}" title={entity}>{entity}</span>
@@ -367,7 +390,7 @@
 		<!-- Research plan -->
 		{#if researchPlan.length > 0}
 			<div class="rounded-lg p-3 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800'}">
-				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">Research Plan</h3>
+				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.research_plan', 'Research Plan')}</h3>
 				<ol class="space-y-1">
 					{#each researchPlan as step, i}
 						<li class="flex items-start gap-2 text-xs text-surface-300">
@@ -382,7 +405,7 @@
 		<!-- Intelligence -->
 		{#if card.intelligence && card.intelligence.length > 0}
 			<div class="rounded-lg p-3 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800'}">
-				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">Intelligence</h3>
+				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.intelligence', 'Intelligence')}</h3>
 				<ul class="space-y-1">
 					{#each card.intelligence as point}
 						<li class="flex items-start gap-2 text-xs text-surface-300">
@@ -397,7 +420,7 @@
 		<!-- Suggested actions -->
 		{#if card.suggested_actions && card.suggested_actions.length > 0}
 			<div class="rounded-lg p-3 {$glassTheme ? 'glass-section' : 'border border-surface-700 bg-surface-800'}">
-				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">Actions</h3>
+				<h3 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-surface-500">{$t('actions.actions_heading', 'Actions')}</h3>
 				<div class="space-y-1.5">
 					{#each card.suggested_actions as action}
 						<div class="flex items-center justify-between text-xs">
@@ -416,7 +439,7 @@
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		role="dialog"
-		aria-label="File viewer"
+		aria-label={$t('actions.file_viewer', 'File viewer')}
 		tabindex="-1"
 		onclick={(e) => { if (e.target === e.currentTarget) viewingFile = null; }}
 		onkeydown={(e) => { if (e.key === 'Escape') viewingFile = null; }}
@@ -437,13 +460,13 @@
 						onclick={copyFileContent}
 					>
 						{#if fileCopied}
-							Copied!
+							{$t('common.copied', 'Copied!')}
 						{:else}
 							<span class="flex items-center gap-1">
 								<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
 								</svg>
-								Copy
+								{$t('common.copy', 'Copy')}
 							</span>
 						{/if}
 					</button>
@@ -451,7 +474,7 @@
 					<button
 						class="rounded-md p-1 text-surface-400 transition-colors {$glassTheme ? 'hover:bg-white/[0.08]' : 'hover:bg-surface-700'} hover:text-surface-200"
 						onclick={() => (viewingFile = null)}
-						aria-label="Close"
+						aria-label={$t('common.close', 'Close')}
 					>
 						<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 							<path stroke-linecap="round" d="M6 18L18 6M6 6l12 12" />

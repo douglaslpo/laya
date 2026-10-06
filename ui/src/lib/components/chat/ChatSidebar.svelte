@@ -27,6 +27,7 @@
 	import { tick } from 'svelte';
 	import { reducedMotion } from '$lib/stores/reducedMotion';
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 
 	let input = $state('');
 	let clearPending = $state(false);
@@ -242,7 +243,7 @@
 					message_id: `err-${Date.now()}`,
 					timestamp: new Date().toISOString(),
 					role: 'assistant',
-					content: 'Failed to send message. Please try again.',
+					content: $t('shell.chat_send_failed', 'Failed to send message. Please try again.'),
 					referenced_cards: [],
 					referenced_events: []
 				};
@@ -294,9 +295,9 @@
 
 	function conversationTitle(): string {
 		const convId = $activeConversationId;
-		if (!convId) return 'New Chat';
+		if (!convId) return $t('chat.new_chat', 'New Chat');
 		const conv = $conversations.find((c) => c.conversation_id === convId);
-		return conv?.title ?? 'Chat';
+		return conv?.title ?? $t('chat.title', 'Chat');
 	}
 
 	function startRename() {
@@ -362,7 +363,7 @@
 	     Inset to the content band so the titlebar/footer stay visible & clickable.
 	     z-30 keeps it below the panel (z-40). -->
 	<button
-		aria-label="Collapse chat"
+		aria-label={$t('shell.chat_collapse', 'Collapse chat')}
 		onclick={() => chatExpanded.set(false)}
 		class="fixed inset-x-0 z-30 cursor-default chat-scrim backdrop-blur-sm"
 		style="top: var(--header-h, 38px); bottom: var(--footer-h, 33px);"
@@ -390,7 +391,7 @@
 				<div class="group flex items-center gap-2 min-w-0">
 					<button
 						onclick={goBackToList}
-						aria-label="Back to conversations"
+						aria-label={$t('shell.chat_back', 'Back to conversations')}
 						class="shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:text-surface-200"
 					>
 						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -399,7 +400,9 @@
 					</button>
 					{#if inCardMode}
 						<h3 class="truncate text-laya-base font-semibold">
-							{$chatCardIds?.length === 1 ? 'Chat about this card' : `Chat about ${$chatCardIds?.length} cards`}
+							{$chatCardIds?.length === 1
+								? $t('shell.chat_about_card', 'Chat about this card')
+								: $t('shell.chat_about_cards', 'Chat about {count} cards', { count: $chatCardIds?.length ?? 0 })}
 						</h3>
 					{:else if renaming}
 						<input
@@ -408,7 +411,7 @@
 							onkeydown={handleRenameKey}
 							onblur={commitRename}
 							maxlength={100}
-							aria-label="Rename conversation"
+							aria-label={$t('shell.chat_rename', 'Rename conversation')}
 							class="min-w-0 flex-1 rounded border border-laya-orange/40 {$glassTheme ? 'bg-white/[0.05]' : 'bg-surface-800'} px-1.5 py-0.5 text-laya-base font-semibold text-surface-100 focus:border-laya-orange focus:outline-none"
 						/>
 					{:else}
@@ -417,7 +420,7 @@
 							onclick={startRename}
 							disabled={!$activeConversationId}
 							class="flex min-w-0 items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors {$glassTheme ? 'enabled:hover:bg-white/[0.05]' : 'enabled:hover:bg-surface-800'} disabled:cursor-default"
-							title={$activeConversationId ? 'Rename conversation' : ''}
+							title={$activeConversationId ? $t('shell.chat_rename', 'Rename conversation') : ''}
 						>
 							<h3 class="truncate text-laya-base font-semibold">{conversationTitle()}</h3>
 							{#if $activeConversationId}
@@ -438,7 +441,9 @@
 						<div class="group/clr relative">
 							<button
 								onclick={clearChat}
-								aria-label={clearPending ? 'Click again to confirm' : 'Clear chat'}
+								aria-label={clearPending
+									? $t('shell.chat_confirm_click', 'Click again to confirm')
+									: $t('shell.chat_clear', 'Clear chat')}
 								class="shrink-0 rounded-md p-1 transition-colors
 									{clearPending ? 'text-red-400' : 'text-surface-400 hover:text-red-400'}"
 							>
@@ -449,7 +454,9 @@
 							<span class="pointer-events-none absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md border border-transparent glass-tooltip glass-tooltip-dense px-2 py-1 text-[10px] font-medium shadow-lg
 								opacity-0 transition-opacity duration-75 group-hover/clr:opacity-100
 								{clearPending ? '!border-red-400/30 !bg-red-950 !text-red-300' : ''}">
-								{clearPending ? 'Click again to confirm' : 'Clear chat'}
+								{clearPending
+									? $t('shell.chat_confirm_click', 'Click again to confirm')
+									: $t('shell.chat_clear', 'Clear chat')}
 							</span>
 						</div>
 					{/if}
@@ -457,7 +464,9 @@
 					<div class="group/exp relative">
 						<button
 							onclick={() => chatExpanded.set(!$chatExpanded)}
-							aria-label={$chatExpanded ? 'Collapse chat' : 'Expand chat'}
+							aria-label={$chatExpanded
+								? $t('shell.chat_collapse', 'Collapse chat')
+								: $t('shell.chat_expand', 'Expand chat')}
 							class="shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:text-surface-200"
 						>
 							{#if $chatExpanded}
@@ -471,12 +480,12 @@
 							{/if}
 						</button>
 						<span class="pointer-events-none absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-md border border-transparent glass-tooltip glass-tooltip-dense px-2 py-1 text-[10px] font-medium shadow-lg opacity-0 transition-opacity duration-75 group-hover/exp:opacity-100">
-							{$chatExpanded ? 'Collapse' : 'Expand'}
+							{$chatExpanded ? $t('shell.collapse', 'Collapse') : $t('shell.expand', 'Expand')}
 						</span>
 					</div>
 					<button
 						onclick={handleClose}
-						aria-label="Close chat"
+						aria-label={$t('shell.chat_close', 'Close chat')}
 						class="shrink-0 text-surface-400 transition-colors hover:text-surface-200"
 					>
 						<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,9 +500,18 @@
 				{#if $chatMessages.length === 0}
 					<p class="text-center text-laya-base text-surface-500">
 						{#if inCardMode}
-							Ask anything about {$chatCardIds?.length === 1 ? 'this card' : `these ${$chatCardIds?.length} cards`}. Laya has full context of their intelligence, outputs, and metadata.
+							{$chatCardIds?.length === 1
+								? $t(
+										'shell.chat_empty_card',
+										'Ask anything about this card. Laya has full context of their intelligence, outputs, and metadata.'
+									)
+								: $t(
+										'shell.chat_empty_cards',
+										'Ask anything about these {count} cards. Laya has full context of their intelligence, outputs, and metadata.',
+										{ count: $chatCardIds?.length ?? 0 }
+									)}
 						{:else}
-							Ask Laya about your events, cards, or recent activity.
+							{$t('shell.chat_empty', 'Ask Laya about your events, cards, or recent activity.')}
 						{/if}
 					</p>
 				{:else}
@@ -507,7 +525,7 @@
 					<div class="flex justify-start">
 						<div class="rounded-xl {$glassTheme ? 'bg-white/[0.05] ring-1 ring-white/[0.08]' : 'bg-surface-800 ring-1 ring-surface-600'} px-3.5 py-2 text-laya-secondary text-surface-400">
 							<span class="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-laya-orange"></span>
-							Looking up: {$activeTools.join(', ')}
+							{$t('shell.chat_looking_up', 'Looking up: {tools}', { tools: $activeTools.join(', ') })}
 						</div>
 					</div>
 				{/if}
@@ -533,7 +551,7 @@
 						bind:this={textareaEl}
 						bind:value={input}
 						onkeydown={handleKeydown}
-						placeholder="Ask something..."
+						placeholder={$t('chat.placeholder', 'Ask something...')}
 						rows={3}
 						style="min-height: 4.5rem; overflow-y: auto;"
 						class="w-full resize-none rounded-lg py-2 pl-3 pr-10 text-laya-base text-surface-200 placeholder-surface-500 focus:outline-none {$glassTheme ? 'glass-input' : 'border border-surface-500 bg-surface-800 focus:border-laya-orange/50'}"
@@ -541,7 +559,7 @@
 					<button
 						onclick={send}
 						disabled={!input.trim() || chatBusy}
-						aria-label="Send message"
+						aria-label={$t('shell.chat_send', 'Send message')}
 						class="absolute bottom-2 right-2 rounded-md p-1 transition-colors disabled:opacity-30
 							{input.trim() ? 'text-laya-orange hover:text-laya-peach' : 'text-surface-600'}"
 					>

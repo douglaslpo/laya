@@ -5,8 +5,11 @@
 	import { portal } from '$lib/actions/portal';
 	import type { ThroughputBucket } from '$lib/api/types';
 	import { monotonePath, monotoneAreaPath, niceStep, formatBucketLabel } from './chartUtils';
+	import { t, locale } from '$lib/i18n';
 
-	let { buckets, title = 'Queue Wait Time', windowMinutes = 60 }: { buckets: ThroughputBucket[]; title?: string; windowMinutes?: number } = $props();
+	let { buckets, title, windowMinutes = 60 }: { buckets: ThroughputBucket[]; title?: string; windowMinutes?: number } = $props();
+
+	const heading = $derived(title === undefined ? $t('shell.chart_wait_time', 'Queue Wait Time') : title);
 
 	const COLOR_AVG = 'var(--color-laya-gold)';
 	const COLOR_P95 = 'var(--color-laya-coral)';
@@ -88,7 +91,11 @@
 		const rect = el.getBoundingClientRect();
 		hoverIdx = i;
 		tooltip = {
-			text: `${formatBucketLabel(b.minute, windowMinutes)} — Avg: ${formatTooltip(b.avg_wait_s)}, P95: ${formatTooltip(b.p95_wait_s)}`,
+			text: $t('shell.chart_wait_tooltip', '{time} — Avg: {avg}, P95: {p95}', {
+				time: formatBucketLabel(b.minute, windowMinutes, $locale),
+				avg: formatTooltip(b.avg_wait_s),
+				p95: formatTooltip(b.p95_wait_s)
+			}),
 			top: rect.top - 34,
 			left: rect.left + rect.width / 2
 		};
@@ -101,13 +108,13 @@
 </script>
 
 <div class="rounded-xl border p-5 {$glassTheme ? 'glass-section' : 'border-surface-700 bg-surface-800'}">
-	{#if title}
+	{#if heading}
 		<div class="mb-3 flex items-center justify-between">
-			<h3 class="text-[11px] font-semibold uppercase tracking-wider text-surface-400">{title}</h3>
+			<h3 class="text-[11px] font-semibold uppercase tracking-wider text-surface-400">{heading}</h3>
 			<div class="flex items-center gap-4 text-[10px] text-surface-500">
 				<span class="flex items-center gap-1.5">
 					<span class="inline-block h-[3px] w-3 rounded-full" style="background: {COLOR_AVG}"></span>
-					Avg
+					{$t('shell.chart_avg', 'Avg')}
 				</span>
 				<span class="flex items-center gap-1.5">
 					<span class="inline-block h-[3px] w-3 rounded-full opacity-50" style="background: {COLOR_P95}"></span>
@@ -118,7 +125,7 @@
 	{/if}
 
 	{#if buckets.length === 0}
-		<p class="text-sm text-surface-500">No data</p>
+		<p class="text-sm text-surface-500">{$t('shell.no_data', 'No data')}</p>
 	{:else}
 		<svg viewBox="0 0 {W} {H}" class="w-full" preserveAspectRatio="xMidYMid meet">
 			<defs>
@@ -228,7 +235,7 @@
 						class="fill-surface-500"
 						font-size="8"
 						font-family="system-ui, sans-serif"
-					>{formatBucketLabel(b.minute, windowMinutes)}</text>
+					>{formatBucketLabel(b.minute, windowMinutes, $locale)}</text>
 				{/if}
 			{/each}
 

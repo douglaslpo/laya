@@ -5,8 +5,11 @@
 	import { portal } from '$lib/actions/portal';
 	import type { ThroughputBucket } from '$lib/api/types';
 	import { monotonePath, niceStep, formatBucketLabel } from './chartUtils';
+	import { t, locale } from '$lib/i18n';
 
-	let { buckets, title = 'Throughput', windowMinutes = 60 }: { buckets: ThroughputBucket[]; title?: string; windowMinutes?: number } = $props();
+	let { buckets, title, windowMinutes = 60 }: { buckets: ThroughputBucket[]; title?: string; windowMinutes?: number } = $props();
+
+	const heading = $derived(title === undefined ? $t('shell.chart_throughput', 'Throughput') : title);
 
 	const COLOR_PROCESSED = 'var(--color-laya-gold)';
 	const COLOR_FAILED = 'var(--color-laya-coral)';
@@ -74,7 +77,16 @@
 		const rect = el.getBoundingClientRect();
 		hoverIdx = i;
 		tooltip = {
-			text: `${formatBucketLabel(b.minute, windowMinutes)} — Ingested: ${b.ingested}, Processed: ${b.processed}, Failed: ${b.failed}`,
+			text: $t(
+				'shell.chart_throughput_tooltip',
+				'{time} — Ingested: {ingested}, Processed: {processed}, Failed: {failed}',
+				{
+					time: formatBucketLabel(b.minute, windowMinutes, $locale),
+					ingested: b.ingested,
+					processed: b.processed,
+					failed: b.failed
+				}
+			),
 			top: rect.top - 34,
 			left: rect.left + rect.width / 2
 		};
@@ -87,28 +99,28 @@
 </script>
 
 <div class="rounded-xl border p-5 {$glassTheme ? 'glass-section' : 'border-surface-700 bg-surface-800'}">
-	{#if title}
+	{#if heading}
 		<div class="mb-3 flex items-center justify-between">
-			<h3 class="text-[11px] font-semibold uppercase tracking-wider text-surface-400">{title}</h3>
+			<h3 class="text-[11px] font-semibold uppercase tracking-wider text-surface-400">{heading}</h3>
 			<div class="flex items-center gap-4 text-[10px] text-surface-500">
 				<span class="flex items-center gap-1.5">
 					<span class="inline-block h-[3px] w-3 rounded-full" style="background: {COLOR_INGESTED}"></span>
-					Ingested
+					{$t('shell.chart_ingested', 'Ingested')}
 				</span>
 				<span class="flex items-center gap-1.5">
 					<span class="inline-block h-2.5 w-2.5 rounded-sm opacity-60" style="background: {COLOR_PROCESSED}"></span>
-					Processed
+					{$t('shell.chart_processed', 'Processed')}
 				</span>
 				<span class="flex items-center gap-1.5">
 					<span class="inline-block h-2.5 w-2.5 rounded-sm opacity-60" style="background: {COLOR_FAILED}"></span>
-					Failed
+					{$t('shell.chart_failed', 'Failed')}
 				</span>
 			</div>
 		</div>
 	{/if}
 
 	{#if buckets.length === 0}
-		<p class="text-sm text-surface-500">No data</p>
+		<p class="text-sm text-surface-500">{$t('shell.no_data', 'No data')}</p>
 	{:else}
 		<svg viewBox="0 0 {W} {H}" class="w-full" preserveAspectRatio="xMidYMid meet">
 			<!-- Grid lines (skip baseline) -->
@@ -173,7 +185,7 @@
 						x={xMid(i)} y={baseline + 14}
 						text-anchor="middle" class="fill-surface-500"
 						font-size="8" font-family="system-ui, sans-serif"
-					>{formatBucketLabel(b.minute, windowMinutes)}</text>
+					>{formatBucketLabel(b.minute, windowMinutes, $locale)}</text>
 				{/if}
 			{/each}
 

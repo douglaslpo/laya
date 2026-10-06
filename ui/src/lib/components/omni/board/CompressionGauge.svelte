@@ -2,6 +2,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script lang="ts">
 	import { countdownTo, num } from '$lib/omni/layers';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		ratio,
@@ -28,7 +29,10 @@
 		const id = setInterval(() => (now = Date.now()), 60_000);
 		return () => clearInterval(id);
 	});
-	const countdown = $derived(countdownTo(nextSynthesisAt, now));
+	const countdown = $derived.by(() => {
+		void $locale;
+		return countdownTo(nextSynthesisAt, now);
+	});
 </script>
 
 <div
@@ -36,30 +40,30 @@
 	style="border: 1px solid var(--om-comp-border); background: var(--om-comp-bg);
 		padding-block: calc(8px * var(--om-density));"
 >
-	<span class="om-micro" style="color: var(--om-comp-label);">Compression</span>
+	<span class="om-micro uppercase tracking-wider" style="color: var(--om-comp-label); font-weight: 600;">{$t('omni.compression')}</span>
 
 	<div class="flex items-baseline gap-[7px]">
 		<span class="om-num-lg" style="color: var(--om-comp-num);">
 			{pct}<span class="text-[calc(18px*var(--om-scale))]">%</span>
 		</span>
-		<span class="om-pill-t" style="color: var(--om-text-dim);">distilled</span>
+		<span class="om-pill-t" style="color: var(--om-text-dim);">{$t('omni.distilled')}</span>
 	</div>
 
 	<div class="om-mono text-[calc(10px*var(--om-scale))]" style="color: var(--om-text-meta);">
-		{num(eventsProcessed)} events → {num(lineCount)} {lineCount === 1 ? 'line' : 'lines'}
+		{num(eventsProcessed, $locale)} {$t('omni.events')} → {lineCount === 1
+			? $t('omniTrace.lines_one', '{count} line', { count: num(lineCount, $locale) })
+			: $t('omniTrace.lines_other', '{count} lines', { count: num(lineCount, $locale) })}
 	</div>
 
 	<div class="flex-1"></div>
 
 	<div class="om-hint" style="color: var(--om-text-meta);">
 		{#if resynthesizing}
-			<span class="om-mono" style="color: var(--om-comp-num);">Synthesizing now…</span>
+			<span class="om-mono" style="color: var(--om-comp-num);">{$t('omni.synthesizing')}</span>
 		{:else if countdown}
-			Next synthesis <span class="om-mono" style="color: var(--om-comp-num);">{countdown}</span>
+			{$t('omni.next_synthesis')} <span class="om-mono" style="color: var(--om-comp-num);">{countdown}</span>
 		{:else}
-			<!-- No schedule means Omni's automatic triggers are off; the only way
-			     forward is the Resynthesize button, so say that rather than nothing. -->
-			Manual synthesis only
+			{$t('omniTrace.manual_synthesis_only', 'Manual synthesis only')}
 		{/if}
 	</div>
 </div>

@@ -1,7 +1,8 @@
 // Copyright 2026 Aayush Chawla
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { locale } from '$lib/i18n';
 import {
 	PRIORITY_LABELS,
 	PRIORITY_COLORS,
@@ -12,8 +13,16 @@ import {
 } from './cardVisuals';
 
 describe('priority maps', () => {
+	beforeAll(() => locale.set('en'));
+	afterAll(() => locale.set('pt-BR'));
+
 	it('abbreviates every priority label', () => {
-		expect(PRIORITY_LABELS).toEqual({ CRITICAL: 'CRIT', HIGH: 'HIGH', MEDIUM: 'MED', LOW: 'LOW' });
+		expect({ ...PRIORITY_LABELS }).toEqual({ CRITICAL: 'CRIT', HIGH: 'HIGH', MEDIUM: 'MED', LOW: 'LOW' });
+	});
+	it('localizes the abbreviations', () => {
+		locale.set('pt-BR');
+		expect(PRIORITY_LABELS.HIGH).toBe('ALTA');
+		locale.set('en');
 	});
 	it('has a colour class for every priority label key', () => {
 		for (const k of Object.keys(PRIORITY_LABELS)) {

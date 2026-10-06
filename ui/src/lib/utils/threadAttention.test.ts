@@ -1,8 +1,9 @@
 // Copyright 2026 Aayush Chawla
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { ActionCard } from '$lib/api/types';
+import { locale } from '$lib/i18n';
 import { threadAttention } from './threadAttention';
 
 const NOW = new Date('2026-05-02T16:00:00Z');
@@ -30,6 +31,14 @@ function card(overrides: Partial<ActionCard> = {}): ActionCard {
 }
 
 describe('threadAttention', () => {
+	beforeEach(() => {
+		locale.set('en');
+	});
+
+	afterEach(() => {
+		locale.set('pt-BR');
+	});
+
 	it('returns a quiet state for an empty thread', () => {
 		expect(threadAttention([], { now: NOW })).toMatchObject({
 			escalating: false,

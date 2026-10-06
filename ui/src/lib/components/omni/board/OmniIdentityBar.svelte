@@ -4,6 +4,7 @@
 	import type { Space } from '$lib/api/types';
 	import { portal } from '$lib/actions/portal';
 	import { clockTime } from '$lib/omni/layers';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		version,
@@ -33,7 +34,7 @@
 	let spaceAnchor = $state<HTMLButtonElement | null>(null);
 	let spacePos = $state<{ top: number; right: number } | null>(null);
 	const activeSpace = $derived(spaces.find((s) => s.space_id === activeSpaceId));
-	const stamp = $derived(clockTime(generatedAt));
+	const stamp = $derived(clockTime(generatedAt, $locale));
 
 	// The menu is portalled to <body> and positioned in viewport coordinates.
 	// It cannot be `position: absolute` inside this bar: the bar is a glass
@@ -84,7 +85,7 @@
 			<span
 				class="om-badge-lg rounded px-1.5 py-0.5"
 				style="background: var(--om-warn-bg); color: var(--om-warn-fg);"
-			>{snapshotType.toUpperCase()}</span>
+			>{$t(`omniTrace.snapshot_type_${snapshotType}`, snapshotType.toUpperCase())}</span>
 		{/if}
 	{/if}
 
@@ -97,9 +98,9 @@
 			style="border: 1px solid var(--om-comp-border); background: var(--om-comp-bg); color: var(--om-comp-num);"
 			onclick={onJumpToLatest}
 		>
-			VIEWING v{version}
+			{$t('omni.viewing_v', 'VIEWING')} v{version}
 			<span style="color: var(--om-text-meta);">·</span>
-			Jump to latest
+			{$t('omni.jump_to_latest', 'Jump to latest')}
 		</button>
 	{/if}
 
@@ -123,7 +124,7 @@
 					></span>
 					{activeSpace.name}
 				{:else}
-					All Spaces
+					{$t('omni.all_spaces', 'All Spaces')}
 				{/if}
 				<svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -141,7 +142,7 @@
 					use:portal
 					class="om-popover-surface fixed z-[111] min-w-[160px] overflow-hidden rounded-lg p-1"
 					role="listbox"
-					aria-label="Space"
+					aria-label={$t('omniTrace.space_aria', 'Space')}
 					tabindex="-1"
 					style="top: {spacePos.top}px; right: {spacePos.right}px;"
 				>
@@ -180,14 +181,14 @@
 				<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
 				<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
 			</svg>
-			Synthesizing…
+			{$t('omni.synthesizing', 'Synthesizing…')}
 		{:else}
 			<svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path
 					d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 				/>
 			</svg>
-			Resynthesize
+			{$t('omni.resynthesize', 'Resynthesize')}
 		{/if}
 	</button>
 </div>

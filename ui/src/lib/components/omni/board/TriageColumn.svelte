@@ -5,6 +5,7 @@
 	import { platformDotColor, platformLabel, PRIORITY_LABELS } from '$lib/utils/cardVisuals';
 	import { livePriority, PRIORITY_RANK, priorityToken, shortAge } from '$lib/omni/layers';
 	import { parseBackendDate } from '$lib/utils/datetime';
+	import { t } from '$lib/i18n';
 
 	let {
 		items,
@@ -50,15 +51,15 @@
 			style="background: var(--om-attn-badge); color: var(--om-attn-badge-fg);"
 			aria-hidden="true">!</span
 		>
-		<span class="om-title" style="color: var(--om-text);">Triage</span>
+		<span class="om-title" style="color: var(--om-text);">{$t('omni.triage')}</span>
 		<span class="flex-1"></span>
-		<span class="om-hint" style="color: var(--om-text-meta);">by priority, then age</span>
+		<span class="om-hint" style="color: var(--om-text-meta);">{$t('omni.by_priority')}</span>
 	</div>
 
 	<div class="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2 pb-2.5">
 		{#if ordered.length === 0}
 			<p class="om-item-t px-2.5 py-2" style="color: var(--om-text-meta);">
-				Nothing needs attention. Everything Omni is tracking is either moving or done.
+				{$t('omni.nothing_needs_attention')}
 			</p>
 		{:else}
 			<!-- Deliberately unkeyed. The list is replaced wholesale whenever the
@@ -108,7 +109,7 @@
 							<span
 								class="om-mono rounded-[3px] px-1 py-px text-[calc(7.5px*var(--om-scale))] font-semibold tracking-[0.1em]"
 								style="background: var(--om-new-bg); color: var(--om-new-fg);"
-							>NEW</span>
+							>{$t('omniTrace.new_badge', 'NEW')}</span>
 						{/if}
 						{#if age}
 							<span class="om-meta">{age}</span>

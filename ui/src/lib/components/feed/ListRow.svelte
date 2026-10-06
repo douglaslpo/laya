@@ -9,7 +9,8 @@
 	import { portal } from '$lib/actions/portal';
 	import StatusDot from './StatusDot.svelte';
 	import { platformDotColor, platformKey, PRIORITY_LABELS, PRIORITY_COLORS } from '$lib/utils/cardVisuals';
-	import { timeAgo } from '$lib/utils/datetime';
+	import { timeAgo as _timeAgo } from '$lib/utils/datetime';
+	import { t, locale } from '$lib/i18n';
 
 	let {
 		card,
@@ -60,7 +61,15 @@
 	function hideTooltip() { fixedTooltip = null; }
 
 	const priorityColors = PRIORITY_COLORS;
-	const priorityLabel = PRIORITY_LABELS;
+	const priorityLabel = $derived(
+		Object.fromEntries(
+			Object.entries(PRIORITY_LABELS).map(([p, label]) => [p, $t(`feedCards.priority_short_${p}`, label)])
+		) as Record<string, string>
+	);
+	const timeAgo = $derived.by(() => {
+		void $locale;
+		return (dateStr?: string) => _timeAgo(dateStr);
+	});
 	const personaColors: Record<string, string> = {
 		ENGINEER: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
 		COMMS: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -203,7 +212,7 @@
 						? 'bg-laya-orange border-laya-orange'
 						: 'border-surface-500 hover:border-surface-300 bg-transparent'}"
 				onclick={(e) => { e.stopPropagation(); onbulktoggle(card.card_id, e); }}
-				aria-label="{bulkSelected ? 'Deselect' : 'Select'} card"
+				aria-label={bulkSelected ? $t('feedGroups.deselect_card', 'Deselect card') : $t('feedGroups.select_card', 'Select card')}
 			>
 				{#if bulkSelected}
 					<svg class="h-2.5 w-2.5 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
@@ -236,7 +245,7 @@
 		<!-- Bookmark — replaces chevron spacer -->
 		<button
 			onclick={toggleBookmark}
-			aria-label={card.bookmarked_at ? 'Remove bookmark' : 'Bookmark card'}
+			aria-label={card.bookmarked_at ? $t('feedGroups.remove_bookmark', 'Remove bookmark') : $t('feedGroups.bookmark_card', 'Bookmark card')}
 			class="w-5 shrink-0 flex items-center justify-center transition-colors {card.bookmarked_at ? 'text-laya-orange' : 'text-surface-600 hover:text-laya-orange'}"
 			disabled={bookmarking}
 		>
@@ -280,41 +289,41 @@
 	<!-- Status — fixed width -->
 	<span class="w-[70px] shrink-0 flex items-center gap-1 ml-2 {card.status === 'awaiting_input' ? 'status-glow-violet' : ''}">
 		<StatusDot status={card.status} size="md" errorMessage={card.last_error} />
-		<span class="text-laya-secondary text-surface-500 whitespace-nowrap truncate" title={card.status === 'failed' && card.last_error ? card.last_error : ''}>{statusLabel[card.status] ?? card.status}</span>
+		<span class="text-laya-secondary text-surface-500 whitespace-nowrap truncate" title={card.status === 'failed' && card.last_error ? card.last_error : ''}>{statusLabel[card.status] ? $t(`feedGroups.row_status_${card.status}`, statusLabel[card.status]) : card.status}</span>
 	</span>
 
 	<!-- Action buttons — fixed layout: [actions 64px] [workspace 20px] -->
 	<div class="col-actions w-[88px] shrink-0 flex items-center opacity-0 group-hover/row:opacity-100 transition-opacity">
 		<div class="flex items-center justify-end gap-1 w-[64px]">
 		{#if card.status === 'ready'}
-			<button aria-label="Mark as Done" class="h-5 w-5 flex items-center justify-center rounded text-green-400/60 hover:bg-green-500/15 hover:text-green-400 disabled:opacity-40" onclick={markDone} disabled={markingDone} onmouseenter={(e) => showTooltip(e.currentTarget, 'Done')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('feedGroups.mark_done', 'Mark as Done')} class="h-5 w-5 flex items-center justify-center rounded text-green-400/60 hover:bg-green-500/15 hover:text-green-400 disabled:opacity-40" onclick={markDone} disabled={markingDone} onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedGroups.done', 'Done'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
 			</button>
-			<button aria-label="Dismiss" class="h-5 w-5 flex items-center justify-center rounded text-surface-500 hover:bg-surface-500/15 hover:text-surface-300 disabled:opacity-40" onclick={dismiss} disabled={dismissing} onmouseenter={(e) => showTooltip(e.currentTarget, 'Dismiss')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('common.dismiss', 'Dismiss')} class="h-5 w-5 flex items-center justify-center rounded text-surface-500 hover:bg-surface-500/15 hover:text-surface-300 disabled:opacity-40" onclick={dismiss} disabled={dismissing} onmouseenter={(e) => showTooltip(e.currentTarget, $t('common.dismiss', 'Dismiss'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
 			</button>
-			<button aria-label="Archive" class="h-5 w-5 flex items-center justify-center rounded text-red-400/60 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40" onclick={archive} disabled={archiving} onmouseenter={(e) => showTooltip(e.currentTarget, 'Archive')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('feedGroups.archive', 'Archive')} class="h-5 w-5 flex items-center justify-center rounded text-red-400/60 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40" onclick={archive} disabled={archiving} onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedGroups.archive', 'Archive'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
 			</button>
 		{:else if card.status === 'dismissed' || card.status === 'done'}
-			<button aria-label="Reopen" class="h-5 w-5 flex items-center justify-center rounded text-laya-orange/60 hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40" onclick={reopen} disabled={reopening} onmouseenter={(e) => showTooltip(e.currentTarget, 'Reopen')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('feedGroups.reopen', 'Reopen')} class="h-5 w-5 flex items-center justify-center rounded text-laya-orange/60 hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40" onclick={reopen} disabled={reopening} onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedGroups.reopen', 'Reopen'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a5 5 0 010 10H9m-6-10l4-4m-4 4l4 4" /></svg>
 			</button>
-			<button aria-label="Archive" class="h-5 w-5 flex items-center justify-center rounded text-red-400/60 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40" onclick={archive} disabled={archiving} onmouseenter={(e) => showTooltip(e.currentTarget, 'Archive')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('feedGroups.archive', 'Archive')} class="h-5 w-5 flex items-center justify-center rounded text-red-400/60 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40" onclick={archive} disabled={archiving} onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedGroups.archive', 'Archive'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
 			</button>
 		{:else if card.status === 'archived'}
-			<button aria-label="Unarchive" class="h-5 w-5 flex items-center justify-center rounded text-laya-orange/60 hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40" onclick={reopen} disabled={reopening} onmouseenter={(e) => showTooltip(e.currentTarget, 'Unarchive')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('feedGroups.unarchive', 'Unarchive')} class="h-5 w-5 flex items-center justify-center rounded text-laya-orange/60 hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40" onclick={reopen} disabled={reopening} onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedGroups.unarchive', 'Unarchive'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a5 5 0 010 10H9m-6-10l4-4m-4 4l4 4" /></svg>
 			</button>
-			<button aria-label="Delete" class="h-5 w-5 flex items-center justify-center rounded text-red-400/60 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40" onclick={(e) => { e.stopPropagation(); showDeleteConfirm = true; }} disabled={deleting} onmouseenter={(e) => showTooltip(e.currentTarget, 'Delete')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('common.delete', 'Delete')} class="h-5 w-5 flex items-center justify-center rounded text-red-400/60 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-40" onclick={(e) => { e.stopPropagation(); showDeleteConfirm = true; }} disabled={deleting} onmouseenter={(e) => showTooltip(e.currentTarget, $t('common.delete', 'Delete'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 			</button>
 		{:else if card.status === 'failed'}
-			<button aria-label="Retry" class="h-5 w-5 flex items-center justify-center rounded text-laya-orange/60 hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40" onclick={reopen} disabled={reopening} onmouseenter={(e) => showTooltip(e.currentTarget, 'Retry')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('common.retry', 'Retry')} class="h-5 w-5 flex items-center justify-center rounded text-laya-orange/60 hover:bg-laya-orange/15 hover:text-laya-orange disabled:opacity-40" onclick={reopen} disabled={reopening} onmouseenter={(e) => showTooltip(e.currentTarget, $t('common.retry', 'Retry'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M1 4v6h6" /><path stroke-linecap="round" stroke-linejoin="round" d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" /></svg>
 			</button>
-			<button aria-label="Archive" class="h-5 w-5 flex items-center justify-center rounded text-surface-500 hover:bg-surface-500/15 hover:text-surface-300 disabled:opacity-40" onclick={archive} disabled={archiving} onmouseenter={(e) => showTooltip(e.currentTarget, 'Archive')} onmouseleave={hideTooltip}>
+			<button aria-label={$t('feedGroups.archive', 'Archive')} class="h-5 w-5 flex items-center justify-center rounded text-surface-500 hover:bg-surface-500/15 hover:text-surface-300 disabled:opacity-40" onclick={archive} disabled={archiving} onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedGroups.archive', 'Archive'))} onmouseleave={hideTooltip}>
 				<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" /></svg>
 			</button>
 		{/if}
@@ -322,7 +331,7 @@
 		<!-- Workspace slot — always occupies space so action buttons stay fixed -->
 		<span class="w-[24px] shrink-0 flex items-center justify-center">
 			{#if card.has_workspace}
-				<a href="/workspace/{card.card_id}" aria-label="Workspace" class="h-5 w-5 flex items-center justify-center rounded text-violet-400/60 hover:bg-violet-500/15 hover:text-violet-400" onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(`/workspace/${card.card_id}`); }} onmouseenter={(e) => showTooltip(e.currentTarget, 'Workspace')} onmouseleave={hideTooltip}>
+				<a href="/workspace/{card.card_id}" aria-label={$t('feedGroups.workspace', 'Workspace')} class="h-5 w-5 flex items-center justify-center rounded text-violet-400/60 hover:bg-violet-500/15 hover:text-violet-400" onclick={(e) => { e.preventDefault(); e.stopPropagation(); goto(`/workspace/${card.card_id}`); }} onmouseenter={(e) => showTooltip(e.currentTarget, $t('feedGroups.workspace', 'Workspace'))} onmouseleave={hideTooltip}>
 					<svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
 				</a>
 			{/if}
@@ -330,12 +339,12 @@
 	</div>
 
 	<!-- Persona badge — fixed width (68px fits the longest label "ENGINEER" with padding, even at the 15px font-base setting; tracking-tight keeps it off the border. Keep in sync with the col-persona placeholder in ListGroup.svelte) -->
-	<span class="col-persona w-[68px] shrink-0 text-center rounded border px-1 py-0.5 text-laya-micro font-bold uppercase tracking-tight ml-1 {personaColors[card.persona] ?? personaColors.ENGINEER}">
-		{card.persona}
+	<span class="col-persona w-[68px] shrink-0 truncate text-center rounded border px-1 py-0.5 text-laya-micro font-bold uppercase tracking-tight ml-1 {personaColors[card.persona] ?? personaColors.ENGINEER}" title={$t(`shared.persona_${card.persona}`, card.persona)}>
+		{$t(`shared.persona_${card.persona}`, card.persona)}
 	</span>
 
 	<!-- Priority badge — fixed width -->
-	<span class="w-[36px] shrink-0 text-center rounded px-1 py-0.5 text-laya-micro font-bold uppercase ml-1 {priorityColors[card.priority] ?? priorityColors.MEDIUM}">
+	<span class="w-[36px] shrink-0 truncate text-center rounded px-1 py-0.5 text-laya-micro font-bold uppercase ml-1 {priorityColors[card.priority] ?? priorityColors.MEDIUM}" title={$t(`shared.priority_${card.priority}`, card.priority)}>
 		{priorityLabel[card.priority] ?? card.priority}
 	</span>
 
@@ -364,7 +373,7 @@
 		use:portal
 		class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		role="dialog"
-		aria-label="Confirm delete"
+		aria-label={$t('feedGroups.confirm_delete', 'Confirm delete')}
 		tabindex="-1"
 		onclick={(e) => { if (e.target === e.currentTarget) showDeleteConfirm = false; }}
 		onkeydown={(e) => { if (e.key === 'Escape') showDeleteConfirm = false; }}
@@ -377,13 +386,13 @@
 					</svg>
 				</div>
 				<div>
-					<h4 class="text-laya-base font-semibold text-surface-50">Delete card permanently?</h4>
-					<p class="mt-1 text-laya-secondary leading-relaxed text-surface-400">This cannot be undone.</p>
+					<h4 class="text-laya-base font-semibold text-surface-50">{$t('feedGroups.delete_card_title', 'Delete card permanently?')}</h4>
+					<p class="mt-1 text-laya-secondary leading-relaxed text-surface-400">{$t('feedGroups.cannot_undo', 'This cannot be undone.')}</p>
 				</div>
 			</div>
 			<div class="flex justify-end gap-2">
-				<button class="rounded-md px-3 py-1.5 text-laya-secondary text-surface-400 hover:text-surface-200" onclick={(e) => { e.stopPropagation(); showDeleteConfirm = false; }}>Cancel</button>
-				<button class="rounded-md bg-red-700 px-3 py-1.5 text-laya-secondary font-medium text-red-50 hover:bg-red-600" onclick={deleteCard} disabled={deleting}>{deleting ? 'Deleting...' : 'Delete'}</button>
+				<button class="rounded-md px-3 py-1.5 text-laya-secondary text-surface-400 hover:text-surface-200" onclick={(e) => { e.stopPropagation(); showDeleteConfirm = false; }}>{$t('common.cancel', 'Cancel')}</button>
+				<button class="rounded-md bg-red-700 px-3 py-1.5 text-laya-secondary font-medium text-red-50 hover:bg-red-600" onclick={deleteCard} disabled={deleting}>{deleting ? $t('feedGroups.deleting', 'Deleting...') : $t('common.delete', 'Delete')}</button>
 			</div>
 		</div>
 	</div>

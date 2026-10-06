@@ -11,6 +11,8 @@
 
 import type { OmniSectionType } from '$lib/api/types';
 import { parseBackendDate } from '$lib/utils/datetime';
+import { get } from 'svelte/store';
+import { locale, tr } from '$lib/i18n';
 
 export interface LayerMeta {
 	type: OmniSectionType;
@@ -30,10 +32,34 @@ export interface LayerMeta {
 }
 
 export const LAYERS: LayerMeta[] = [
-	{ type: 'attention', title: 'Needs Attention', window: 'OPEN NOW', token: 'attention', indent: '0' },
-	{ type: 'recent', title: 'Recent', window: 'LAST 24–48H', token: 'recent', indent: '3%' },
-	{ type: 'period', title: 'This Week', window: 'MON–TODAY', token: 'period', indent: '6%' },
-	{ type: 'milestone', title: 'Milestones', window: 'BEYOND', token: 'milestone', indent: '9%' }
+	{
+		type: 'attention',
+		get title() { return tr('omni.needs_attention', 'Needs Attention'); },
+		get window() { return tr('omniTrace.window_attention', 'OPEN NOW'); },
+		token: 'attention',
+		indent: '0'
+	},
+	{
+		type: 'recent',
+		get title() { return tr('omni.recent', 'Recent'); },
+		get window() { return tr('omniTrace.window_recent', 'LAST 24–48H'); },
+		token: 'recent',
+		indent: '3%'
+	},
+	{
+		type: 'period',
+		get title() { return tr('omni.this_week', 'This Week'); },
+		get window() { return tr('omniTrace.window_period', 'MON–TODAY'); },
+		token: 'period',
+		indent: '6%'
+	},
+	{
+		type: 'milestone',
+		get title() { return tr('omni.milestones', 'Milestones'); },
+		get window() { return tr('omniTrace.window_milestone', 'BEYOND'); },
+		token: 'milestone',
+		indent: '9%'
+	}
 ];
 
 export const LAYER_BY_TYPE: Record<string, LayerMeta> = Object.fromEntries(
@@ -81,7 +107,7 @@ export function shortAge(iso: string | null | undefined, now: number = Date.now(
 	const d = parseBackendDate(iso);
 	if (!d) return '';
 	const mins = Math.max(0, Math.floor((now - d.getTime()) / 60000));
-	if (mins < 1) return 'now';
+	if (mins < 1) return tr('omniTrace.age_now', 'now');
 	if (mins < 60) return `${mins}m`;
 	const hours = Math.floor(mins / 60);
 	if (hours < 48) return `${hours}h`;
@@ -92,7 +118,7 @@ export function shortAge(iso: string | null | undefined, now: number = Date.now(
 export function duration(ms: number | null | undefined): string {
 	if (ms == null || !Number.isFinite(ms) || ms <= 0) return '';
 	const mins = Math.floor(ms / 60000);
-	if (mins < 1) return 'under a minute';
+	if (mins < 1) return tr('omniTrace.duration_under_minute', 'under a minute');
 	if (mins < 60) return `${mins}m`;
 	const hours = Math.floor(mins / 60);
 	if (hours < 24) return `${hours}h ${mins % 60}m`;
@@ -105,25 +131,25 @@ export function countdownTo(iso: string | null | undefined, now: number = Date.n
 	const d = parseBackendDate(iso);
 	if (!d) return '';
 	const diff = d.getTime() - now;
-	if (diff <= 60000) return 'imminent';
+	if (diff <= 60000) return tr('omniTrace.countdown_imminent', 'imminent');
 	return duration(diff);
 }
 
 /** "7:27 PM" — the identity bar's snapshot stamp. */
-export function clockTime(iso: string | null | undefined): string {
+export function clockTime(iso: string | null | undefined, loc: string = get(locale)): string {
 	const d = parseBackendDate(iso);
 	if (!d) return '';
-	return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+	return d.toLocaleTimeString(loc, { hour: 'numeric', minute: '2-digit' });
 }
 
 /** "14:22" — 24h stamp for changelog "closed" lines and evidence rows. */
-export function hhmm(iso: string | null | undefined): string {
+export function hhmm(iso: string | null | undefined, loc: string = get(locale)): string {
 	const d = parseBackendDate(iso);
 	if (!d) return '';
-	return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+	return d.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 /** Thousands-separated integer for the numeral columns. */
-export function num(value: number | null | undefined): string {
-	return (value ?? 0).toLocaleString();
+export function num(value: number | null | undefined, loc: string = get(locale)): string {
+	return (value ?? 0).toLocaleString(loc);
 }

@@ -12,6 +12,7 @@
 	import { glassTheme } from '$lib/stores/glassTheme';
 	import { reducedMotion } from '$lib/stores/reducedMotion';
 	import { capturePositions, playFlip } from '$lib/utils/flip';
+	import { t } from '$lib/i18n';
 
 	let {
 		cards,
@@ -34,12 +35,12 @@
 	function formatRecentTime(epochMs: number): string {
 		const diff = Date.now() - epochMs;
 		const mins = Math.floor(diff / 60_000);
-		if (mins < 1) return 'just now';
-		if (mins < 60) return `${mins}m ago`;
+		if (mins < 1) return $t('feedPage.recent_just_now', 'just now');
+		if (mins < 60) return $t('feedPage.recent_minutes_ago', '{count}m ago', { count: mins });
 		const hours = Math.floor(mins / 60);
-		if (hours < 24) return `${hours}h ago`;
+		if (hours < 24) return $t('feedPage.recent_hours_ago', '{count}h ago', { count: hours });
 		const days = Math.floor(hours / 24);
-		return `${days}d ago`;
+		return $t('feedPage.recent_days_ago', '{count}d ago', { count: days });
 	}
 
 	function onEntry(entry: RecentCardEntry) {
@@ -62,13 +63,13 @@
 <div class="flex-shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out {$recentDrawerOpen ? 'w-[260px]' : 'w-0'}">
 	<div class="flex h-full w-[260px] flex-col overflow-hidden rounded-xl border {$glassTheme ? 'glass-card border-surface-700/40 bg-surface-900/40' : 'border-surface-700/50 bg-surface-900/60'}">
 		<div class="flex items-center justify-between border-b border-surface-700/50 px-3 py-2">
-			<span class="text-laya-secondary font-medium text-surface-300">Recent Cards</span>
+			<span class="text-laya-secondary font-medium text-surface-300">{$t('feedPage.recent_title', 'Recent Cards')}</span>
 			<div class="flex items-center gap-1">
 				{#if cards.length > 0}
 					<button
 						class="rounded p-0.5 text-surface-600 transition-colors hover:text-surface-300"
 						onclick={() => clearRecentCards()}
-						title="Clear history"
+						title={$t('feedPage.recent_clear_history', 'Clear history')}
 					>
 						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -78,7 +79,7 @@
 				<button
 					class="rounded p-0.5 text-surface-600 transition-colors hover:text-surface-300"
 					onclick={onToggle}
-					title="Close"
+					title={$t('common.close', 'Close')}
 				>
 					<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -92,8 +93,8 @@
 					<svg class="mb-2 h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 					</svg>
-					<p class="text-laya-secondary">{spaceFiltered ? 'No recent cards in selected spaces' : 'No recent cards yet'}</p>
-					<p class="mt-0.5 text-laya-micro text-surface-700">Cards you view will appear here</p>
+					<p class="text-laya-secondary">{spaceFiltered ? $t('feedPage.recent_empty_spaces', 'No recent cards in selected spaces') : $t('feedPage.recent_empty', 'No recent cards yet')}</p>
+					<p class="mt-0.5 text-laya-micro text-surface-700">{$t('feedPage.recent_empty_hint', 'Cards you view will appear here')}</p>
 				</div>
 			{:else}
 				{#each cards as entry (entry.card_id)}
@@ -109,7 +110,7 @@
 						</div>
 						<span class="line-clamp-1 text-laya-micro text-surface-500">
 							{#if entry.type === 'group'}
-								{entry.card_count} cards{#if entry.source_ref} · {entry.source_ref}{/if}
+								{$t('feedPage.n_cards', '{count} cards', { count: entry.card_count ?? 0 })}{#if entry.source_ref} · {entry.source_ref}{/if}
 							{:else}
 								{#if entry.source_ref}{entry.source_ref}{:else if entry.entity_id}{entry.entity_id}{:else if entry.category}{entry.category}{/if}
 							{/if}

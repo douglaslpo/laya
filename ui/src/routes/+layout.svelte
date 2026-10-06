@@ -39,6 +39,8 @@
 	import UpdateBanner from '$lib/components/UpdateBanner.svelte';
 	import VectorStoreBanner from '$lib/components/VectorStoreBanner.svelte';
 	import Titlebar from '$lib/components/Titlebar.svelte';
+	import LanguageSelector from '$lib/components/LanguageSelector.svelte';
+	import { t, locale } from '$lib/i18n';
 	import { startPeriodicCheck, stopPeriodicCheck } from '$lib/stores/updater';
 	import { onMount } from 'svelte';
 
@@ -47,9 +49,9 @@
 		const d = new Date();
 		d.setDate(d.getDate() - 1);
 		const yesterday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-		if (dateStr === today) return 'Today';
-		if (dateStr === yesterday) return 'Yesterday';
-		return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, {
+		if (dateStr === today) return $t('common.today');
+		if (dateStr === yesterday) return $t('common.yesterday');
+		return new Date(dateStr + 'T00:00:00').toLocaleDateString($locale, {
 			weekday: 'short',
 			month: 'short',
 			day: 'numeric'
@@ -299,7 +301,13 @@
 		const msg = $lastMessage;
 		if (msg && msg.type === 'processing_rule_auto_disabled') {
 			const p = msg.payload as { name: string; reason: string };
-			addToast(`Rule "${p.name}" auto-disabled: ${p.reason}`, 'warning');
+			addToast(
+				$t('shell.rule_auto_disabled', 'Rule "{name}" auto-disabled: {reason}', {
+					name: p.name,
+					reason: p.reason
+				}),
+				'warning'
+			);
 		}
 	});
 
@@ -536,7 +544,7 @@
 				<button
 					onclick={() => (navMenuOpen = !navMenuOpen)}
 					class="rounded-md p-1 text-surface-400 transition-colors hover:text-surface-200 hover:bg-surface-800"
-					aria-label="Navigation menu"
+					aria-label={$t('shell.nav_menu', 'Navigation menu')}
 				>
 					<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -552,21 +560,28 @@
 								{isFeedRoute
 									? 'bg-laya-orange/10 text-laya-orange'
 									: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700'}"
-						>Pulse</a>
+						>{$t('nav.pulse')}</a>
 						<a
 							href="/omni"
 							class="whitespace-nowrap px-4 py-1.5 text-xs font-medium transition-colors
 								{page.url.pathname.startsWith('/omni')
 									? 'bg-laya-orange/10 text-laya-orange'
 									: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700'}"
-						>Omni</a>
+						>{$t('nav.omni')}</a>
 						<a
 							href="/coherence"
 							class="whitespace-nowrap px-4 py-1.5 text-xs font-medium transition-colors
 								{page.url.pathname.startsWith('/coherence')
 									? 'bg-laya-orange/10 text-laya-orange'
 									: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700'}"
-						>Coherence<sup class="text-[7px] ml-0.5 opacity-60 tracking-wider">BETA</sup></a>
+						>{$t('nav.coherence')}<sup class="text-[7px] ml-0.5 opacity-60 tracking-wider">BETA</sup></a>
+						<a
+							href="/hub"
+							class="whitespace-nowrap px-4 py-1.5 text-xs font-medium transition-colors
+								{page.url.pathname.startsWith('/hub')
+									? 'bg-laya-orange/10 text-laya-orange'
+									: 'text-surface-400 hover:text-surface-200 hover:bg-surface-700'}"
+						>{$t('nav.hub')}</a>
 					</nav>
 				{/if}
 			</div>
@@ -579,21 +594,28 @@
 						{isFeedRoute
 							? 'bg-laya-orange/10 text-laya-orange'
 							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'}"
-				>Pulse</a>
+				>{$t('nav.pulse')}</a>
 				<a
 					href="/omni"
 					class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors
 						{page.url.pathname.startsWith('/omni')
 							? 'bg-laya-orange/10 text-laya-orange'
 							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'}"
-				>Omni</a>
+				>{$t('nav.omni')}</a>
 				<a
 					href="/coherence"
 					class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors
 						{page.url.pathname.startsWith('/coherence')
 							? 'bg-laya-orange/10 text-laya-orange'
 							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'}"
-				>Coherence<sup class="text-[7px] ml-0.5 opacity-60 tracking-wider">BETA</sup></a>
+				>{$t('nav.coherence')}<sup class="text-[7px] ml-0.5 opacity-60 tracking-wider">BETA</sup></a>
+				<a
+					href="/hub"
+					class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors
+						{page.url.pathname.startsWith('/hub')
+							? 'bg-laya-orange/10 text-laya-orange'
+							: 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'}"
+				>{$t('nav.hub')}</a>
 			</nav>
 		{/if}
 	{/snippet}
@@ -605,7 +627,7 @@
 					<button
 						onclick={() => (dateMenuOpen = !dateMenuOpen)}
 						class="rounded-md p-1 text-surface-400 transition-colors hover:text-surface-200 hover:bg-surface-800"
-						aria-label="Date navigation"
+						aria-label={$t('shell.date_nav', 'Date navigation')}
 						title={formatDateLabel($feedDate)}
 					>
 						<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -621,21 +643,21 @@
 									<svg class="h-3.5 w-3.5 text-laya-orange" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
 									</svg>
-									<span class="text-xs font-medium text-laya-orange whitespace-nowrap">Bookmarked</span>
+									<span class="text-xs font-medium text-laya-orange whitespace-nowrap">{$t('common.bookmarked', 'Bookmarked')}</span>
 								</div>
 							{:else if $feedFilters.showRelated}
 								<div class="flex items-center gap-1.5 px-2 py-1">
 									<svg class="h-3.5 w-3.5 text-laya-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
 									</svg>
-									<span class="text-xs font-medium text-laya-orange whitespace-nowrap">Related</span>
+									<span class="text-xs font-medium text-laya-orange whitespace-nowrap">{$t('common.related', 'Related')}</span>
 								</div>
 							{:else if $feedFilters.showAllDaysSearch}
 								<div class="flex items-center gap-1.5 px-2 py-1">
 									<svg class="h-3.5 w-3.5 text-laya-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 									</svg>
-									<span class="text-xs font-medium text-laya-orange whitespace-nowrap">All days</span>
+									<span class="text-xs font-medium text-laya-orange whitespace-nowrap">{$t('common.all_days', 'All days')}</span>
 								</div>
 							{:else}
 								<div class="flex items-center gap-1">
@@ -643,7 +665,7 @@
 										class="rounded-md p-1.5 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200 disabled:opacity-30"
 										disabled={!$feedPrevDate}
 										onclick={() => { if ($feedPrevDate) $feedDate = $feedPrevDate; }}
-										title="Previous day"
+										title={$t('common.previous_day', 'Previous day')}
 									>
 										<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -657,7 +679,7 @@
 										<button
 											class="w-[7.5rem] text-center text-xs font-medium whitespace-nowrap rounded-md px-2 py-1 transition-colors text-surface-200 hover:text-laya-orange hover:bg-laya-orange/10"
 											onclick={() => { $feedDate = localToday(); dateMenuOpen = false; }}
-											title="Jump to today"
+											title={$t('common.jump_to_today', 'Jump to today')}
 										>
 											{formatDateLabel($feedDate)}
 										</button>
@@ -666,7 +688,7 @@
 										class="rounded-md p-1.5 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200 disabled:opacity-30"
 										disabled={!$feedNextDate}
 										onclick={() => { if ($feedNextDate) $feedDate = $feedNextDate; }}
-										title="Next day"
+										title={$t('common.next_day', 'Next day')}
 									>
 										<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -682,21 +704,21 @@
 					<svg class="h-3.5 w-3.5 text-laya-orange" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
 					</svg>
-					<span class="text-xs font-medium text-laya-orange whitespace-nowrap">Bookmarked</span>
+					<span class="text-xs font-medium text-laya-orange whitespace-nowrap">{$t('common.bookmarked', 'Bookmarked')}</span>
 				</div>
 			{:else if $feedFilters.showRelated}
 				<div data-titlebar-center class="flex items-center gap-1.5">
 					<svg class="h-3.5 w-3.5 text-laya-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
 					</svg>
-					<span class="text-xs font-medium text-laya-orange whitespace-nowrap">Related</span>
+					<span class="text-xs font-medium text-laya-orange whitespace-nowrap">{$t('common.related', 'Related')}</span>
 				</div>
 			{:else if $feedFilters.showAllDaysSearch}
 				<div data-titlebar-center class="flex items-center gap-1.5">
 					<svg class="h-3.5 w-3.5 text-laya-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 					</svg>
-					<span class="text-xs font-medium text-laya-orange whitespace-nowrap">All days</span>
+					<span class="text-xs font-medium text-laya-orange whitespace-nowrap">{$t('common.all_days', 'All days')}</span>
 				</div>
 			{:else}
 				<div data-titlebar-center class="flex items-center gap-1">
@@ -704,7 +726,7 @@
 						class="rounded-md p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-200 disabled:opacity-30 disabled:hover:bg-transparent"
 						disabled={!$feedPrevDate}
 						onclick={() => { if ($feedPrevDate) $feedDate = $feedPrevDate; }}
-						title="Previous day"
+						title={$t('common.previous_day', 'Previous day')}
 					>
 						<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -718,17 +740,17 @@
 						<button
 							class="group/today w-[7.5rem] text-center text-xs font-medium whitespace-nowrap rounded-md px-2 py-1 transition-colors text-surface-200 hover:text-laya-orange hover:bg-laya-orange/10"
 							onclick={() => ($feedDate = localToday())}
-							title="Jump to today"
+							title={$t('common.jump_to_today', 'Jump to today')}
 						>
 							{formatDateLabel($feedDate)}
-							<span class="block text-[9px] font-normal text-surface-500 group-hover/today:text-laya-orange/70 transition-colors">click for today</span>
+							<span class="block text-[9px] font-normal text-surface-500 group-hover/today:text-laya-orange/70 transition-colors">{$t('common.click_for_today', 'click for today')}</span>
 						</button>
 					{/if}
 					<button
 						class="rounded-md p-1.5 text-surface-400 transition-colors hover:bg-surface-800 hover:text-surface-200 disabled:opacity-30 disabled:hover:bg-transparent"
 						disabled={!$feedNextDate}
 						onclick={() => { if ($feedNextDate) $feedDate = $feedNextDate; }}
-						title="Next day"
+						title={$t('common.next_day', 'Next day')}
 					>
 						<svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -739,6 +761,7 @@
 		{/if}
 	{/snippet}
 	{#snippet right()}
+		<LanguageSelector />
 		<div class="group/tip relative">
 			<button
 				onclick={() => {
@@ -753,13 +776,13 @@
 					{$chatOpen
 						? 'bg-laya-orange/10 text-laya-orange'
 						: 'text-surface-400 hover:text-laya-orange'}"
-				aria-label="Chat with Laya"
+				aria-label={$t('shell.chat_with_laya', 'Chat with Laya')}
 			>
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
 				</svg>
 			</button>
-			<span class="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">Chat</span>
+			<span class="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">{$t('common.chat', 'Chat')}</span>
 		</div>
 
 		<!-- Settings -->
@@ -770,7 +793,7 @@
 					{page.url.pathname.startsWith('/settings')
 						? 'text-laya-orange'
 						: 'text-surface-400 hover:text-laya-orange'}"
-				aria-label="Settings"
+				aria-label={$t('nav.settings', 'Settings')}
 			>
 				<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -779,18 +802,18 @@
 				<!-- Red dot when there are unresolved failed events / ingestion errors
 				     (auditFailures store) or unhealthy integrations (integrationErrors store) -->
 				{#if $hasAuditFailures || $hasIntegrationErrors}
-					<span class="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-surface-900" aria-label="Unresolved failures"></span>
+					<span class="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-surface-900" aria-label={$t('shell.unresolved_failures', 'Unresolved failures')}></span>
 				{/if}
 			</a>
-			<span class="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">Settings</span>
+			<span class="pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">{$t('nav.settings', 'Settings')}</span>
 		</div>
 
 		<!-- Health badge -->
 		<div class="group/tip relative">
-			<a href="/status" class="block rounded-lg px-1.5 py-1 transition-colors hover:bg-surface-800" aria-label="System status">
+			<a href="/status" class="block rounded-lg px-1.5 py-1 transition-colors hover:bg-surface-800" aria-label={$t('nav.status', 'System status')}>
 				<HealthBadge />
 			</a>
-			<span class="pointer-events-none absolute right-0 top-full z-50 mt-1.5 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">Status</span>
+			<span class="pointer-events-none absolute right-0 top-full z-50 mt-1.5 whitespace-nowrap rounded-md border border-transparent glass-tooltip px-2 py-1 text-[10px] font-medium opacity-0 transition-opacity duration-75 group-hover/tip:opacity-100">{$t('shell.status_link', 'Status')}</span>
 		</div>
 	{/snippet}
 </Titlebar>
@@ -807,8 +830,8 @@
 				<svg class="h-3.5 w-3.5 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 				</svg>
-				<span class="text-xs text-red-300">Monthly budget limit reached — all ingestion workflows are paused</span>
-				<a href="/settings?tab=models&section=cost-control" class="ml-1 text-xs font-medium text-red-400 underline underline-offset-2 hover:text-red-300">Manage</a>
+				<span class="text-xs text-red-300">{$t('shell.budget_paused', 'Monthly budget limit reached — all ingestion workflows are paused')}</span>
+				<a href="/settings?tab=models&section=cost-control" class="ml-1 text-xs font-medium text-red-400 underline underline-offset-2 hover:text-red-300">{$t('shell.manage', 'Manage')}</a>
 			</div>
 		{/if}
 
@@ -818,8 +841,8 @@
 				<svg class="h-3.5 w-3.5 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 				</svg>
-				<span class="text-xs text-red-300">Agent usage limit reached — ingestion paused until the usage window resets</span>
-				<a href="/settings?tab=models&section=agent-usage" class="ml-1 text-xs font-medium text-red-400 underline underline-offset-2 hover:text-red-300">Manage</a>
+				<span class="text-xs text-red-300">{$t('shell.agent_paused', 'Agent usage limit reached — ingestion paused until the usage window resets')}</span>
+				<a href="/settings?tab=models&section=agent-usage" class="ml-1 text-xs font-medium text-red-400 underline underline-offset-2 hover:text-red-300">{$t('shell.manage', 'Manage')}</a>
 			</div>
 		{/if}
 
@@ -845,13 +868,13 @@
 		<footer class="relative flex items-center justify-between border-t border-surface-700/60 bg-surface-900/95 px-5 py-1.5 text-[11px] text-surface-500 backdrop-blur-sm">
 			<!-- Left: Date widget -->
 			<div class="flex items-center gap-2 text-surface-600">
-				<span class="tabular-nums">{new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+				<span class="tabular-nums">{new Date().toLocaleDateString($locale, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
 				<span class="text-surface-700">|</span>
-				<a href="/legal" class="text-surface-600 transition-colors hover:text-surface-300">Terms, License &amp; Privacy</a>
+				<a href="/legal" class="text-surface-600 transition-colors hover:text-surface-300">{$t('shell.footer_legal', 'Terms, License & Privacy')}</a>
 			</div>
 			<!-- Center: AI disclaimer -->
 			<div class="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-surface-600 md:block">
-				Content is generated by AI and may contain mistakes.
+				{$t('shell.footer_ai_disclaimer', 'Content is generated by AI and may contain mistakes.')}
 			</div>
 			<!-- Right: Cost widget -->
 			<div class="flex items-center gap-4">
@@ -861,7 +884,7 @@
 						<a
 							href="/status#cost"
 							class="rounded-md pl-1.5 pr-1 py-0.5 font-medium tabular-nums transition-colors hover:bg-surface-800 {$budgetPaused ? 'text-red-400 hover:text-red-300' : $budgetRatio != null && $budgetRatio >= 0.75 ? 'text-amber-400 hover:text-amber-300' : 'text-surface-400 hover:text-surface-200'}"
-							title="LLM cost this month — click for breakdown"
+							title={$t('shell.cost_title', 'LLM cost this month — click for breakdown')}
 						>
 							{$costAmount}
 						</a>
@@ -870,7 +893,7 @@
 							<a
 								href="/settings?tab=models&section=cost-control"
 								class="flex items-center gap-1.5 rounded-md pl-1 pr-1.5 py-0.5 font-medium tabular-nums text-surface-500 transition-colors hover:bg-surface-800 hover:text-surface-300"
-								title="Monthly budget — click to manage"
+								title={$t('shell.budget_title', 'Monthly budget — click to manage')}
 							>
 								{$budgetLabel}
 								{#if $budgetRatio != null}
@@ -890,9 +913,9 @@
 					<a
 						href="/settings?tab=models&section=agent-usage"
 						class="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-medium tabular-nums transition-colors hover:bg-surface-800 {$agentBudgetPaused ? 'text-red-400 hover:text-red-300' : $agentUsageRatio != null && $agentUsageRatio >= 0.75 ? 'text-amber-400 hover:text-amber-300' : 'text-surface-400 hover:text-surface-200'}"
-						title="Agent usage this window — click to manage limits"
+						title={$t('shell.agent_usage_title', 'Agent usage this window — click to manage limits')}
 					>
-						<span class="text-surface-600">Usage</span>
+						<span class="text-surface-600">{$t('shell.usage', 'Usage')}</span>
 						{$agentUsageLabel}
 						{#if $agentUsageRatio != null}
 							<div class="h-1 w-10 rounded-full bg-surface-700 overflow-hidden">

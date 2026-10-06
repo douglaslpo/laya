@@ -5,6 +5,7 @@
 	import { engineApi } from '$lib/api/engine';
 	import { reducedMotion } from '$lib/stores/reducedMotion';
 	import { glassTheme } from '$lib/stores/glassTheme';
+	import { t } from '$lib/i18n';
 	import PlatformIcon from './PlatformIcon.svelte';
 	import TagInput from './TagInput.svelte';
 	import type { EgressConnection } from '$lib/api/types';
@@ -77,7 +78,7 @@
 			}
 			onRefresh();
 		} catch (e) {
-			testResult = { id: conn.connection_id, valid: false, error: e instanceof Error ? e.message : 'Test failed' };
+			testResult = { id: conn.connection_id, valid: false, error: e instanceof Error ? e.message : $t('settingsModels.test_failed', 'Test failed') };
 		} finally {
 			testingId = null;
 		}
@@ -117,7 +118,7 @@
 			<div class="min-w-0 flex-1">
 				<span class="text-laya-base font-medium text-surface-200">{label}</span>
 			</div>
-			<span class="text-laya-secondary text-surface-500">Not connected</span>
+			<span class="text-laya-secondary text-surface-500">{$t('settingsModels.not_connected', 'Not connected')}</span>
 		</button>
 	{:else}
 		<!-- Connected: row with expand toggle -->
@@ -138,16 +139,18 @@
 					{#if conn.status === 'connected'}
 						<span class="flex items-center gap-1.5 text-laya-secondary text-green-400/80">
 							<span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-							<span class="max-w-[160px] truncate">{conn.name || 'Connected'}</span>
+							<span class="max-w-[160px] truncate">{conn.name || $t('settingsModels.connected', 'Connected')}</span>
 							{#if conn.capabilities?.length}
 								<span class="text-surface-600">·</span>
-								<span class="text-surface-500">{conn.capabilities.length} actions</span>
+								<span class="text-surface-500">{conn.capabilities.length === 1
+									? $t('settingsModels.actions_count_one', '{count} action', { count: conn.capabilities.length })
+									: $t('settingsModels.actions_count_other', '{count} actions', { count: conn.capabilities.length })}</span>
 							{/if}
 						</span>
 					{:else}
 						<span class="flex items-center gap-1.5 text-laya-secondary text-red-400/80">
 							<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
-							<span class="max-w-[160px] truncate">{conn.error_message || 'Error'}</span>
+							<span class="max-w-[160px] truncate">{conn.error_message || $t('common.error', 'Error')}</span>
 						</span>
 					{/if}
 				{:else}
@@ -155,7 +158,7 @@
 						{#if anyConnected}
 							<span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
 						{/if}
-						{connections.length} accounts
+						{$t('settingsModels.accounts_count', '{count} accounts', { count: connections.length })}
 					</span>
 				{/if}
 				<svg
@@ -176,10 +179,12 @@
 							<div class="flex items-center gap-1.5 text-laya-secondary">
 								{#if conn.status === 'connected'}
 									<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500"></span>
-									<span class="text-surface-200 truncate">{conn.name || 'Connected'}</span>
+									<span class="text-surface-200 truncate">{conn.name || $t('settingsModels.connected', 'Connected')}</span>
 									{#if conn.capabilities?.length}
 										<span class="text-surface-600">·</span>
-										<span class="text-surface-500">{conn.capabilities.length} actions</span>
+										<span class="text-surface-500">{conn.capabilities.length === 1
+											? $t('settingsModels.actions_count_one', '{count} action', { count: conn.capabilities.length })
+											: $t('settingsModels.actions_count_other', '{count} actions', { count: conn.capabilities.length })}</span>
 									{/if}
 								{:else}
 									<span class="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"></span>
@@ -189,7 +194,7 @@
 										class="text-red-400/80 {expandedErrors.has(conn.connection_id) ? 'whitespace-pre-wrap select-text' : 'truncate'} cursor-pointer"
 										onclick={(e) => { e.stopPropagation(); toggleError(conn.connection_id); }}
 									>
-										{conn.name || conn.error_message || 'Error'}
+										{conn.name || conn.error_message || $t('common.error', 'Error')}
 									</span>
 								{/if}
 							</div>
@@ -200,7 +205,7 @@
 									onclick={(e) => { e.stopPropagation(); onConnect(platformKey); }}
 									class="text-laya-secondary text-laya-orange hover:text-laya-gold transition-colors"
 								>
-									Reconnect
+									{$t('settingsModels.reconnect', 'Reconnect')}
 								</button>
 							{/if}
 							{#if platformKey === 'slack' && conn.status === 'connected'}
@@ -208,7 +213,7 @@
 										onclick={(e) => { e.stopPropagation(); startEditChannels(conn.connection_id); }}
 										class="text-laya-secondary text-surface-500 hover:text-surface-300 transition-colors"
 									>
-										Channels
+										{$t('settingsModels.channels', 'Channels')}
 									</button>
 								{/if}
 								<button
@@ -216,23 +221,23 @@
 								disabled={testingId === conn.connection_id}
 								class="text-laya-secondary text-surface-500 hover:text-surface-300 transition-colors disabled:opacity-50"
 							>
-								{testingId === conn.connection_id ? '...' : 'Test'}
+								{testingId === conn.connection_id ? '...' : $t('settingsModels.test', 'Test')}
 							</button>
 							<button
 								onclick={(e) => { e.stopPropagation(); confirmDisconnectId = conn.connection_id; }}
 								disabled={disconnectingId === conn.connection_id}
 								class="text-laya-secondary text-red-400/50 hover:text-red-400 transition-colors disabled:opacity-50"
 							>
-								{disconnectingId === conn.connection_id ? '...' : 'Remove'}
+								{disconnectingId === conn.connection_id ? '...' : $t('settingsModels.remove', 'Remove')}
 							</button>
 						</div>
 					</div>
 					{#if editingChannelsId === conn.connection_id}
 						<div class="mx-3 mb-1 rounded p-3 {$glassTheme ? 'bg-white/[0.04]' : 'bg-surface-800/80'}">
-							<span class="mb-1 block text-laya-secondary font-medium text-surface-400">Monitored Channels</span>
+							<span class="mb-1 block text-laya-secondary font-medium text-surface-400">{$t('settingsModels.monitored_channels', 'Monitored Channels')}</span>
 							<TagInput
 								bind:tags={editChannelTags}
-								placeholder="e.g., general, dev"
+								placeholder={$t('settingsModels.channels_short_placeholder', 'e.g., general, dev')}
 							/>
 							<div class="mt-2 flex items-center gap-2">
 								<button
@@ -240,13 +245,13 @@
 									disabled={savingChannels || editChannelTags.length === 0}
 									class="rounded bg-laya-orange px-3 py-1 text-laya-secondary font-medium text-white transition-colors hover:bg-laya-gold disabled:opacity-50"
 								>
-									{savingChannels ? 'Saving...' : 'Save'}
+									{savingChannels ? $t('settingsModels.saving', 'Saving…') : $t('common.save', 'Save')}
 								</button>
 								<button
 									onclick={() => editingChannelsId = null}
 									class="rounded px-3 py-1 text-laya-secondary text-surface-400 hover:text-surface-200 transition-colors"
 								>
-									Cancel
+									{$t('common.cancel', 'Cancel')}
 								</button>
 							</div>
 						</div>
@@ -254,7 +259,7 @@
 					{#if testResult?.id === conn.connection_id}
 						<div class="mx-3 rounded px-2 py-1 text-laya-secondary
 							{testResult.valid ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}">
-							{testResult.valid ? 'Connection valid' : testResult.error || 'Test failed'}
+							{testResult.valid ? $t('settingsModels.connection_valid', 'Connection valid') : testResult.error || $t('settingsModels.test_failed', 'Test failed')}
 						</div>
 					{/if}
 				{/each}
@@ -264,7 +269,7 @@
 					onclick={(e) => { e.stopPropagation(); onConnect(platformKey); }}
 					class="w-full rounded border border-dashed px-3 py-1.5 text-laya-secondary text-surface-500 hover:text-surface-300 transition-colors {$glassTheme ? 'border-white/[0.08] hover:border-white/[0.15]' : 'border-surface-700 hover:border-surface-500'}"
 				>
-					+ Add another account
+					{$t('settingsModels.add_another_account', '+ Add another account')}
 				</button>
 			</div>
 		{/if}
@@ -278,20 +283,20 @@
 			onkeydown={(e) => { if (e.key === 'Escape') confirmDisconnectId = null; }}
 		>
 			<div class="px-4 py-3 text-center">
-				<p class="text-laya-secondary font-medium text-surface-200 mb-1">Disconnect this account?</p>
-				<p class="text-laya-secondary text-surface-400 mb-3">This will remove credentials and deactivate associated workflows.</p>
+				<p class="text-laya-secondary font-medium text-surface-200 mb-1">{$t('settingsModels.disconnect_confirm', 'Disconnect this account?')}</p>
+				<p class="text-laya-secondary text-surface-400 mb-3">{$t('settingsModels.disconnect_desc', 'This will remove credentials and deactivate associated workflows.')}</p>
 				<div class="flex items-center justify-center gap-2">
 					<button
 						onclick={() => confirmDisconnectId = null}
 						class="rounded px-3 py-1 text-laya-secondary text-surface-300 bg-surface-700 hover:bg-surface-600 transition-colors"
 					>
-						Cancel
+						{$t('common.cancel', 'Cancel')}
 					</button>
 					<button
 						onclick={() => { if (confirmDisconnectId) confirmDisconnect(confirmDisconnectId); }}
 						class="rounded px-3 py-1 text-laya-secondary text-white bg-red-600 hover:bg-red-500 transition-colors"
 					>
-						Disconnect
+						{$t('settingsModels.disconnect', 'Disconnect')}
 					</button>
 				</div>
 			</div>

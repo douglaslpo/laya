@@ -3,6 +3,7 @@
 <script lang="ts">
 	import type { CardGroup } from '$lib/api/types';
 	import { engineApi } from '$lib/api/engine';
+	import { t } from '$lib/i18n';
 
 	let {
 		sourceGroup,
@@ -53,23 +54,25 @@
 			await engineApi.mergeCards(allCardIds);
 			onclose();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Linking failed';
+			error = e instanceof Error ? e.message : $t('feedCards.linking_failed', 'Linking failed');
 		} finally {
 			linking = false;
 		}
 	}
 
-	const platformLabel: Record<string, string> = {
+	const platformLabel: Record<string, string> = $derived({
 		jira: 'Jira', gmail: 'Gmail', slack: 'Slack',
-		bitbucket: 'Bitbucket', calendar: 'Calendar', github: 'GitHub', laya: 'Laya'
-	};
+		bitbucket: 'Bitbucket', calendar: $t('feedCards.platform_calendar', 'Calendar'), github: 'GitHub', laya: 'Laya'
+	});
+
+	const linkDescParts = $derived($t('feedCards.link_desc', 'Select a group or card to link with {name}').split('{name}'));
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
 	class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 	role="dialog"
-	aria-label="Link groups"
+	aria-label={$t('feedCards.link_dialog_label', 'Link groups')}
 	tabindex="-1"
 	onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
 	onkeydown={(e) => { if (e.key === 'Escape') onclose(); }}
@@ -77,10 +80,9 @@
 	<div class="mx-4 w-full max-w-xl rounded-xl border border-surface-600 bg-surface-800 shadow-2xl">
 		<!-- Header -->
 		<div class="border-b border-surface-700 px-6 py-5">
-			<h3 class="text-base font-semibold text-surface-100">Link to another group</h3>
+			<h3 class="text-base font-semibold text-surface-100">{$t('feedCards.link_title', 'Link to another group')}</h3>
 			<p class="mt-1.5 text-sm text-surface-400">
-				Select a group or card to link with
-				<span class="font-medium text-surface-200">"{sourceGroup.context_label ?? sourceGroup.entity_title}"</span>
+				{linkDescParts[0]}<span class="font-medium text-surface-200">"{sourceGroup.context_label ?? sourceGroup.entity_title}"</span>{linkDescParts[1] ?? ''}
 			</p>
 		</div>
 
@@ -89,7 +91,7 @@
 			<input
 				type="text"
 				bind:value={searchQuery}
-				placeholder="Search groups..."
+				placeholder={$t('feedCards.search_groups', 'Search groups...')}
 				class="w-full rounded-md border border-surface-600 bg-surface-700 px-3 py-2 text-sm text-surface-100 placeholder-surface-500 focus:border-laya-orange/50 focus:outline-none"
 			/>
 		</div>
@@ -97,7 +99,7 @@
 		<!-- Group list -->
 		<div class="max-h-96 overflow-y-auto px-3 py-2">
 			{#if filteredGroups.length === 0}
-				<p class="px-3 py-4 text-center text-xs text-surface-500">No matching groups found</p>
+				<p class="px-3 py-4 text-center text-xs text-surface-500">{$t('feedCards.no_matching_groups', 'No matching groups found')}</p>
 			{:else}
 				{#each filteredGroups as group}
 					<button
@@ -114,11 +116,11 @@
 								</span>
 								{#if group.card_count > 1}
 									<span class="rounded-full bg-surface-700 px-1.5 py-0.5 text-[10px] text-surface-400">
-										{group.card_count} cards
+										{$t('feedCards.cards_other', '{count} cards', { count: group.card_count })}
 									</span>
 								{/if}
 								{#if group.context_id}
-									<span class="rounded-full bg-laya-orange/10 px-1.5 py-0.5 text-[9px] text-laya-orange/70">linked</span>
+									<span class="rounded-full bg-laya-orange/10 px-1.5 py-0.5 text-[9px] text-laya-orange/70">{$t('feedCards.linked', 'linked')}</span>
 								{/if}
 							</div>
 							<p class="text-sm font-medium text-surface-200 truncate">
@@ -148,7 +150,7 @@
 					class="rounded-md px-3 py-1.5 text-xs text-surface-400 hover:text-surface-200"
 					onclick={onclose}
 				>
-					Cancel
+					{$t('common.cancel', 'Cancel')}
 				</button>
 				<button
 					class="rounded-md px-3 py-1.5 text-xs font-medium bg-laya-orange/20 text-laya-orange hover:bg-laya-orange/30 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -156,9 +158,9 @@
 					onclick={linkGroups}
 				>
 					{#if linking}
-						Linking...
+						{$t('feedCards.linking', 'Linking...')}
 					{:else}
-						Link Groups
+						{$t('feedCards.link_groups', 'Link Groups')}
 					{/if}
 				</button>
 			</div>
