@@ -81,6 +81,7 @@ import type {
 } from './types';
 
 import { getEngineUrl } from '$lib/config';
+import type { PendingEgressConfirmation } from '$lib/egress/pendingConfirmations';
 
 const ENGINE_URL = getEngineUrl();
 
@@ -978,6 +979,22 @@ export const engineApi = {
 			method: 'POST',
 			body: JSON.stringify(data)
 		}),
+
+	// Egress actions requested over MCP — only the user confirms them here.
+	listPendingEgress: () =>
+		request<{ pending: PendingEgressConfirmation[] }>('/egress/pending'),
+
+	confirmPendingEgress: (requestId: string) =>
+		request<{ request_id: string; status: string; error?: string; result_url?: string }>(
+			`/egress/pending/${encodeURIComponent(requestId)}/confirm`,
+			{ method: 'POST' }
+		),
+
+	rejectPendingEgress: (requestId: string) =>
+		request<{ request_id: string; status: string }>(
+			`/egress/pending/${encodeURIComponent(requestId)}/reject`,
+			{ method: 'POST' }
+		),
 
 	getEgressCapabilities: (platform: string) =>
 		request<EgressCapabilitiesResponse>(`/egress/capabilities/${platform}`),

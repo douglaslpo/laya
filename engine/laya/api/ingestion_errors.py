@@ -28,11 +28,12 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 import structlog
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from laya.db.sqlite import get_db
 from laya.db.timeutil import db_now, db_ts
+from laya.security.n8n_link import require_n8n_link
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -146,7 +147,12 @@ async def _broadcast_audit_failure(db: Any) -> None:
 # ── endpoints ────────────────────────────────────────────────────────────────
 
 
-@router.post("/ingestion-errors", response_model=IngestionErrorResponse, status_code=202)
+@router.post(
+    "/ingestion-errors",
+    response_model=IngestionErrorResponse,
+    status_code=202,
+    dependencies=[Depends(require_n8n_link)],
+)
 async def report_ingestion_error(report: IngestionErrorReport) -> IngestionErrorResponse:
     """Receive an ingestion failure report from n8n's error handler workflow.
 

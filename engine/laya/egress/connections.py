@@ -719,6 +719,21 @@ async def _clone_workflows_for_connection(
     base_url = get_n8n_config()["base_url"].rstrip("/")
     headers = {"X-N8N-API-KEY": api_key, "Content-Type": "application/json"}
 
+    # Every clone binds its engine-link nodes to the singleton link credential.
+    # Normally provisioned at startup; ensure it here too so a connection made
+    # before the first successful sync doesn't deploy the template placeholder.
+    from laya.integrations.n8n_bootstrap import (
+        ensure_link_credential,
+        get_link_credential_id,
+    )
+    from laya.security.n8n_link import apply_link_credential, is_link_node
+
+    link_cred_id = get_link_credential_id()
+    if not link_cred_id:
+        link_cred_id, _ = await ensure_link_credential(base_url, api_key)
+    if not link_cred_id:
+        return 0, ["n8n engine-link credential unavailable — retry once n8n is ready"]
+
     short_id = connection_id.replace("conn_", "")
     platform_label = platform_config.get("label", platform.title())
 
@@ -768,6 +783,8 @@ async def _clone_workflows_for_connection(
         if error_handler_id and wf_type == "Ingestion":
             wf_data.setdefault("settings", {})["errorWorkflow"] = error_handler_id
 
+        apply_link_credential(wf_data.get("nodes", []), link_cred_id)
+
         # 2. Update webhook paths and inject credentials
         for node in wf_data.get("nodes", []):
             # Update primary webhook path to be connection-specific
@@ -776,6 +793,11 @@ async def _clone_workflows_for_connection(
                 old_path = node["parameters"].get("path", "")
                 if old_path:
                     node["parameters"]["path"] = f"{old_path}-{short_id}"
+
+            # Never overwrite the engine link with the platform credential
+            # (bitbucket_server's n8n_type is also httpHeaderAuth).
+            if is_link_node(node):
+                continue
 
             # Inject credential into matching nodes
             node_creds = node.get("credentials", {})

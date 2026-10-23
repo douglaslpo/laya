@@ -261,7 +261,11 @@ class TestImportWorkflows:
         with patch("laya.integrations.n8n_bootstrap.WORKFLOWS_DIR", wf_dir):
             with patch("laya.integrations.n8n_bootstrap._VERSIONS_FILE", versions_file):
                 with patch("laya.integrations.n8n_bootstrap.get_api_key", return_value="test-key"):
-                    with patch("laya.integrations.n8n_bootstrap.get_client", return_value=mock_client):
+                    with patch("laya.integrations.n8n_bootstrap.get_client", return_value=mock_client), \
+                         patch("laya.integrations.n8n_bootstrap.ensure_link_credential",
+                               new_callable=AsyncMock, return_value=("cred_link", False)), \
+                         patch("laya.integrations.n8n_bootstrap.mark_enforced"), \
+                         patch("laya.integrations.n8n_bootstrap.start_transition_if_needed"):
                         count = await import_workflows("http://localhost:45678")
 
         # No clones to update, so count is 0, but version should be tracked
@@ -274,6 +278,21 @@ class TestImportWorkflows:
             count = await import_workflows("http://localhost:45678")
 
         assert count == 0
+
+    async def test_defers_when_link_credential_unavailable(self, tmp_path):
+        """CR-04: without the link credential nothing is deployed; the
+        background retry picks it up later."""
+        wf_dir = tmp_path / "workflows"
+        wf_dir.mkdir()
+        with patch("laya.integrations.n8n_bootstrap.WORKFLOWS_DIR", wf_dir), \
+             patch("laya.integrations.n8n_bootstrap.get_api_key", return_value="test-key"), \
+             patch("laya.integrations.n8n_bootstrap.ensure_link_credential",
+                   new_callable=AsyncMock, return_value=(None, False)), \
+             patch("laya.integrations.n8n_bootstrap._ensure_error_handler_workflow",
+                   new_callable=AsyncMock) as handler:
+            with pytest.raises(RuntimeError):
+                await import_workflows("http://localhost:45678")
+        handler.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -298,3 +317,92 @@ class TestBootstrapEndpoint:
         data = resp.json()
         assert data["status"] == "ready"
         assert data["has_api_key"] is True
+
+
+# ---------------------------------------------------------------------------
+# SEC-03 CA-04: propagation keeps engine-link and platform credentials apart
+# ---------------------------------------------------------------------------
+
+_LINK_ID = "cred_link_123"
+
+
+async def _seed_clone(db, platform, conn_id, cred_id, source_type, wf_id, name, webhook_path=None):
+    await db.execute(
+        """INSERT OR IGNORE INTO egress_connections
+           (connection_id, platform, name, n8n_credential_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, '2026-09-29 00:00:00', '2026-09-29 00:00:00')""",
+        (conn_id, platform, f"{platform} conn", cred_id),
+    )
+    await db.execute(
+        """INSERT INTO sources
+           (source_id, name, platform, workflow_id, space_id, source_type, webhook_path, connection_id)
+           VALUES (?, ?, ?, ?, 'default', ?, ?, ?)""",
+        (f"src_{wf_id}", name, platform, wf_id, source_type, webhook_path, conn_id),
+    )
+    await db.commit()
+
+
+def _creds_by_node(update_data):
+    return {n["name"]: (n.get("credentials") or {}) for n in update_data["nodes"]}
+
+
+@pytest.mark.asyncio
+class TestPropagateLinkCredential:
+    async def test_bitbucket_server_and_github_keep_both_credentials(self, db):
+        from laya.integrations.n8n_bootstrap import _propagate_to_clones
+        from laya.security.n8n_link import LINK_CRED_NAME
+
+        await _seed_clone(db, "bitbucket_server", "conn_bbs", "cred_bbs", "ingestion", "wf_bbs_in", "BBS In")
+        await _seed_clone(db, "bitbucket_server", "conn_bbs", "cred_bbs", "executor", "wf_bbs_ex", "BBS Ex",
+                          webhook_path="bitbucket-server-executor-bbs")
+        await _seed_clone(db, "github", "conn_gh", "cred_gh", "ingestion", "wf_gh_in", "GH In")
+        await _seed_clone(db, "github", "conn_gh", "cred_gh", "executor", "wf_gh_ex", "GH Ex",
+                          webhook_path="github-executor-gh")
+
+        captured: dict[str, dict] = {}
+
+        async def _fake_update(base_url, api_key, wf_id, data):
+            captured[wf_id] = data
+            return True
+
+        templates = [
+            "Laya - Bitbucket Server Ingestion", "Laya - Bitbucket Server Executor",
+            "Laya - GitHub Ingestion", "Laya - GitHub Executor",
+        ]
+        with patch("laya.integrations.n8n_bootstrap._update_workflow", side_effect=_fake_update):
+            updated, failed = await _propagate_to_clones("http://n8n", "key", templates, _LINK_ID)
+
+        assert updated == 4 and failed == set()
+        link_ref = {"id": _LINK_ID, "name": LINK_CRED_NAME}
+
+        bbs_in = _creds_by_node(captured["wf_bbs_in"])
+        assert bbs_in["POST to Laya Engine"]["httpHeaderAuth"] == link_ref
+        assert bbs_in["Get Pull Requests"]["httpHeaderAuth"]["id"] == "cred_bbs"
+
+        bbs_ex = _creds_by_node(captured["wf_bbs_ex"])
+        assert bbs_ex["Webhook"]["httpHeaderAuth"] == link_ref
+        assert bbs_ex["Comment on PR"]["httpHeaderAuth"]["id"] == "cred_bbs"
+        webhook = next(n for n in captured["wf_bbs_ex"]["nodes"] if n["name"] == "Webhook")
+        assert webhook["parameters"]["path"] == "bitbucket-server-executor-bbs"
+        assert webhook["parameters"]["authentication"] == "headerAuth"
+
+        gh_in = _creds_by_node(captured["wf_gh_in"])
+        assert gh_in["POST to Laya Engine"]["httpHeaderAuth"] == link_ref
+        assert gh_in["POST Repo Errors"]["httpHeaderAuth"] == link_ref
+        assert gh_in["Get Issues and PRs"]["githubApi"]["id"] == "cred_gh"
+
+        gh_ex = _creds_by_node(captured["wf_gh_ex"])
+        assert gh_ex["Webhook"]["httpHeaderAuth"] == link_ref
+        assert gh_ex["Close Issue"]["githubApi"]["id"] == "cred_gh"
+
+    async def test_failed_clone_update_reports_template(self, db):
+        from laya.integrations.n8n_bootstrap import _propagate_to_clones
+
+        await _seed_clone(db, "github", "conn_gh", "cred_gh", "ingestion", "wf_gh_in", "GH In")
+        with patch("laya.integrations.n8n_bootstrap._update_workflow",
+                   new_callable=AsyncMock, return_value=False):
+            updated, failed = await _propagate_to_clones(
+                "http://n8n", "key", ["Laya - GitHub Ingestion"], _LINK_ID,
+            )
+        assert updated == 0
+        assert failed == {"Laya - GitHub Ingestion"}

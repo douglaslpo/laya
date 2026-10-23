@@ -23,6 +23,7 @@ from laya.llm.client import llm_call, llm_call_streaming, StreamEvent
 from laya.llm.prompts.chat import build_chat_messages, build_title_generation_messages
 from laya.llm.tools.definitions import select_chat_tools
 from laya.llm.tools.executor import execute_tool
+from laya.llm.tools.origin import tool_origin
 from laya.models.chat import ChatMessage, ChatResponse
 from laya.tasks import create_task
 
@@ -363,9 +364,10 @@ async def process_chat_message(
 
             # Execute each tool and append results
             for tc in response.tool_calls:
-                result_str = await execute_tool(
-                    tc.name, tc.arguments, space_id=space_id,
-                )
+                with tool_origin("chat"):
+                    result_str = await execute_tool(
+                        tc.name, tc.arguments, space_id=space_id,
+                    )
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tc.id,
@@ -674,9 +676,10 @@ async def process_chat_message_streaming(
 
                         # Execute tools
                         for tc in event.tool_calls:
-                            result_str = await execute_tool(
-                                tc.name, tc.arguments, space_id=space_id,
-                            )
+                            with tool_origin("chat"):
+                                result_str = await execute_tool(
+                                    tc.name, tc.arguments, space_id=space_id,
+                                )
                             messages.append({
                                 "role": "tool",
                                 "tool_call_id": tc.id,

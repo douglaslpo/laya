@@ -373,7 +373,7 @@ LLM internal steps:
           "summary": "Approve PR #23 'Fix payment timeout' on acme/payments",
           "details": {"pr_title": "Fix payment timeout", "author": "sarah"},
           "warnings": [],
-          "execute_token": "tok_abc123..."
+          "execute_token": "egr_abc123..."
         }
 
 LLM response to user:
@@ -383,7 +383,7 @@ LLM response to user:
 User: "Yes"
 
 LLM internal steps:
-  3. confirm_egress(execute_token="tok_abc123...")
+  3. confirm_egress(execute_token="egr_abc123...")
      -> Egress module executes the action
      -> Returns: {success: true, result_url: "https://bitbucket.org/..."}
 
@@ -506,8 +506,8 @@ LLM response:
 User: "Yes"
 
 LLM:
-  5. confirm_egress(execute_token="tok_jira...")   -> Done
-  6. confirm_egress(execute_token="tok_slack...")   -> Done
+  5. confirm_egress(execute_token="egr_jira...")   -> Done
+  6. confirm_egress(execute_token="egr_slack...")   -> Done
 
 LLM: "Done! PROJ-123 closed on Jira and Sarah notified in #payments."
 ```
@@ -557,50 +557,81 @@ async def handle_egress_tool(tool_name: str, arguments: dict, space_id: str) -> 
     # Get preview (does NOT execute)
     preview = await egress.preview(request)
 
-    # Generate a signed, time-limited execute token
-    # Token encodes: request hash, space_id, timestamp, nonce
-    execute_token = _sign_execute_token(request)
+    # Register the pending request in laya.egress.pending (in-memory, TTL 300 s,
+    # single use). The origin comes from the tool_call_origin contextvar
+    # (laya.llm.tools.origin); an untagged caller is treated as "mcp" (fail-closed).
+    origin = current_origin()
+    entry = pending.create(request, preview, origin)
 
-    # Store the pending request keyed by token (for confirm_egress to retrieve)
-    _pending_requests[execute_token] = request
+    if origin == "chat":
+        # In-app chat: return the signed token so the LLM can ask the user
+        # and then call confirm_egress.
+        return json.dumps({
+            "status": "preview",
+            "summary": preview.summary,
+            "details": preview.details,
+            "warnings": preview.warnings,
+            "estimated_impact": preview.estimated_impact,
+            "execute_token": entry.token,   # egr_<nonce>.<sig>
+            "instruction": "...",
+        })
 
-    # Return preview to the LLM
+    # MCP: no token is ever returned. The UI is notified and only the user can
+    # resolve it via POST /egress/pending/{request_id}/confirm|reject.
+    await _broadcast("egress_confirmation_request", pending.to_public(entry))
     return json.dumps({
-        "status": "preview",
+        "status": "awaiting_user_confirmation",
+        "request_id": entry.request_id,     # egreq_<random>, opaque identifier
         "summary": preview.summary,
-        "details": preview.details,
         "warnings": preview.warnings,
-        "execute_token": execute_token,
+        "instruction": "...",
     })
 ```
+
+**Token format.** `egr_<nonce>.<sig>` where `nonce = secrets.token_urlsafe(16)` and
+`sig = HMAC-SHA256(secret, nonce|origin)` truncated to 32 hex chars (128 bits).
+`secret = secrets.token_bytes(32)` is generated once per engine process, so every
+pending action (and token) is dropped on restart — the safe failure mode. Nothing
+is persisted; there is no `_pending_requests` dict in `tool_handlers.py` anymore.
 
 ### 4.2 How Confirm Works
 
-When the user confirms, the LLM calls `confirm_egress`:
+When the user confirms in the chat, the LLM calls `confirm_egress`:
 
 ```python
 async def handle_confirm_egress(arguments: dict, space_id: str) -> str:
-    """Execute a previously previewed action."""
-    token = arguments["execute_token"]
+    """Execute a previously previewed action (in-app chat only)."""
+    if current_origin() != "chat":
+        return json.dumps({"status": "error", "error": "confirm_egress is only available to the in-app Laya chat. ..."})
 
-    # Retrieve the pending request
-    request = _pending_requests.pop(token, None)
-    if not request:
-        return json.dumps({"status": "error", "error": "Token expired or already used"})
+    token = arguments.get("execute_token", "")
+    try:
+        # Signature is verified with hmac.compare_digest BEFORE the store lookup;
+        # an entry of another origin is reported as not found and left intact.
+        entry = pending.consume_token(token, origin="chat")
+    except pending.PendingLookupError as e:
+        # reason: invalid_token | not_found | expired — the token is never logged
+        return json.dumps({"status": "error", "error": "..."})
 
-    # Validate token signature and expiry (tokens expire after 5 minutes)
-    if not _validate_token(token):
-        return json.dumps({"status": "error", "error": "Token expired"})
-
-    # Execute for real
-    result = await egress.execute(request)
-
-    return json.dumps({
-        "status": "done" if result.success else "failed",
-        "result_url": result.result_url,
-        "error": result.error,
-    })
+    # Shared with POST /egress/pending/{request_id}/confirm: runs egress.execute
+    # and audits step="execute" with metadata.source = entry.origin.
+    return json.dumps(await execute_pending(entry))
 ```
+
+`confirm_egress` is a **chat-only** tool (`chat_only_tool_names()` in
+`llm/tools/definitions.py`): it never appears in the MCP `list_tools` and MCP
+`call_tool("confirm_egress")` is rejected with `METHOD_NOT_FOUND`, regardless of
+scopes.
+
+### 4.2.1 MCP-originated actions
+
+An MCP client calling an egress tool receives `awaiting_user_confirmation` +
+`request_id`. The UI shows `EgressConfirmModal` (fed by the WS message
+`egress_confirmation_request` and by `GET /egress/pending` on reconnect); "Enviar"
+calls `POST /egress/pending/{request_id}/confirm` (executes, audits `source="mcp"`)
+and "Rejeitar" calls `POST /egress/pending/{request_id}/reject` (audits
+`step="egress_rejected"`, nothing executed). Both broadcast
+`egress_confirmation_resolved`. See `docs/api-contracts.md`.
 
 ### 4.3 How open_compose Works
 

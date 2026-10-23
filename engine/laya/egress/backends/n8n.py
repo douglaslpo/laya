@@ -20,6 +20,7 @@ from laya.egress.enrichment import enrich_payload_from_event
 from laya.egress.models import EgressRequest, EgressResult
 from laya.http_client import get_client
 from laya.security.keychain import get_api_key
+from laya.security.n8n_link import link_headers
 
 log = structlog.get_logger()
 
@@ -411,11 +412,29 @@ class N8nBackend(EgressBackend):
         )
         async def _do_post():
             return await get_client().post(
-                webhook_url, json=payload, timeout=30.0
+                webhook_url, json=payload, headers=link_headers(), timeout=30.0
             )
 
         try:
             resp = await _do_post()
+
+            # Executor webhooks use headerAuth with the engine-link credential.
+            # A 401/403 means the clone is stale or the secret diverged —
+            # retrying cannot fix that, it needs a workflow re-sync.
+            if resp.status_code in (401, 403):
+                log.warning(
+                    "n8n_executor_link_rejected",
+                    platform=request.platform,
+                    status=resp.status_code,
+                )
+                return EgressResult(
+                    success=False,
+                    error=(
+                        "n8n executor rejected engine credentials — re-sync workflows "
+                        f"(HTTP {resp.status_code})"
+                    ),
+                    retryable=False,
+                )
 
             try:
                 resp_data = resp.json()

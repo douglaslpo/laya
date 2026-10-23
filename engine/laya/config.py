@@ -108,6 +108,14 @@ DEFAULT_SETTINGS = {
         "tool_scopes": {"read": True, "write": False, "egress": False},
         "auth_mode": "bearer",  # "bearer" | "none"
     },
+    "security": {
+        # engine <-> n8n link auth state (SEC-03). Managed automatically by the
+        # engine, not user-editable. Never holds the secret itself (keychain only).
+        "n8n_link": {
+            "enforced": False,
+            "transition_started_at": None,
+        },
+    },
     "omni": {
         "enabled": True,
         "resynthesis_time": "17:00",

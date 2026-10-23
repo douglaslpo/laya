@@ -97,6 +97,8 @@
       "parameters": {
         "method": "POST",
         "url": "={{ $env.LAYA_ENGINE_URL }}/events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -117,7 +119,13 @@
       "position": [
         1550,
         300
-      ]
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__LAYA_LINK__",
+          "name": "Laya Engine Link"
+        }
+      }
     }
   ],
   "connections": {
@@ -198,6 +206,6 @@
   },
   "active": false,
   "meta": {
-    "laya_version": "2026.04.4"
+    "laya_version": "2026.09.1"
   }
 }

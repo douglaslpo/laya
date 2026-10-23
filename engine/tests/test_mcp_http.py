@@ -84,6 +84,11 @@ class TestScopeHelper:
         assert "dismiss_card" in names
         assert len(names) >= 21  # 12 read + 9 write + at least some egress
 
+    def test_confirm_egress_never_enabled(self):
+        # Chat-only: an MCP client must never confirm its own egress (SEC-01).
+        assert "confirm_egress" not in enabled_tool_names({"egress": True})
+        assert "send_email" in enabled_tool_names({"egress": True})
+
     def test_scope_of_known_tools(self):
         assert scope_of("search_cards") == "read"
         assert scope_of("get_settings") == "read"

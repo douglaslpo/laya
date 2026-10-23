@@ -1,37 +1,35 @@
 # Copyright 2026 Aayush Chawla
 # SPDX-License-Identifier: Apache-2.0
 
-"""Execution handlers for egress chat tools.
+"""Execution handlers for egress tools.
 
-These handlers are called by the chat tool loop when the LLM invokes
-an egress tool. They follow a preview -> confirm -> execute pattern.
+These handlers are called when the in-app chat LLM or an external MCP client
+invokes an egress tool. They follow a preview -> confirm -> execute pattern:
+
+- origin ``chat``: the preview carries a signed ``execute_token`` that the chat
+  passes to ``confirm_egress`` after asking the user.
+- origin ``mcp``: the preview becomes a pending request that only the user can
+  confirm or reject in the Laya UI (``/egress/pending/*``); no token is ever
+  returned to the MCP client.
 """
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
-import time
 from typing import Any
 
 import structlog
 
 import laya.egress as egress
-from laya.egress.models import EgressRequest
+from laya.egress import pending
+from laya.egress.models import EgressRequest, EgressResult
+from laya.llm.tools.origin import current_origin
 
 
 log = structlog.get_logger()
 
-# In-memory store of pending egress requests awaiting user confirmation.
-# Keyed by execute_token, values are (EgressRequest, expiry_timestamp).
-_pending_requests: dict[str, tuple[EgressRequest, float]] = {}
-
-# Token TTL: 5 minutes
-_TOKEN_TTL = 300
-
-# Secret for HMAC signing (generated at startup)
-_TOKEN_SECRET = hashlib.sha256(str(time.time_ns()).encode()).hexdigest()
+WS_CONFIRMATION_REQUEST = "egress_confirmation_request"
+WS_CONFIRMATION_RESOLVED = "egress_confirmation_resolved"
 
 
 # ---------------------------------------------------------------------------
@@ -44,8 +42,10 @@ async def handle_egress_tool(
 ) -> str:
     """Universal handler for egress action tools (send_email, comment_on_ticket, etc.).
 
-    Builds an EgressRequest, calls preview(), returns preview with an execute_token
-    for the LLM to show the user and await confirmation.
+    Builds an EgressRequest and calls preview(). For the in-app chat, returns the
+    preview with an execute_token so the LLM can ask the user and confirm. For
+    MCP (or any untagged caller — fail-closed), registers a pending request and
+    asks the UI to confirm it; the MCP client gets no way to execute it.
     """
     request = _build_request(tool_name, arguments, space_id)
 
@@ -63,23 +63,41 @@ async def handle_egress_tool(
     # Get preview
     preview = await egress.preview(request)
 
-    # Generate execute token and store pending request
-    token = _generate_token(request)
-    _pending_requests[token] = (request, time.time() + _TOKEN_TTL)
+    origin = current_origin()
+    entry = pending.create(request, preview, origin)
 
-    # Clean expired tokens
-    _cleanup_expired()
+    if origin == "chat":
+        return json.dumps({
+            "status": "preview",
+            "summary": preview.summary,
+            "details": preview.details,
+            "warnings": preview.warnings,
+            "estimated_impact": preview.estimated_impact,
+            "execute_token": entry.token,
+            "instruction": (
+                "Show this preview to the user and ask for confirmation. "
+                "If they confirm, call confirm_egress with the execute_token."
+            ),
+        })
 
+    # MCP: the confirmation must come from the human in the Laya UI. Returning a
+    # token here would let the MCP client confirm its own egress (SEC-01).
+    await _broadcast(WS_CONFIRMATION_REQUEST, pending.to_public(entry))
+    log.info(
+        "egress_mcp_confirmation_requested",
+        request_id=entry.request_id,
+        platform=request.platform,
+        action_type=request.action_type,
+    )
     return json.dumps({
-        "status": "preview",
+        "status": "awaiting_user_confirmation",
+        "request_id": entry.request_id,
         "summary": preview.summary,
-        "details": preview.details,
         "warnings": preview.warnings,
-        "estimated_impact": preview.estimated_impact,
-        "execute_token": token,
         "instruction": (
-            "Show this preview to the user and ask for confirmation. "
-            "If they confirm, call confirm_egress with the execute_token."
+            "The action was NOT executed. The user must review and confirm it in "
+            f"the Laya app within {pending.TOKEN_TTL_SECONDS // 60} minutes; "
+            "it cannot be confirmed over MCP."
         ),
     })
 
@@ -114,31 +132,60 @@ async def handle_open_compose(
 async def handle_confirm_egress(
     arguments: dict, space_id: str | None
 ) -> str:
-    """Execute a previously previewed egress action after user confirmation."""
+    """Execute a previously previewed egress action after user confirmation.
+
+    Only the in-app chat may confirm. The MCP server already hides and denies
+    this tool, but the check is repeated here so no future dispatch path (or an
+    untagged caller, which defaults to "mcp") can confirm egress on its own.
+    """
+    if current_origin() != "chat":
+        return json.dumps({
+            "status": "error",
+            "error": (
+                "confirm_egress is only available to the in-app Laya chat. "
+                "Actions requested over MCP must be confirmed by the user in the Laya UI."
+            ),
+        })
+
     token = arguments.get("execute_token", "")
+    try:
+        entry = pending.consume_token(token, origin="chat")
+    except pending.PendingLookupError as e:
+        # Never echo or log the token value itself.
+        if e.reason == "expired":
+            message = "Token has expired. Ask the user to try the action again."
+        elif e.reason == "invalid_token":
+            message = "Invalid execute token. Ask the user to try the action again."
+        else:
+            message = "Token expired or already used. Ask the user to try the action again."
+        return json.dumps({"status": "error", "error": message})
 
-    # Retrieve pending request
-    entry = _pending_requests.pop(token, None)
-    if not entry:
-        return json.dumps({
-            "status": "error",
-            "error": "Token expired or already used. Ask the user to try the action again.",
-        })
+    return json.dumps(await execute_pending(entry))
 
-    request, expiry = entry
-    if time.time() > expiry:
-        return json.dumps({
-            "status": "error",
-            "error": "Token has expired. Ask the user to try the action again.",
-        })
 
-    # Execute
-    result = await egress.execute(request)
+async def execute_pending(entry: pending.PendingEgress) -> dict[str, Any]:
+    """Execute a confirmed pending request and audit it with its origin.
 
-    # Audit the outbound action. This is the real send/post moment for chat-driven
-    # egress; the executor.py path audits UI-triggered actions the same way, so this
-    # closes the gap where chat egress left no persistent record. source="chat"
-    # marks the path. Local import avoids an import cycle with the LLM client.
+    Shared by the chat ``confirm_egress`` tool and the UI confirmation endpoint.
+    The caller must already have removed ``entry`` from the pending store.
+    """
+    request = entry.request
+    try:
+        result = await egress.execute(request)
+    except Exception as e:
+        # The entry was already taken from the store, so an unhandled raise would
+        # leave the send unaudited and the UI card stuck. The outcome on the
+        # platform is unknown, hence retryable=False (same rule as timeouts).
+        log.error("egress_pending_execute_error", request_id=entry.request_id,
+                  error=type(e).__name__)
+        result = EgressResult(
+            success=False, error=f"Execution error: {type(e).__name__}", retryable=False,
+        )
+
+    # Audit the outbound action. This is the real send/post moment for chat- and
+    # MCP-driven egress; the executor.py path audits UI-triggered actions the same
+    # way. metadata.source marks which path requested it ("chat" | "mcp").
+    # Local import avoids an import cycle with the LLM client.
     from laya.llm.client import log_to_audit
 
     await log_to_audit(
@@ -150,7 +197,8 @@ async def handle_confirm_egress(
             "action_type": request.action_type,
             "target_platform": request.platform,
             "result_url": result.result_url,
-            "source": "chat",
+            "source": entry.origin,
+            "request_id": entry.request_id,
         },
     )
 
@@ -163,13 +211,49 @@ async def handle_confirm_egress(
             response["result_url"] = result.result_url
         if result.result_data:
             response["result_data"] = result.result_data
-        return json.dumps(response)
-    else:
-        return json.dumps({
-            "status": "failed",
-            "error": result.error or "Action failed",
-            "retryable": result.retryable,
-        })
+        return response
+    return {
+        "status": "failed",
+        "error": result.error or "Action failed",
+        "retryable": result.retryable,
+    }
+
+
+async def reject_pending(entry: pending.PendingEgress) -> None:
+    """Audit a pending request the user rejected (nothing is executed)."""
+    from laya.llm.client import log_to_audit
+
+    request = entry.request
+    await log_to_audit(
+        event_id=None, card_id=None, step="egress_rejected",
+        model="n/a", input_tokens=0, output_tokens=0, latency_ms=0,
+        success=False,
+        error="rejected by user",
+        metadata={
+            "action_type": request.action_type,
+            "target_platform": request.platform,
+            "source": entry.origin,
+            "request_id": entry.request_id,
+        },
+    )
+
+
+async def broadcast_resolved(request_id: str, status: str, **extra: Any) -> None:
+    """Tell the UI a pending confirmation left the queue."""
+    await _broadcast(
+        WS_CONFIRMATION_RESOLVED, {"request_id": request_id, "status": status, **extra}
+    )
+
+
+async def _broadcast(msg_type: str, payload: dict[str, Any]) -> None:
+    from laya.api.websocket import manager
+
+    # A broadcast failure must not lose the pending request: the UI also reloads
+    # GET /egress/pending on (re)connect, so log and continue.
+    try:
+        await manager.broadcast({"type": msg_type, "payload": payload})
+    except Exception as e:
+        log.warning("egress_confirmation_broadcast_failed", type=msg_type, error=str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -436,18 +520,3 @@ def _parse_github_ref(ref: str) -> tuple[str, str, int]:
             number = 0
 
     return owner, repo, number
-
-
-def _generate_token(request: EgressRequest) -> str:
-    """Generate an HMAC-signed execute token for a pending request."""
-    data = f"{request.platform}:{request.action_type}:{time.time_ns()}"
-    sig = hmac.new(_TOKEN_SECRET.encode(), data.encode(), hashlib.sha256).hexdigest()[:24]
-    return f"egr_{sig}"
-
-
-def _cleanup_expired() -> None:
-    """Remove expired pending requests."""
-    now = time.time()
-    expired = [k for k, (_, exp) in _pending_requests.items() if now > exp]
-    for k in expired:
-        del _pending_requests[k]

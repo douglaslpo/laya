@@ -12,7 +12,14 @@
       "parameters": {
         "path": "gmail-executor",
         "httpMethod": "POST",
+        "authentication": "headerAuth",
         "responseMode": "responseNode"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "__LAYA_LINK__",
+          "name": "Laya Engine Link"
+        }
       }
     },
     {
@@ -592,6 +599,6 @@
   },
   "active": false,
   "meta": {
-    "laya_version": "2026.04.5"
+    "laya_version": "2026.09.1"
   }
 }

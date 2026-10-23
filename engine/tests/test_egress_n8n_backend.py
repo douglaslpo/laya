@@ -453,3 +453,45 @@ class TestExecute:
 
                     assert result.success is False
                     assert "Issue not found" in result.error
+
+
+class TestExecutorLinkAuth:
+    """SEC-03: the engine authenticates to executor webhooks (CA-05, CR-06)."""
+
+    _PAYLOAD = {"action_type": "comment", "payload": {}, "target": {}}
+
+    @pytest.mark.asyncio
+    async def test_post_sends_link_header(self, backend):
+        from laya.security.n8n_link import LINK_HEADER
+        from tests.conftest import TEST_N8N_LINK_SECRET
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"success": True, "result": {}}
+        request = EgressRequest(platform="jira", action_type="comment", payload={})
+
+        with patch("laya.egress.backends.n8n.get_client") as mock_client:
+            mock_client.return_value.post = AsyncMock(return_value=mock_response)
+            result = await backend._post_to_n8n("http://n8n/webhook/jira-executor", self._PAYLOAD, request)
+
+        assert result.success is True
+        headers = mock_client.return_value.post.call_args.kwargs["headers"]
+        assert headers[LINK_HEADER] == TEST_N8N_LINK_SECRET
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status", [401, 403])
+    async def test_rejected_credentials_not_retryable(self, backend, status):
+        mock_response = MagicMock()
+        mock_response.status_code = status
+        mock_response.json.return_value = {"message": "Authorization data is wrong!"}
+        request = EgressRequest(platform="jira", action_type="comment", payload={})
+
+        with patch("laya.egress.backends.n8n.get_client") as mock_client:
+            mock_client.return_value.post = AsyncMock(return_value=mock_response)
+            result = await backend._post_to_n8n("http://n8n/webhook/jira-executor", self._PAYLOAD, request)
+
+        assert result.success is False
+        assert result.retryable is False
+        assert "re-sync workflows" in result.error
+        # Single attempt: an auth rejection is not a transport error to retry.
+        assert mock_client.return_value.post.await_count == 1

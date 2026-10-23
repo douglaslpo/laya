@@ -112,6 +112,21 @@ def egress_tool_names() -> set[str]:
     return _names_of(get_egress_tool_definitions())
 
 
+def chat_only_tool_names() -> set[str]:
+    """Tools never exposed over MCP, regardless of scope toggles.
+
+    confirm_egress executes a previewed outbound action. Exposing it over MCP
+    would let an external client confirm its own egress without the user ever
+    seeing a confirmation in the Laya UI.
+    """
+    return {"confirm_egress"}
+
+
+def mcp_egress_tool_names() -> set[str]:
+    """Egress tools callable over MCP (egress minus chat-only tools)."""
+    return egress_tool_names() - chat_only_tool_names()
+
+
 def _read_tools() -> list[dict]:
     return [
         {

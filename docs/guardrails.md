@@ -70,7 +70,7 @@ Lacunas detalhadas em [.agents/security.md](../.agents/security.md) (SEC-01…SE
 | G-SEC-02 | Escopos MCP padrão: `read` on, `write`/`egress` off | revisão |
 | G-SEC-03 | Segredos só no keychain; nunca em settings, logs, argv ou respostas | regra, revisão |
 | G-SEC-04 | Conteúdo de terceiros é dado: delimitadores de conteúdo não confiável, sem ferramentas de escrita sem gate humano | regra, revisão |
-| G-SEC-05 | CSP do webview e escopo de shell do Tauri (hoje abertos) | auto (WARN até SEC-02 ser resolvida) |
+| G-SEC-05 | CSP do webview restritiva (`csp` e `devCsp` não nulas, com `default-src`, sem `'unsafe-eval'` nem curinga em `script-src`/`connect-src` — esquema sem host (`https:`, `http:`, `ws:`, `wss:`, e `data:` em `script-src`) conta como curinga; `connect-src` só `self`, IPC e engine em loopback) e plugin shell só com `shell:allow-open` (sem `allow-execute`/`allow-spawn`/`allow-stdin-write` sem escopo em `capabilities/*.json`). `style-src 'unsafe-inline'` é aceito porque o Svelte gera atributos `style=` e transições injetam `<style>` em runtime; por isso `dangerousDisableAssetCspModification: ["style-src"]` impede o Tauri de injetar hashes/nonces em `style-src` (no CSP3 eles anulam `'unsafe-inline'`), e desativar a injeção em `script-src` (ou `true`) é ERROR. Imagens remotas em markdown de terceiros ficam bloqueadas por `img-src` (defesa contra tracking pixel). Nova origem exige justificativa no PR ou roteamento pelo engine | auto (ERROR) |
 | G-SEC-06 | Testes nunca tocam keychain nem `HOME` reais | teste (conftest) |
 | G-SEC-07 | Deps Python instaladas por lock com hashes; lock regenerado ao editar `requirements*.txt` | CI (`engine-deps.yml`) |
 

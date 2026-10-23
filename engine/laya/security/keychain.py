@@ -216,3 +216,73 @@ def delete_mcp_token() -> bool:
         return True
     except Exception:
         return False
+
+
+# ---------------------------------------------------------------------------
+# engine <-> n8n link secret (SEC-03)
+#
+# Shared secret that authenticates both directions of the local engine <-> n8n
+# link: n8n sends it as X-Laya-Link-Token on POST /events and
+# POST /ingestion-errors, and the engine sends it to the executor webhooks.
+# It lives only here and in n8n's encrypted credential store — never in
+# settings, logs, argv or the n8n process env (expressions can read $env).
+# ---------------------------------------------------------------------------
+
+N8N_LINK_SECRET_KEY = "laya_n8n_link_secret"
+
+
+def store_n8n_link_secret(secret: str) -> bool:
+    """Store the engine <-> n8n link secret. Overwrites any existing value."""
+    try:
+        import keyring
+
+        keyring.set_password(SERVICE_NAME, N8N_LINK_SECRET_KEY, secret)
+        _cache_store(N8N_LINK_SECRET_KEY, secret)
+        log.info("n8n_link_secret_stored")
+        return True
+    except Exception as e:
+        log.error("n8n_link_secret_store_failed", error=type(e).__name__)
+        return False
+
+
+def _read_n8n_link_secret() -> tuple[bool, str | None]:
+    """Return (read_ok, secret). read_ok=False means the keychain itself failed."""
+    hit, val = _cache_lookup(N8N_LINK_SECRET_KEY)
+    if hit:
+        return True, val
+    try:
+        import keyring
+
+        val = keyring.get_password(SERVICE_NAME, N8N_LINK_SECRET_KEY)
+    except Exception as e:
+        log.warning("n8n_link_secret_read_failed", error=type(e).__name__)
+        return False, None
+    _cache_store(N8N_LINK_SECRET_KEY, val)
+    return True, val
+
+
+def get_n8n_link_secret() -> str | None:
+    """Retrieve the link secret (TTL-cached), or None if unset/unreadable."""
+    return _read_n8n_link_secret()[1]
+
+
+def ensure_n8n_link_secret() -> str | None:
+    """Return the link secret, generating and storing one on first need.
+
+    Only a clean "not found" generates a new secret. A keychain read error
+    returns None instead: regenerating on a transient failure would silently
+    diverge from the value already stored in n8n's credential and 401 every
+    ingestion request until the next re-provisioning.
+    """
+    import secrets
+
+    ok, val = _read_n8n_link_secret()
+    if not ok:
+        return None
+    if val:
+        return val
+    new_secret = secrets.token_urlsafe(32)
+    if not store_n8n_link_secret(new_secret):
+        return None
+    log.info("n8n_link_secret_generated")
+    return new_secret

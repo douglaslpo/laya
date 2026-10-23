@@ -120,6 +120,15 @@ Controls how verbose the engine is when writing to `~/.laya/logs/engine.log`. Se
 
 `engine.log` is size-capped and rotated automatically (10 MB × 5 files). The captured process-output logs (`engine-stdout.log`, `n8n.log`) are likewise bounded (10 MB × 3 files), so no log grows unbounded.
 
+## engine ↔ n8n Link Auth (automatic)
+
+State of the authenticated engine ↔ n8n link (`X-Laya-Link-Token`, SEC-03). Lives under `security.n8n_link` in settings.json. **Managed by the engine — not user-editable**; the shared secret itself is only in the OS keychain (`laya-engine` / `laya_n8n_link_secret`) and in n8n's encrypted credential `Laya Engine Link`, never here.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `security.n8n_link.enforced` | `false` | When `true`, `POST /events` and `POST /ingestion-errors` reject requests without the header (401). Flipped to `true` automatically after the first startup that propagates the link credential to every per-connection clone, when there are no clones at all (fresh install), or 24 h after `transition_started_at` — whichever happens first. A header that is present but wrong is always rejected, regardless of this flag. |
+| `security.n8n_link.transition_started_at` | `null` | ISO-8601 UTC timestamp at which the transition window (header-less requests tolerated) began. Set on the first header-less request or by provisioning; the window closes 24 h later. |
+
 ## Agent Inference Backends & Usage Budget
 
 Apply when a pipeline stage runs on an installed CLI agent (model id `agent/<id>/<model>`) instead of an API model. The window-based usage budget lives under `agent_budgets` in settings.json — separate from the monthly `$` budget — and auto-pauses ingestion before an agent's rolling quota is exhausted, auto-resuming at the window reset.

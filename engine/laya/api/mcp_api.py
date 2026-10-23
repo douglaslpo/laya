@@ -28,6 +28,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount
 from starlette.types import Receive, Scope, Send
 
+from laya.api.origin_guard import reject_cross_site
 from laya.config import load_settings, save_settings
 from laya.mcp.http_server import (
     SSE_MESSAGES_PATH,
@@ -307,24 +308,8 @@ async def update_mcp_config(body: McpConfigUpdate) -> McpConfigResponse:
     return _build_config_response()
 
 
-# Origins the in-app UI / bundled webview legitimately calls from. A browser
-# cannot forge the Origin header, and non-browser callers (n8n, curl, the ASGI
-# test client) omit it — so an Origin that is present but not in this set is a
-# cross-site (CSRF) attempt against a state-changing token endpoint (review §6).
-_ALLOWED_ORIGINS = {
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "tauri://localhost",
-    "http://tauri.localhost",
-    "https://tauri.localhost",
-}
-
-
 def _reject_cross_site(request: Request) -> None:
-    origin = request.headers.get("origin")
-    if origin and origin not in _ALLOWED_ORIGINS:
-        log.warning("mcp_token_cross_site_blocked", origin=origin, path=str(request.url.path))
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "cross-site origin not allowed")
+    reject_cross_site(request, log_event="mcp_token_cross_site_blocked")
 
 
 @router.post("/mcp/token/refresh", response_model=TokenResponse)
